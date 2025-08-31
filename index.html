@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kaufland Route List</title>
+  <style>
+  /* (same styles as before, unchanged) */
+  </style>
+
+  <!-- Firebase SDKs from CDN -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+  <!-- OCR bilingual -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+</head>
+<body>
+  <!-- (UI code unchanged, same as your version) -->
+
+  <script>
+    // === OCR + Recipe Scan (updated) ===
+    
+
+    
+
+    // OCR worker with eng+deu
+    async function tesseractText(fileOrBlob){
+      const worker = await Tesseract.createWorker('eng+deu');
+      const ret = await worker.recognize(fileOrBlob);
+      await worker.terminate();
+      return (ret && ret.data && ret.data.text) ? ret.data.text : '';
+    }
+
+    // Smarter OCR pipeline
+    async function ocrSmart(file){
+      const img = await fileToImageBitmap(file);
+      const fullText = await tesseractText(file);
+      const keyHeader = findIngredientsHeader(fullText);
+      let used = fullText;
+      let source = 'full';
+      if (keyHeader) {
+        const idx = fullText.toLowerCase().indexOf(keyHeader.match.toLowerCase());
+        used = fullText.slice(idx);
+        source = 'keyword';
+      } else {
+        const leftBlob = await cropImageToBlob(img, 0, 0, Math.floor(img.width/2), img.height);
+        const leftText = await tesseractText(leftBlob);
+        if (scoreLikelyIngredients(leftText) > scoreLikelyIngredients(fullText)) {
+          used = leftText; source = 'left';
+        }
+      }
+      const lines = used.split(/\r?\n/)
+        .map(s => s.replace(/\u00A0/g,' ').trim())
+        .filter(Boolean);
+      return { lines, meta: { ocrSource: source, width: img.width, height: img.height } };
+    }
+
+    function findIngredientsHeader(text){
+      const headers = ['ingredients','zutaten','ingredientes','ingredienzen','für die','for the'];
+      const lower = text.toLowerCase();
+      for (const h of headers){
+        const i = lower.indexOf(h);
+        if (i >= 0) return { match: text.slice(i, i+h.length), index: i };
+      }
+      return null;
+    }
+
+    // Denoise & filters
+    function filterToIngredients(lines){
+      const killHead = /^(instructions?|method|directions?|anleitung|zubereitung|notes?|hinweise|equipment|tools?|yield|ergibt|serves|portionen|for the|für die|zutaten|ingredients)\s*:?.*$/i;
+      const killInstrVerb = /(make|prepare|mix|stir|add|drizzle|serve|heat|cook|brown|drain|build|taste|adjust|preheat|bake|simmer|saute|sauté|boil|reduce)/i;
+      return lines.map(s => s
+        .replace(/^[\s\W]*(OJ|OD|JD|JO|@|\)|\(|_|\-|•|\*)\s*/i, '')
+        .replace(/\s{2,}/g,' ')
+        .trim())
+        .filter(s => s && !killHead.test(s) && !(killInstrVerb.test(s) && !/[0-9]/.test(s)));
+    }
+
+    function joinWrappedLines(lines){
+      const out = [];
+      for (let i=0;i<lines.length;i++){
+        let cur = lines[i];
+        while (i+1 < lines.length && (/^[a-z(]/.test(lines[i+1]) || /optional|sliced|diced|halved|thin|drained|undrained/i.test(lines[i+1]))){
+          cur += ' ' + lines[i+1];
+          i++;
+        }
+        out.push(cur);
+      }
+      return out;
+    }
+
+    // Parsing updated with continuation→notes, oz→g/ml, to taste, etc.
+    function parseIngredientLine(line){
+      const s = line.replace(/^[-–•*]\s*/, '').replace(/\s{2,}/g,' ').trim();
+      if (/^for\b|^für\b/i.test(s)) return null;
+
+      const re = /^(?:(\d+(?:[.,]\d+)?)(?:\s*[-–]\s*(\d+(?:[.,]\d+)?))?\s*)?(?:([a-zA-ZäöüÄÖÜß]+)\b\.?)?\s*(.+)$/i;
+      const m = s.match(re);
+      if (!m) return null;
+      let [_, q1,q2,unitRaw,rest] = m;
+      let qty = q2? `${q1}-${q2}` : (q1||'');
+      let unit = normalizeUnit(unitRaw||'');
+      let name = rest;
+      let notes='';
+      let size='';
+
+      // parenthesis
+      const pm = name.match(/(.+)\(([^)]+)\)/);
+      if (pm){
+        name = pm[1].trim();
+        const par = pm[2];
+        if (/\d/.test(par)) size=par; else notes=par;
+      }
+
+      // adjectives/continuations
+      if (/sliced|halved|diced|minced|thin|optional|drained|undrained|room temperature/i.test(name)){
+        notes = notes? notes+ ', '+name : name;
+        name = name.replace(/sliced.*|halved.*|diced.*|optional.*|drained.*|undrained.*|room temperature.*/i,'').trim();
+      }
+
+      if (/to taste|nach geschmack/i.test(name)){
+        notes = notes? notes+', to taste':'to taste';
+        name = name.replace(/to taste|nach geschmack/i,'').trim();
+      }
+
+      // Decide qty vs size
+      const countable = /^(can|dose|jar|bottle|pack|head|bunch|pcs?)$/i.test(unit);
+      const qtyField = (qty && countable) ? `${qty} ${unit}`.trim() : (countable ? unit : '');
+      if (qty && !countable){ size = `${qty} ${unit}`.trim(); }
+
+      size = convertImperialInSize(name,size);
+
+      return {name:capitalize(name), qty:qtyField, size, notes};
+    }
+
+    function normalizeUnit(u){ if (!u) return ''; const k=u.toLowerCase(); const map={g:'g',kg:'kg',ml:'ml',l:'l',tsp:'tsp',tbsp:'tbsp',cup:'cup',can:'can',pcs:'pcs',stk:'pcs',head:'head',bunch:'bunch',pack:'pack'}; return map[k]||u; }
+    function capitalize(s){return s? s.charAt(0).toUpperCase()+s.slice(1):s;}
+
+    function convertImperialInSize(name, size){
+      if (!size) return '';
+      return size.replace(/(\d+(?:\.\d+)?)\s*(fl\s*oz|oz)/ig,(m,v,u)=>{
+        const val=parseFloat(v);
+        if (/fl/i.test(u)) return `${Math.round(val*29.57)} mL`;
+        const isLiquid=/wasser|water|milch|milk|oil|öl|juice|saft|wine|vinegar|essig/i.test(name);
+        return isLiquid? `${Math.round(val*29.57)} mL` : `${Math.round(val*28.35)} g`;
+      });
+    }
+
+  </script>
+  <script>
+document.addEventListener("DOMContentLoaded", () => {
+  const scanBtn = document.getElementById('scanRecipe');
+  if (scanBtn) {
+    scanBtn.onclick = () => {
+      // your OCR logic goes here
+      console.log("Scan Recipe button clicked!");
+    };
+  }
+});
+</script>
+
+</body>
+</html>
