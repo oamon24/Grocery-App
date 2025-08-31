@@ -5,7 +5,166 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Kaufland Route List</title>
   <style>
-  /* (same styles as before, unchanged) */
+  :root { --radius: 16px; --pad: 14px; --shadow: 0 8px 30px rgba(0,0,0,.06);} 
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji'; margin: 0; background: #f7f7fb; color: #111; }
+  header { position: sticky; top: 0; z-index: 2; background: #ffffffcc; backdrop-filter: blur(8px); border-bottom: 1px solid #eee; }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 14px; }
+  h1 { font-size: 20px; margin: 6px 0 2px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; }
+  input[type="text"], input[type="number"], input[type="file"], select { padding: 10px 12px; border-radius: 10px; border: 1px solid #ddd; background: #fff; }
+  input[type="number"]{ width: 100px; }
+  button { padding: 10px 14px; border-radius: 12px; border: 1px solid #ddd; background: #fff; cursor: pointer; box-shadow: var(--shadow); }
+  button.primary{ background: #111; color: #fff; border-color: #111; }
+  .muted{ color:#6b7280; font-size: 13px; }
+  .pill{ padding: 4px 10px; border-radius: 999px; background:#f1f2f6; border:1px solid #e5e7eb; font-size: 12px; }
+  .card { background: #fff; border: 1px solid #eee; border-radius: var(--radius); padding: var(--pad); box-shadow: var(--shadow); }
+  .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .toolbar .group{ display:flex; gap:8px; align-items:center; flex-wrap: wrap; }
+  .list { margin-top: 10px; display: grid; gap: 12px; }
+  .groupHeader{ display:flex; align-items:center; gap:10px; font-weight:700; color:#222; padding:4px 2px 0; }
+  .groupHeader .dot{ width:8px; height:8px; border-radius:999px; background:#ddd; }
+  .groupBox{ display:grid; gap:8px; }
+
+  /* ===== Two-line item layout ===== */
+  .item {
+    display: grid;
+    grid-template-columns: 28px 1fr auto;
+    grid-template-rows: auto auto;
+    gap: 10px 10px;
+    align-items: center;
+    padding: 8px 10px;
+    border: 1px solid #eee;
+    border-radius: 12px;
+    background: #fff;
+    transition: transform .06s ease, box-shadow .12s ease, border-color .12s ease;
+    max-width: 100%;
+  }
+  .left { grid-column: 1; grid-row: 1; display:flex; align-items:center; justify-content:center; }
+  .item input[type="checkbox"] { width: 18px; height: 18px; }
+
+  .line1 {
+    grid-column: 2; grid-row: 1;
+    font-size: 16px; line-height: 1.25; font-weight: 700;
+    overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+    min-width: 0;
+  }
+  .line1 .name { font-weight: 700; }
+  .line1 .sep { opacity: .6; font-weight: 600; }
+
+  .actions{
+    grid-column: 3; grid-row: 1;
+    display: flex; gap: 6px; align-items: center; justify-self: end;
+  }
+  .editbtn{
+    height: 36px; padding: 0 10px; border-radius: 8px;
+    border: 1px solid #e7e7ef; background:#fff; box-shadow: none; cursor: pointer;
+  }
+  .btn-icon{
+    height: 36px; padding: 0 10px; border-radius: 8px;
+    border: 1px solid #e7e7ef; background: #fff; display: grid; place-items: center;
+    box-shadow: none; cursor: pointer;
+  }
+  .icon { width: 18px; height: 18px; display:inline-block; }
+
+  .below{
+    grid-column: 2 / 4;
+    grid-row: 2;
+    display: grid;
+    grid-template-columns: 48px 1fr;
+    align-items: center;
+    column-gap: 10px;
+  }
+  .below.hidden{ display:none; }
+
+  .thumb{
+    width: 44px; height: 44px; border-radius: 10px; object-fit: cover;
+    border: 1px solid #e7e7ef; background: #f3f4f7; display: block; cursor: pointer;
+  }
+  .camBtn{
+    width: 44px; height: 44px; border-radius: 10px; border: 1px dashed #e7e7ef;
+    display:flex; align-items:center; justify-content:center;
+    background:#fff; cursor:pointer; box-shadow: none; padding:0;
+  }
+
+  .line2 { color:#5b5b66; font-size: 14px; line-height: 1.35; white-space: normal; overflow-wrap: anywhere; }
+  .line2:empty { display: none; }
+
+  .catdot { width: 8px; height: 8px; border-radius: 999px; display:inline-block; margin-right: 8px; background:#d0d3da; vertical-align: middle; }
+  .item[data-cat="produce"] .catdot { background: #2fb344; }
+  .item[data-cat="meat-poultry"] .catdot { background: #d7263d; }
+  .item[data-cat="fish-seafood"] .catdot { background: #2a9df4; }
+  .item[data-cat="dairy-eggs"] .catdot { background: #51b3ff; }
+  .item[data-cat="bakery"] .catdot { background: #f08c2f; }
+  .item[data-cat="pantry"] .catdot { background: #a1765c; }
+  .item[data-cat="frozen"] .catdot { background: #27c3d6; }
+  .item[data-cat="beverages"] .catdot { background: #7b61ff; }
+  .item[data-cat="snacks-confectionery"] .catdot { background: #ffd43b; }
+  .item[data-cat="household-cleaning"] .catdot { background: #8795a1; }
+  .item[data-cat="personal-care-health"] .catdot { background: #ff6fa3; }
+  .item[data-cat="other"] .catdot { background: #c0c4cc; }
+
+  .item .editor { display: none; grid-column: 1 / -1; }
+  .item.editing .editor {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0,1fr));
+    gap: 8px;
+    padding-top: 8px;
+  }
+  .qty{ width:100%; }
+  .route, .category, .size, .notes { width: 100%; }
+
+  @media (max-width: 560px){
+    .item.editing .editor { grid-template-columns: 1fr; }
+    button, input, select { min-height: 44px; }
+  }
+
+  .item.is-pressed { transform: scale(0.995); box-shadow: 0 2px 12px rgba(0,0,0,.08); }
+  .item:has(input[type="checkbox"]:checked) { background: linear-gradient(0deg, rgba(0,0,0,.03), rgba(0,0,0,.03)), #fff; opacity: .92; }
+  .item:has(input[type="checkbox"]:checked) .line1 { text-decoration: line-through; color: #777; }
+
+  .card > .toolbar{
+    position: sticky; top: calc(env(safe-area-inset-top, 0px) + 56px);
+    z-index: 2; background: #fff; border-bottom: 1px solid #e7e7ef;
+    box-shadow: 0 6px 12px -8px rgba(0,0,0,.15);
+    margin-top: 0 !important; padding: 8px 0;
+  }
+
+  .toast{
+    position: fixed; left: 50%;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
+    transform: translateX(-50%) translateY(20px);
+    opacity: 0; transition: transform .18s ease, opacity .18s ease;
+    background: #fff; color: #111; border: 1px solid #e7e7ef; border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.12); padding: 10px 14px; font-size: 14px; pointer-events: none; z-index: 50;
+  }
+  .toast.show{ opacity: 1; transform: translateX(-50%) translateY(0); }
+  :root { color-scheme: light; }
+
+  .lightbox{
+    position: fixed; inset: 0; background: rgba(0,0,0,.85);
+    display: none; align-items: center; justify-content: center; z-index: 70;
+  }
+  .lightbox.show{ display: flex; }
+  .lightbox img{ max-width: 92vw; max-height: 88vh; border-radius: 12px; box-shadow: 0 12px 48px rgba(0,0,0,.4); }
+  .lightbox .close{
+    position: absolute; top: 12px; right: 12px; border: none; background: #fff;
+    border-radius: 999px; width: 36px; height: 36px; font-size: 22px; line-height: 1; cursor: pointer;
+    box-shadow: var(--shadow);
+  }
+
+  /* Popup: take/choose photo */
+  .popup-backdrop{
+    position: fixed; inset: 0; background: rgba(0,0,0,.35);
+    display: none; align-items: center; justify-content: center; z-index: 90;
+  }
+  .popup-backdrop.show{ display:flex; }
+  .popup{
+    background:#fff; border:1px solid #e5e7eb; border-radius:14px; width: 280px; padding: 10px; box-shadow: var(--shadow);
+  }
+  .popup h3{ margin:6px 8px 10px; font-size:15px; }
+  .popup .choices{ display:grid; gap:8px; }
+  .popup .choices button{ width:100%; }
   </style>
 
   <!-- Firebase SDKs from CDN -->
@@ -13,153 +172,752 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-  <!-- OCR bilingual -->
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <meta name="theme-color" content="#111"/>
+  <link rel="manifest" href="manifest.webmanifest"/>
 </head>
 <body>
-  <!-- (UI code unchanged, same as your version) -->
+  <!-- SVG sprite -->
+  <svg aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
+    <symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 7h16"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/><path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"/><path d="M10 11v6M14 11v6"/>
+    </symbol>
+    <symbol id="i-cart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 12.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+    </symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3l2-3h8l2 3h3a2 2 0 0 1 2 2z"/>
+      <circle cx="12" cy="13" r="4"/>
+    </symbol>
+  </svg>
+
+  <header>
+    <div class="wrap toolbar">
+      <div class="group">
+        <h1>🛒 Kaufland Route List</h1>
+        <div id="householdTag" class="pill" title="Household code helps you both see the same list.">household: <span id="householdView">—</span></div>
+      </div>
+      <div class="group auth">
+        <input id="household" placeholder="Household code (e.g., kino-ines)" />
+        <button id="setHousehold">Set</button>
+        <button id="signIn" class="primary">Sign in</button>
+        <button id="signOut" style="display:none">Sign out</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div id="status" class="status"></div>
+
+    <section class="card">
+      <div class="row">
+        <div style="flex:2; min-width:220px;">
+          <label>Item</label>
+          <input id="itemName" type="text" placeholder="e.g., Milch, Bananen" />
+        </div>
+        <div>
+          <label>Qty</label>
+          <input id="itemQty" class="qty" type="text" placeholder="e.g., 2, 500g" />
+        </div>
+        <div style="min-width:120px;">
+          <label>Size</label>
+          <input id="itemSize" class="size" type="text" placeholder="e.g., 500g, 1L" />
+        </div>
+        <div style="min-width:180px;">
+          <label>Category</label>
+          <select id="itemCategory" class="category">
+            <option value="">— Select —</option>
+            <option>Produce</option><option>Meat & Poultry</option><option>Fish & Seafood</option>
+            <option>Dairy & Eggs</option><option>Bakery</option><option>Pantry</option>
+            <option>Frozen</option><option>Beverages</option><option>Snacks & Confectionery</option>
+            <option>Household & Cleaning</option><option>Personal Care & Health</option><option>Other</option>
+          </select>
+        </div>
+        <div style="min-width:120px;">
+          <label>Route</label>
+          <input id="itemRoute" class="route" type="number" step="0.1" placeholder="e.g., 12" />
+        </div>
+        <div style="flex:1; min-width:200px;">
+          <label>Notes</label>
+          <input id="itemNotes" class="notes" type="text" placeholder="e.g., brand, ripeness" />
+        </div>
+
+        <!-- ONE Add photo button + filename (new-item form) -->
+        <div style="min-width:220px;">
+          <label>Photo</label>
+          <div class="row" style="gap:8px; align-items:center;">
+            <button id="newItemAddPhoto" type="button">Add photo</button>
+            <span id="photoName" class="muted"></span>
+          </div>
+        </div>
+
+        <div><button id="add" class="primary">Add</button></div>
+      </div>
+
+      <div class="toolbar" style="margin-top:12px;">
+        <div class="group">
+          <label>Sort by</label>
+          <select id="sortMode">
+            <option value="route">Route</option>
+            <option value="category">Category</option>
+          </select>
+          <button id="clearChecked">Clear checked</button>
+        </div>
+        <div class="group">
+          <label>Filter</label>
+          <select id="filterMode">
+            <option value="all">All</option>
+            <option value="unchecked">Only unchecked</option>
+            <option value="checked">Only checked</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="list" class="list" aria-live="polite"></div>
+      <div id="empty" class="empty" style="display:none">
+        <svg class="icon" aria-hidden="true"><use href="#i-cart"></use></svg>
+        <div class="headline">Your list is empty</div>
+        <div class="muted">Add your first item above.</div>
+      </div>
+    </section>
+
+    <section class="card" style="margin-top:14px;">
+      <strong>How it works</strong>
+      <p>Use this app to keep a shared grocery list in sync. Make sure you are <em>signed in</em> and your <em>household code</em> matches. Add items, set their category/route once. Optionally attach a photo for brand/label. Tap a thumbnail to view it large.</p>
+    </section>
+  </main>
+
+  <footer>Built for two people. Data lives in your Firebase project.</footer>
+
+  <!-- Global hidden file inputs (reused everywhere) -->
+  <input id="fileChooser" type="file" accept="image/*" style="display:none" />
+  <input id="fileCamera"  type="file" accept="image/*" capture="environment" style="display:none" />
+
+  <!-- Small popup for photo choices -->
+  <div id="photoPopup" class="popup-backdrop" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="popup" role="document">
+      <h3>Add a photo</h3>
+      <div class="choices">
+        <button id="ppTake"   type="button">📷 Take photo</button>
+        <button id="ppChoose" type="button">🖼️ Choose photo</button>
+        <button id="ppCancel" type="button">Cancel</button>
+      </div>
+    </div>
+  </div>
 
   <script>
-    // === OCR + Recipe Scan (updated) ===
-    
-
-    
-
-    // OCR worker with eng+deu
-    async function tesseractText(fileOrBlob){
-      const worker = await Tesseract.createWorker('eng+deu');
-      const ret = await worker.recognize(fileOrBlob);
-      await worker.terminate();
-      return (ret && ret.data && ret.data.text) ? ret.data.text : '';
-    }
-
-    // Smarter OCR pipeline
-    async function ocrSmart(file){
-      const img = await fileToImageBitmap(file);
-      const fullText = await tesseractText(file);
-      const keyHeader = findIngredientsHeader(fullText);
-      let used = fullText;
-      let source = 'full';
-      if (keyHeader) {
-        const idx = fullText.toLowerCase().indexOf(keyHeader.match.toLowerCase());
-        used = fullText.slice(idx);
-        source = 'keyword';
-      } else {
-        const leftBlob = await cropImageToBlob(img, 0, 0, Math.floor(img.width/2), img.height);
-        const leftText = await tesseractText(leftBlob);
-        if (scoreLikelyIngredients(leftText) > scoreLikelyIngredients(fullText)) {
-          used = leftText; source = 'left';
-        }
-      }
-      const lines = used.split(/\r?\n/)
-        .map(s => s.replace(/\u00A0/g,' ').trim())
-        .filter(Boolean);
-      return { lines, meta: { ocrSource: source, width: img.width, height: img.height } };
-    }
-
-    function findIngredientsHeader(text){
-      const headers = ['ingredients','zutaten','ingredientes','ingredienzen','für die','for the'];
-      const lower = text.toLowerCase();
-      for (const h of headers){
-        const i = lower.indexOf(h);
-        if (i >= 0) return { match: text.slice(i, i+h.length), index: i };
-      }
-      return null;
-    }
-
-    // Denoise & filters
-    function filterToIngredients(lines){
-      const killHead = /^(instructions?|method|directions?|anleitung|zubereitung|notes?|hinweise|equipment|tools?|yield|ergibt|serves|portionen|for the|für die|zutaten|ingredients)\s*:?.*$/i;
-      const killInstrVerb = /(make|prepare|mix|stir|add|drizzle|serve|heat|cook|brown|drain|build|taste|adjust|preheat|bake|simmer|saute|sauté|boil|reduce)/i;
-      return lines.map(s => s
-        .replace(/^[\s\W]*(OJ|OD|JD|JO|@|\)|\(|_|\-|•|\*)\s*/i, '')
-        .replace(/\s{2,}/g,' ')
-        .trim())
-        .filter(s => s && !killHead.test(s) && !(killInstrVerb.test(s) && !/[0-9]/.test(s)));
-    }
-
-    function joinWrappedLines(lines){
-      const out = [];
-      for (let i=0;i<lines.length;i++){
-        let cur = lines[i];
-        while (i+1 < lines.length && (/^[a-z(]/.test(lines[i+1]) || /optional|sliced|diced|halved|thin|drained|undrained/i.test(lines[i+1]))){
-          cur += ' ' + lines[i+1];
-          i++;
-        }
-        out.push(cur);
-      }
-      return out;
-    }
-
-    // Parsing updated with continuation→notes, oz→g/ml, to taste, etc.
-    function parseIngredientLine(line){
-      const s = line.replace(/^[-–•*]\s*/, '').replace(/\s{2,}/g,' ').trim();
-      if (/^for\b|^für\b/i.test(s)) return null;
-
-      const re = /^(?:(\d+(?:[.,]\d+)?)(?:\s*[-–]\s*(\d+(?:[.,]\d+)?))?\s*)?(?:([a-zA-ZäöüÄÖÜß]+)\b\.?)?\s*(.+)$/i;
-      const m = s.match(re);
-      if (!m) return null;
-      let [_, q1,q2,unitRaw,rest] = m;
-      let qty = q2? `${q1}-${q2}` : (q1||'');
-      let unit = normalizeUnit(unitRaw||'');
-      let name = rest;
-      let notes='';
-      let size='';
-
-      // parenthesis
-      const pm = name.match(/(.+)\(([^)]+)\)/);
-      if (pm){
-        name = pm[1].trim();
-        const par = pm[2];
-        if (/\d/.test(par)) size=par; else notes=par;
-      }
-
-      // adjectives/continuations
-      if (/sliced|halved|diced|minced|thin|optional|drained|undrained|room temperature/i.test(name)){
-        notes = notes? notes+ ', '+name : name;
-        name = name.replace(/sliced.*|halved.*|diced.*|optional.*|drained.*|undrained.*|room temperature.*/i,'').trim();
-      }
-
-      if (/to taste|nach geschmack/i.test(name)){
-        notes = notes? notes+', to taste':'to taste';
-        name = name.replace(/to taste|nach geschmack/i,'').trim();
-      }
-
-      // Decide qty vs size
-      const countable = /^(can|dose|jar|bottle|pack|head|bunch|pcs?)$/i.test(unit);
-      const qtyField = (qty && countable) ? `${qty} ${unit}`.trim() : (countable ? unit : '');
-      if (qty && !countable){ size = `${qty} ${unit}`.trim(); }
-
-      size = convertImperialInSize(name,size);
-
-      return {name:capitalize(name), qty:qtyField, size, notes};
-    }
-
-    function normalizeUnit(u){ if (!u) return ''; const k=u.toLowerCase(); const map={g:'g',kg:'kg',ml:'ml',l:'l',tsp:'tsp',tbsp:'tbsp',cup:'cup',can:'can',pcs:'pcs',stk:'pcs',head:'head',bunch:'bunch',pack:'pack'}; return map[k]||u; }
-    function capitalize(s){return s? s.charAt(0).toUpperCase()+s.slice(1):s;}
-
-    function convertImperialInSize(name, size){
-      if (!size) return '';
-      return size.replace(/(\d+(?:\.\d+)?)\s*(fl\s*oz|oz)/ig,(m,v,u)=>{
-        const val=parseFloat(v);
-        if (/fl/i.test(u)) return `${Math.round(val*29.57)} mL`;
-        const isLiquid=/wasser|water|milch|milk|oil|öl|juice|saft|wine|vinegar|essig/i.test(name);
-        return isLiquid? `${Math.round(val*29.57)} mL` : `${Math.round(val*28.35)} g`;
+    // Register service worker for PWA installability
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(()=>{});
       });
     }
+  </script>
 
+  <script>
+    // === Firebase ===
+    const firebaseConfig = {
+      apiKey: "AIzaSyAljIHyxs-pvJRi2pRzs2fsPARCQLFQ2Kg",
+      authDomain: "grocery-list-77298.firebaseapp.com",
+      projectId: "grocery-list-77298",
+      storageBucket: "grocery-list-77298.firebasestorage.app", // If uploads fail, set to YOUR_PROJECT_ID.appspot.com
+      messagingSenderId: "1089310382899",
+      appId: "1:1089310382899:web:03b24e12f3a9e5c6d63c46"
+    };
+
+    let app, auth, db, storage;
+    try {
+      app = firebase.initializeApp(firebaseConfig);
+      auth = firebase.auth();
+      auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+      db = firebase.firestore();
+      storage = firebase.storage();
+      db.enablePersistence({ synchronizeTabs: true }).catch(()=>{});
+    } catch (e) { console.error(e); }
+
+    const $ = id => document.getElementById(id);
+    const listEl = $('list');
+    const emptyEl = $('empty');
+    const sortModeEl = $('sortMode');
+    const filterModeEl = $('filterMode');
+    const statusEl = $('status');
+
+    // Preferences
+    const savedSort = localStorage.getItem('sortMode'); if (savedSort) sortModeEl.value = savedSort;
+    const savedFilter = localStorage.getItem('filterMode'); if (savedFilter) filterModeEl.value = savedFilter;
+
+    let user = null;
+    let household = localStorage.getItem('household') || '';
+    let unsubList = null;
+    let lastSnapshotItems = [];
+    let catalogCache = new Map();
+    let lastAddedId = null;
+
+    // New-item pending photo
+    let newItemPhotoFile = null;
+
+    function setHouseholdUI() {
+      $('household').value = household;
+      $('householdView').textContent = household || '—';
+    }
+    setHouseholdUI();
+
+    function setControlsEnabled(enabled){
+      ['add','clearChecked','sortMode','filterMode','itemName','itemQty','itemCategory','itemRoute','itemSize','itemNotes','newItemAddPhoto']
+        .forEach(id => { const n = $(id); if (!n) return; n.disabled = !enabled; n.classList.toggle('disabled', !enabled); });
+    }
+
+    function updateStatus(){
+      const bits = [];
+      if (!auth || !db) bits.push('<span class="bad">SDK not loaded</span>');
+      bits.push(auth && auth.currentUser ? '<span class="ok">Signed in</span>' : 'Not signed in');
+      bits.push('household: <strong>' + (household || '—') + '</strong>');
+      statusEl.innerHTML = bits.join(' • ');
+      const ready = !!auth && !!db && !!auth.currentUser && !!household;
+      setControlsEnabled(ready);
+    }
+
+    $('setHousehold').onclick = () => {
+      household = $('household').value.trim();
+      localStorage.setItem('household', household);
+      setHouseholdUI();
+      subscribeList();
+      updateStatus();
+    };
+
+   $('signIn').onclick = async () => {
+  try {
+    const email = prompt("Enter email:");
+    const password = prompt("Enter password:");
+    if (!email || !password) return;
+
+    await auth.signInWithEmailAndPassword(email, password);
+    showToast("Signed in as " + email);
+  } catch (e) {
+    if (e.code === 'auth/user-not-found') {
+      alert("No user found. Ask admin to add you in Firebase.");
+    } else if (e.code === 'auth/wrong-password') {
+      alert("Wrong password.");
+    } else {
+      alert("Sign-in failed: " + (e.message || e));
+    }
+  }
+};
+
+
+    $('signOut').onclick = async () => { await auth.signOut(); };
+
+    auth && auth.onAuthStateChanged(u => {
+      user = u;
+      $('signIn').style.display = u ? 'none' : 'inline-block';
+      $('signOut').style.display = u ? 'inline-block' : 'none';
+      subscribeList(); warmCatalog(); updateStatus();
+    });
+
+    function subscribeList(){
+      if (unsubList) { unsubList(); unsubList = null; }
+      if (!auth || !auth.currentUser || !household) { render([]); return; }
+      unsubList = db.collection('lists').doc(household).collection('items').onSnapshot(snap => {
+        const items = []; snap.forEach(d => items.push({ id: d.id, ...d.data() }));
+        lastSnapshotItems = items;
+        render(items);
+      }, err => { console.error(err); alert('Cannot read list. Check Firestore rules and that Firestore is enabled.'); });
+    }
+
+    function warmCatalog(){
+      if (!auth || !auth.currentUser || !household) return;
+      db.collection('catalog').doc(household).collection('items').get().then(qs => {
+        catalogCache.clear();
+        qs.forEach(doc => {
+          const d = doc.data();
+          catalogCache.set((d.name||'').toLowerCase(), { category: d.category||'', routeOrder: d.routeOrder ?? '' });
+        });
+      }).catch(()=>{});
+    }
+
+    function render(items){
+      const filterMode = filterModeEl.value;
+      let filtered = items;
+      if (filterMode === 'unchecked') filtered = items.filter(i => !i.checked);
+      else if (filterMode === 'checked') filtered = items.filter(i => !!i.checked);
+
+      const mode = sortModeEl.value;
+      if (mode === 'category') renderGroupedByCategory(filtered);
+      else renderFlatByRoute(filtered);
+    }
+
+    function renderFlatByRoute(items){
+      const sorted = [...items].sort((a,b)=>{
+        const ra = isNaN(parseFloat(a.routeOrder)) ? 1e9 : parseFloat(a.routeOrder);
+        const rb = isNaN(parseFloat(b.routeOrder)) ? 1e9 : parseFloat(b.routeOrder);
+        if (ra !== rb) return ra - rb;
+        return (a.name||'').localeCompare(b.name||'');
+      });
+
+      listEl.innerHTML = '';
+      if (!sorted.length){ emptyEl.style.display = 'block'; return; }
+      emptyEl.style.display = 'none';
+      for (const it of sorted) listEl.appendChild(renderRow(it));
+    }
+
+    function renderGroupedByCategory(items){
+      const groups = new Map();
+      for (const it of items){
+        const key = (it.category || '').trim() || 'Uncategorized';
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(it);
+      }
+      const catNames = [...groups.keys()].sort((a,b)=>a.localeCompare(b));
+      listEl.innerHTML = '';
+      if (!catNames.length){ emptyEl.style.display = 'block'; return; }
+      emptyEl.style.display = 'none';
+
+      for (const cat of catNames){
+        const header = document.createElement('div');
+        header.className = 'groupHeader';
+        const dot = document.createElement('div'); dot.className='dot';
+        const label = document.createElement('div'); label.textContent = cat;
+        header.append(dot,label);
+        listEl.appendChild(header);
+
+        const box = document.createElement('div'); box.className = 'groupBox';
+        const rows = groups.get(cat).sort((a,b)=>{
+          const an = (a.name||''), bn = (b.name||'');
+          const cmp = an.localeCompare(bn); if (cmp !== 0) return cmp;
+          const ra = isNaN(parseFloat(a.routeOrder)) ? 1e9 : parseFloat(a.routeOrder);
+          const rb = isNaN(parseFloat(b.routeOrder)) ? 1e9 : parseFloat(b.routeOrder);
+          return ra - rb;
+        });
+        for (const it of rows) box.appendChild(renderRow(it));
+        listEl.appendChild(box);
+      }
+    }
+
+    // ==== PHOTO: shared popup + global inputs ====
+    const fileChooser = $('fileChooser');
+    const fileCamera  = $('fileCamera');
+    const popupEl = $('photoPopup');
+    const btnTake = $('ppTake');
+    const btnChoose = $('ppChoose');
+    const btnCancel = $('ppCancel');
+
+    // openPhotoPicker({ onFile: (File)=>void })
+    function openPhotoPicker(ctx){
+      if (!ctx || typeof ctx.onFile !== 'function') return;
+      popupEl.classList.add('show');
+      popupEl.setAttribute('aria-hidden','false');
+
+      const cleanup = () => {
+        popupEl.classList.remove('show');
+        popupEl.setAttribute('aria-hidden','true');
+        btnTake.onclick = btnChoose.onclick = btnCancel.onclick = null;
+        document.removeEventListener('keydown', onEsc);
+        fileChooser.onchange = null; fileCamera.onchange = null;
+      };
+      const onEsc = e => { if (e.key === 'Escape') cleanup(); };
+      document.addEventListener('keydown', onEsc);
+      popupEl.onclick = (e)=>{ if (e.target === popupEl) cleanup(); };
+
+      const attachAndClick = (inputEl) => {
+        inputEl.onchange = () => {
+          const f = inputEl.files && inputEl.files[0];
+          cleanup();
+          if (f) ctx.onFile(f);
+          inputEl.value = ''; // reset for next time
+        };
+        // On some browsers, must be inside a user gesture: use setTimeout 0
+        setTimeout(()=> inputEl.click(), 0);
+      };
+
+      btnTake.onclick = () => attachAndClick(fileCamera);
+      btnChoose.onclick = () => attachAndClick(fileChooser);
+      btnCancel.onclick = cleanup;
+    }
+
+    function setNewPhotoFile(f){
+      newItemPhotoFile = f || null;
+      const photoName = $('photoName');
+      if (photoName) photoName.textContent = f ? (f.name || '1 image selected') : '';
+    }
+
+    // Photo upload helpers for items
+    async function uploadItemPhoto(file, itemId, prevPath){
+      if (!auth || !auth.currentUser || !household) throw new Error('Sign in and set household first.');
+      const clean = (file.name || 'photo').replace(/[^a-zA-Z0-9._-]/g,'_');
+      const path = `${household}/${itemId}/${Date.now()}-${clean}`;
+      const ref = storage.ref().child(path);
+      const metadata = { contentType: file.type || 'image/jpeg', customMetadata: { uid: auth.currentUser.uid, itemId } };
+      const snap = await ref.put(file, metadata);
+      const url = await snap.ref.getDownloadURL();
+      await db.collection('lists').doc(household).collection('items').doc(itemId).set({
+        photoUrl: url, photoPath: path, photoUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+      if (prevPath && prevPath !== path) { try { await storage.ref().child(prevPath).delete(); } catch(e){} }
+      return { url, path };
+    }
+
+    async function removeItemPhoto(itemId, photoPath){
+      if (!auth || !auth.currentUser || !household) throw new Error('Sign in and set household first.');
+      if (photoPath) { try { await storage.ref().child(photoPath).delete(); } catch(e){} }
+      await db.collection('lists').doc(household).collection('items').doc(itemId).set({
+        photoUrl: firebase.firestore.FieldValue.delete(),
+        photoPath: firebase.firestore.FieldValue.delete(),
+        photoUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    }
+
+    function renderRow(it){
+      const row = document.createElement('div');
+      row.className = 'item';
+      row.dataset.cat = ((it.category || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-'));
+
+      /* 1) Checkbox */
+      const left = document.createElement('div');
+      left.className = 'left';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = !!it.checked;
+      cb.onchange = () => updateItem(it.id, { checked: cb.checked });
+      left.appendChild(cb);
+
+      /* 2) Title */
+      const line1 = document.createElement('div');
+      line1.className = 'line1';
+      const catdot = document.createElement('span'); catdot.className = 'catdot';
+      const nameEl = document.createElement('span'); nameEl.className = 'name'; nameEl.textContent = it.name || '';
+      line1.append(catdot, nameEl);
+      const bits = [it.qty || '', it.size || ''].filter(Boolean).join(' • ');
+      if (bits) {
+        const sep = document.createElement('span'); sep.className = 'sep'; sep.textContent = ' • ' + bits;
+        line1.append(sep);
+      }
+
+      /* 3) Actions */
+      const actions = document.createElement('div');
+      actions.className = 'actions';
+
+      const editBtn = document.createElement('button');
+      editBtn.type = 'button';
+      editBtn.className = 'editbtn';
+      editBtn.textContent = 'Edit';
+      editBtn.onclick = (ev) => {
+        ev.stopPropagation();
+        const editing = row.classList.toggle('editing');
+        editBtn.textContent = editing ? 'Close' : 'Edit';
+        if (editing) qty.focus();
+      };
+
+      const delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.className = 'btn-icon';
+      delBtn.title = 'Delete item';
+      delBtn.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-trash"></use></svg>';
+      delBtn.onclick = () => removeItem(it.id);
+
+      actions.append(editBtn, delBtn);
+
+      /* 4) Below row: media + notes */
+      const below = document.createElement('div');
+      below.className = 'below';
+
+      const mediaCell = document.createElement('div');
+
+      const mountCameraBtn = () => {
+        mediaCell.innerHTML = '';
+        const camBtn = document.createElement('button');
+        camBtn.type = 'button';
+        camBtn.className = 'camBtn';
+        camBtn.title = 'Add photo';
+        camBtn.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-camera"></use></svg>';
+        camBtn.onclick = () => {
+          openPhotoPicker({
+            onFile: async (file) => {
+              if (!file) return;
+              try {
+                showToast('Uploading photo…');
+                const { url, path } = await uploadItemPhoto(file, it.id, it.photoPath || null);
+                it.photoUrl = url; it.photoPath = path;
+                mountThumb(url);
+                below.classList.remove('hidden');
+                showToast('Photo updated');
+              } catch(e){ alert('Upload failed: ' + (e.message || e)); }
+            }
+          });
+        };
+        mediaCell.appendChild(camBtn);
+      };
+
+      const mountThumb = (url) => {
+        mediaCell.innerHTML = '';
+        const thumb = document.createElement('img');
+        thumb.className = 'thumb';
+        thumb.src = url;
+        thumb.alt = it.name || 'photo';
+        thumb.onclick = () => openLightbox(url);
+        mediaCell.appendChild(thumb);
+      };
+
+      if (it.photoUrl) mountThumb(it.photoUrl); else mountCameraBtn();
+
+      const line2 = document.createElement('div');
+      line2.className = 'line2';
+      line2.textContent = it.notes || '';
+
+      below.append(mediaCell, line2);
+
+      if (!it.photoUrl && !it.notes) below.classList.add('hidden');
+
+      /* 5) Editor row */
+      const editor = document.createElement('div');
+      editor.className = 'editor';
+
+      const qty = document.createElement('input');
+      qty.className = 'qty'; qty.placeholder = 'Qty'; qty.value = it.qty || '';
+      qty.onchange = () => updateItem(it.id, { qty: qty.value });
+
+      const size = document.createElement('input');
+      size.className = 'size'; size.placeholder = 'Size'; size.value = it.size || '';
+      size.onchange = () => updateItem(it.id, { size: size.value });
+
+      const notes = document.createElement('input');
+      notes.className = 'notes'; notes.placeholder = 'Notes'; notes.value = it.notes || '';
+      notes.onchange = () => updateItem(it.id, { notes: notes.value });
+
+      const cat  = document.createElement('select'); cat.className = 'category';
+      ["", "Produce", "Meat & Poultry", "Fish & Seafood", "Dairy & Eggs", "Bakery", "Pantry", "Frozen", "Beverages", "Snacks & Confectionery", "Household & Cleaning", "Personal Care & Health", "Other"].forEach(opt => {
+        const o = document.createElement('option'); o.value = opt; o.textContent = opt || '— Select —';
+        if ((it.category||'') === opt) o.selected = true; cat.appendChild(o);
+      });
+      cat.onchange = () => updateItemAndCatalog(it, { category: cat.value });
+
+      const route = document.createElement('input');
+      route.className = 'route'; route.type = 'number'; route.step = '0.1'; route.placeholder = 'Route'; route.value = it.routeOrder ?? '';
+      route.onchange = () => updateItemAndCatalog(it, { routeOrder: route.value ? Number(route.value) : '' });
+
+      const changePhoto = document.createElement('button');
+      changePhoto.type = 'button'; changePhoto.textContent = it.photoUrl ? 'Change photo' : 'Add photo';
+      changePhoto.onclick = () => {
+        openPhotoPicker({
+          onFile: async (file) => {
+            if (!file) return;
+            try {
+              showToast('Uploading photo…');
+              const { url, path } = await uploadItemPhoto(file, it.id, it.photoPath || null);
+              it.photoUrl = url; it.photoPath = path;
+              mountThumb(url);
+              below.classList.remove('hidden');
+              showToast('Photo updated');
+            } catch(e){ alert('Upload failed: ' + (e.message || e)); }
+          }
+        });
+      };
+
+      const removePhotoBtn = document.createElement('button');
+      removePhotoBtn.type = 'button'; removePhotoBtn.textContent = 'Remove photo';
+      removePhotoBtn.disabled = !it.photoPath;
+      removePhotoBtn.onclick = async () => {
+        try {
+          await removeItemPhoto(it.id, it.photoPath || null);
+          it.photoUrl = ''; it.photoPath = '';
+          mountCameraBtn();
+          below.classList.toggle('hidden', !it.notes);
+          showToast('Photo removed');
+        } catch(e){
+          alert('Failed to remove photo: ' + (e.message || e));
+        }
+      };
+
+      editor.append(qty, size, notes, cat, route, changePhoto, removePhotoBtn);
+
+      /* Assemble row */
+      row.append(left, line1, actions, below, editor);
+
+      // Flash if just added
+      if (it.id === lastAddedId) {
+        requestAnimationFrame(() => {
+          row.classList.add('flash');
+          row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          setTimeout(() => row.classList.remove('flash'), 900);
+          lastAddedId = null;
+        });
+      }
+
+      return row;
+    }
+
+    async function updateItem(id, patch){
+      if (!auth || !auth.currentUser || !household) return alert('Sign in and set household first.');
+      const ref = db.collection('lists').doc(household).collection('items').doc(id);
+      await ref.set(patch, { merge: true });
+    }
+
+    async function updateItemAndCatalog(it, patch){
+      await updateItem(it.id, patch);
+      const name = (it.name||'').trim(); if (!name) return;
+      const key = name.toLowerCase();
+      const catRef = db.collection('catalog').doc(household).collection('items').doc(key);
+      const data = { name, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+      if (patch.category !== undefined) data.category = patch.category || '';
+      if (patch.routeOrder !== undefined) data.routeOrder = (patch.routeOrder === '' ? '' : Number(patch.routeOrder));
+      await catRef.set(data, { merge: true });
+      catalogCache.set(key, { category: data.category ?? '', routeOrder: data.routeOrder ?? '' });
+    }
+
+    async function removeItem(id){
+      if (!auth || !auth.currentUser || !household) return;
+      // best-effort: delete attached photo too
+      try{
+        const doc = await db.collection('lists').doc(household).collection('items').doc(id).get();
+        const d = doc.exists ? doc.data() : null;
+        if (d && d.photoPath) { try { await storage.ref().child(d.photoPath).delete(); } catch(e){} }
+      }catch(e){}
+      await db.collection('lists').doc(household).collection('items').doc(id).delete();
+    }
+
+    $('clearChecked').onclick = async () => {
+      if (!auth || !auth.currentUser || !household) return alert('Sign in and set household first.');
+      const qs = await db.collection('lists').doc(household).collection('items').where('checked','==',true).get();
+      const batch = db.batch(); qs.forEach(doc => {
+        const d = doc.data(); if (d.photoPath) { try { storage.ref().child(d.photoPath).delete(); } catch(e){} }
+        batch.delete(doc.ref);
+      });
+      await batch.commit();
+    };
+
+    // === Add new item ===
+    $('newItemAddPhoto').onclick = () => {
+      openPhotoPicker({
+        onFile: (file) => {
+          setNewPhotoFile(file);
+          showToast('Photo selected');
+        }
+      });
+    };
+
+    $('add').onclick = async () => {
+      if (!auth || !auth.currentUser || !household) return alert('Click Sign in, then set the household code.');
+      const name = $('itemName').value.trim(); if (!name) return alert('Type an item name.');
+      const qty = $('itemQty').value.trim();
+      const size = $('itemSize').value.trim();
+      let category = $('itemCategory').value.trim ? $('itemCategory').value.trim() : $('itemCategory').value;
+      let routeOrder = $('itemRoute').value ? Number($('itemRoute').value) : '';
+      const notes = $('itemNotes').value.trim();
+      const photoFile = newItemPhotoFile || null;
+
+      const known = catalogCache.get(name.toLowerCase());
+      if (known){
+        if (!category && known.category) category = known.category;
+        if ((routeOrder === '' || isNaN(routeOrder)) && (known.routeOrder || known.routeOrder===0)) routeOrder = known.routeOrder;
+      }
+
+      let newId = null;
+      try {
+        const ref = db.collection('lists').doc(household).collection('items').doc();
+        newId = ref.id;
+        await ref.set({
+          name, qty, size, category, routeOrder, notes,
+          checked: false,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          createdBy: auth.currentUser.uid
+        });
+        lastAddedId = ref.id;
+        showToast(`Added: ${name}`);
+      } catch (e) {
+        alert('Add failed. Make sure Firestore is enabled and rules allow writes.\n\n' + e.message);
+        return;
+      }
+
+      if (photoFile && newId){
+        try {
+          await uploadItemPhoto(photoFile, newId, null);
+          showToast('Photo uploaded');
+        } catch(e){
+          alert('Photo upload failed: ' + (e.message||e));
+        }
+      }
+
+      // Update catalog
+      if (category || routeOrder !== ''){
+        try{
+          await db.collection('catalog').doc(household).collection('items')
+            .doc(name.toLowerCase())
+            .set({
+              name,
+              category: category || '',
+              routeOrder: routeOrder === '' ? '' : Number(routeOrder),
+              updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+          catalogCache.set(name.toLowerCase(), {
+            category: category || '',
+            routeOrder: routeOrder === '' ? '' : Number(routeOrder)
+          });
+        } catch(e){ console.warn('Catalog save failed:', e.message); }
+      }
+
+      // clear form
+      $('itemName').value=''; $('itemQty').value=''; $('itemSize').value='';
+      $('itemCategory').value=''; $('itemRoute').value=''; $('itemNotes').value='';
+      $('itemName').focus();
+
+      // clear pending new photo
+      newItemPhotoFile = null;
+      const pn = $('photoName'); if (pn) pn.textContent = '';
+    };
+
+    sortModeEl.onchange = () => { localStorage.setItem('sortMode', sortModeEl.value); render(lastSnapshotItems); };
+    filterModeEl.onchange = () => { localStorage.setItem('filterMode', filterModeEl.value); render(lastSnapshotItems); };
+
+    updateStatus();
+  </script>
+
+  <script>
+    // Subtle haptic on taps
+    document.addEventListener('pointerdown', (e) => {
+      const btn = e.target.closest('button,[role="button"]');
+      if (!btn) return;
+      if (btn.dataset && btn.dataset.haptic === 'off') return;
+      if (navigator.vibrate) navigator.vibrate(10);
+    });
   </script>
   <script>
-document.addEventListener("DOMContentLoaded", () => {
-  const scanBtn = document.getElementById('scanRecipe');
-  if (scanBtn) {
-    scanBtn.onclick = () => {
-      // your OCR logic goes here
-      console.log("Scan Recipe button clicked!");
-    };
-  }
-});
-</script>
-
+    // Press animation on rows
+    document.addEventListener('pointerdown', (e) => { const row = e.target.closest('.item'); if (row) row.classList.add('is-pressed'); });
+    const clearPress = () => { document.querySelectorAll('.item.is-pressed').forEach(r => r.classList.remove('is-pressed')); };
+    document.addEventListener('pointerup', clearPress);
+    document.addEventListener('pointercancel', clearPress);
+  </script>
+  <script>
+    // Minimal toast helper
+    (function(){
+      const t = document.createElement('div');
+      t.id = 'toast'; t.className = 'toast';
+      document.body.appendChild(t);
+      window.showToast = (msg) => {
+        t.textContent = msg; t.classList.add('show');
+        clearTimeout(t._hide); t._hide = setTimeout(() => t.classList.remove('show'), 1600);
+      };
+    })();
+  </script>
+  <script>
+    // Lightbox
+    (function(){
+      const lb = document.createElement('div');
+      lb.className = 'lightbox';
+      lb.innerHTML = '<img alt=""><button class="close" aria-label="Close">×</button>';
+      document.body.appendChild(lb);
+      const img = lb.querySelector('img');
+      const close = () => lb.classList.remove('show');
+      lb.addEventListener('click', (e)=>{ if (e.target===lb || e.target.classList.contains('close')) close(); });
+      window.openLightbox = (src) => { img.src = src; lb.classList.add('show'); };
+    })();
+  </script>
+  <script>
+    // Enter key = Add
+    (['itemName','itemQty','itemSize','itemCategory','itemRoute','itemNotes']).forEach(id => {
+      const n = document.getElementById(id); if (!n) return;
+      n.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); const addBtn = document.getElementById('add'); if (addBtn) addBtn.click(); }
+      });
+    });
+  </script>
 </body>
 </html>
