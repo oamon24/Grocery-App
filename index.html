@@ -5,6 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Kaufland Route List</title>
   <style>
+    /* --- DEV badge --- */
+.dev-badge{position:fixed;right:10px;bottom:10px;padding:6px 10px;border-radius:999px;
+font-size:12px;border:1px solid #ddd;background:#fff;box-shadow:0 4px 14px rgba(0,0,0,.08);
+z-index:9999;opacity:.9}
+.dev-badge b{letter-spacing:.5px}
+
   :root { --radius: 16px; --pad: 14px; --shadow: 0 8px 30px rgba(0,0,0,.06);} 
   * { box-sizing: border-box; }
   body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji'; margin: 0; background: #f7f7fb; color: #111; }
@@ -919,5 +925,9 @@
       });
     });
   </script>
+  <div class="dev-badge" title="You are viewing the development branch">
+  <b>DEV</b> branch
+</div>
+
 </body>
 </html>
