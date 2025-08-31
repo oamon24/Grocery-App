@@ -13,7 +13,7 @@ z-index:9999;opacity:.9}
 
   :root { --radius: 16px; --pad: 14px; --shadow: 0 8px 30px rgba(0,0,0,.06);} 
   * { box-sizing: border-box; }
-  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji'; margin: 0; background: #f7f7fb; color: #111; }
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji'; margin: 0; background: #f7f7fb; color:#222; }
   header { position: sticky; top: 0; z-index: 2; background: #ffffffcc; backdrop-filter: blur(8px); border-bottom: 1px solid #eee; }
   .wrap { max-width: 900px; margin: 0 auto; padding: 14px; }
   h1 { font-size: 20px; margin: 6px 0 2px; }
@@ -57,6 +57,13 @@ z-index:9999;opacity:.9}
   }
   .line1 .name { font-weight: 700; }
   .line1 .sep { opacity: .6; font-weight: 600; }
+
+  .red-flag {
+    color: red;
+    margin-right: 4px;
+    font-size: 17px;
+    vertical-align: middle;
+  }
 
   .actions{
     grid-column: 3; grid-row: 1;
@@ -128,6 +135,27 @@ z-index:9999;opacity:.9}
   .item.is-pressed { transform: scale(0.995); box-shadow: 0 2px 12px rgba(0,0,0,.08); }
   .item:has(input[type="checkbox"]:checked) { background: linear-gradient(0deg, rgba(0,0,0,.03), rgba(0,0,0,.03)), #fff; opacity: .92; }
   .item:has(input[type="checkbox"]:checked) .line1 { text-decoration: line-through; color: #777; }
+
+  .autocomplete-list {
+    position: absolute;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    max-height: 200px;
+    overflow-y: auto;
+    width: 100%;
+    box-shadow: 0 4px 16px rgba(0,0,0,.10);
+    display: none;
+    z-index: 20;
+  }
+  .autocomplete-list .suggestion {
+    padding: 10px 14px;
+    cursor: pointer;
+  }
+  .autocomplete-list .suggestion.active,
+  .autocomplete-list .suggestion:hover {
+    background: #f1f1f7;
+  }
 
   .card > .toolbar{
     position: sticky; top: calc(env(safe-area-inset-top, 0px) + 56px);
@@ -215,10 +243,11 @@ z-index:9999;opacity:.9}
     <div id="status" class="status"></div>
 
     <section class="card">
-      <div class="row">
-        <div style="flex:2; min-width:220px;">
+      <div class="row" style="position:relative;">
+        <div style="flex:2; min-width:220px; position:relative;">
           <label>Item</label>
-          <input id="itemName" type="text" placeholder="e.g., Milch, Bananen" />
+          <input id="itemName" type="text" placeholder="e.g., Milch, Bananen" autocomplete="off"/>
+          <div id="itemNameSuggestions" class="autocomplete-list"></div>
         </div>
         <div>
           <label>Qty</label>
@@ -274,6 +303,7 @@ z-index:9999;opacity:.9}
             <option value="all">All</option>
             <option value="unchecked">Only unchecked</option>
             <option value="checked">Only checked</option>
+            <option value="noroute">No route number</option>
           </select>
         </div>
       </div>
@@ -288,7 +318,7 @@ z-index:9999;opacity:.9}
 
     <section class="card" style="margin-top:14px;">
       <strong>How it works</strong>
-      <p>Use this app to keep a shared grocery list in sync. Make sure you are <em>signed in</em> and your <em>household code</em> matches. Add items, set their category/route once. Optionally attach a photo for brand/label. Tap a thumbnail to view it large.</p>
+      <p>Use this app to keep a shared grocery list in sync. Make sure you are <em>signed in</em> and your <em>household code</em> matches. Add items, set their category/route once. Optionally attach a photo for clarity. Check off items as you shop and clear checked items when done.</p>
     </section>
   </main>
 
@@ -435,7 +465,15 @@ z-index:9999;opacity:.9}
         catalogCache.clear();
         qs.forEach(doc => {
           const d = doc.data();
-          catalogCache.set((d.name||'').toLowerCase(), { category: d.category||'', routeOrder: d.routeOrder ?? '' });
+          catalogCache.set((d.name||'').toLowerCase(), {
+            name: d.name || '',
+            displayName: d.displayName || d.name || '',
+            qty: d.qty || '',
+            size: d.size || '',
+            category: d.category || '',
+            routeOrder: d.routeOrder ?? '',
+            notes: d.notes || ''
+          });
         });
       }).catch(()=>{});
     }
@@ -445,6 +483,9 @@ z-index:9999;opacity:.9}
       let filtered = items;
       if (filterMode === 'unchecked') filtered = items.filter(i => !i.checked);
       else if (filterMode === 'checked') filtered = items.filter(i => !!i.checked);
+      else if (filterMode === 'noroute') filtered = items.filter(i =>
+        i.routeOrder === undefined || i.routeOrder === '' || isNaN(parseFloat(i.routeOrder))
+      );
 
       const mode = sortModeEl.value;
       if (mode === 'category') renderGroupedByCategory(filtered);
@@ -571,6 +612,7 @@ z-index:9999;opacity:.9}
       }, { merge: true });
     }
 
+    // RenderRow: Add a red flag for missing routeOrder
     function renderRow(it){
       const row = document.createElement('div');
       row.className = 'item';
@@ -590,7 +632,19 @@ z-index:9999;opacity:.9}
       line1.className = 'line1';
       const catdot = document.createElement('span'); catdot.className = 'catdot';
       const nameEl = document.createElement('span'); nameEl.className = 'name'; nameEl.textContent = it.name || '';
-      line1.append(catdot, nameEl);
+      line1.append(catdot);
+
+      // --- Red flag if no route ---
+      const routeMissing = (it.routeOrder === undefined || it.routeOrder === '' || isNaN(parseFloat(it.routeOrder)));
+      if(routeMissing){
+        const flag = document.createElement('span');
+        flag.title = 'Missing route number';
+        flag.className = 'red-flag';
+        flag.textContent = '🚩';
+        line1.append(flag);
+      }
+
+      line1.append(nameEl);
       const bits = [it.qty || '', it.size || ''].filter(Boolean).join(' • ');
       if (bits) {
         const sep = document.createElement('span'); sep.className = 'sep'; sep.textContent = ' • ' + bits;
@@ -764,8 +818,20 @@ z-index:9999;opacity:.9}
       const data = { name, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
       if (patch.category !== undefined) data.category = patch.category || '';
       if (patch.routeOrder !== undefined) data.routeOrder = (patch.routeOrder === '' ? '' : Number(patch.routeOrder));
+      if (patch.qty !== undefined) data.qty = patch.qty;
+      if (patch.size !== undefined) data.size = patch.size;
+      if (patch.notes !== undefined) data.notes = patch.notes;
+      data.displayName = name;
       await catRef.set(data, { merge: true });
-      catalogCache.set(key, { category: data.category ?? '', routeOrder: data.routeOrder ?? '' });
+      catalogCache.set(key, {
+        name,
+        displayName: name,
+        qty: data.qty || '',
+        size: data.size || '',
+        category: data.category || '',
+        routeOrder: data.routeOrder ?? '',
+        notes: data.notes || ''
+      });
     }
 
     async function removeItem(id){
@@ -813,6 +879,10 @@ z-index:9999;opacity:.9}
       if (known){
         if (!category && known.category) category = known.category;
         if ((routeOrder === '' || isNaN(routeOrder)) && (known.routeOrder || known.routeOrder===0)) routeOrder = known.routeOrder;
+        // Fill qty, size, notes if missing
+        if (!qty && known.qty) $('itemQty').value = known.qty;
+        if (!size && known.size) $('itemSize').value = known.size;
+        if (!notes && known.notes) $('itemNotes').value = known.notes;
       }
 
       let newId = null;
@@ -842,7 +912,7 @@ z-index:9999;opacity:.9}
       }
 
       // Update catalog
-      if (category || routeOrder !== ''){
+      if (category || routeOrder !== '' || qty || size || notes){
         try{
           await db.collection('catalog').doc(household).collection('items')
             .doc(name.toLowerCase())
@@ -850,11 +920,20 @@ z-index:9999;opacity:.9}
               name,
               category: category || '',
               routeOrder: routeOrder === '' ? '' : Number(routeOrder),
+              qty: qty || '',
+              size: size || '',
+              notes: notes || '',
+              displayName: name,
               updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             }, { merge: true });
           catalogCache.set(name.toLowerCase(), {
+            name,
+            displayName: name,
+            qty: qty || '',
+            size: size || '',
             category: category || '',
-            routeOrder: routeOrder === '' ? '' : Number(routeOrder)
+            routeOrder: routeOrder === '' ? '' : Number(routeOrder),
+            notes: notes || ''
           });
         } catch(e){ console.warn('Catalog save failed:', e.message); }
       }
@@ -873,6 +952,83 @@ z-index:9999;opacity:.9}
     filterModeEl.onchange = () => { localStorage.setItem('filterMode', filterModeEl.value); render(lastSnapshotItems); };
 
     updateStatus();
+
+    // ==== AUTOCOMPLETE AND AUTOFILL FOR ITEM NAME ==== //
+    const itemNameInput = $('itemName');
+    const suggestionsBox = $('itemNameSuggestions');
+    let activeSuggestion = -1;
+    let suggestionKeys = [];
+
+    function getCatalogSuggestions(query) {
+      if (!query) return [];
+      const q = query.trim().toLowerCase();
+      return Array.from(catalogCache.keys())
+        .filter(name => name.includes(q))
+        .slice(0, 10); // limit to 10 suggestions
+    }
+
+    itemNameInput.addEventListener('input', function() {
+      const val = this.value;
+      suggestionKeys = getCatalogSuggestions(val);
+      suggestionsBox.innerHTML = '';
+      activeSuggestion = -1;
+      if (suggestionKeys.length === 0 || !val) {
+        suggestionsBox.style.display = 'none';
+        return;
+      }
+      suggestionKeys.forEach((key, idx) => {
+        const entry = catalogCache.get(key);
+        const div = document.createElement('div');
+        div.className = 'suggestion';
+        div.textContent = entry.displayName || entry.name || key;
+        div.addEventListener('mousedown', (e) => { // mousedown, not click, to prevent input blur
+          autofillFromCatalog(key);
+          suggestionsBox.style.display = 'none';
+        });
+        suggestionsBox.appendChild(div);
+      });
+      suggestionsBox.style.display = 'block';
+    });
+
+    // Autofill all fields from catalogCache
+    function autofillFromCatalog(name) {
+      const entry = catalogCache.get(name);
+      if (!entry) return;
+      $('itemName').value = entry.displayName || entry.name || name;
+      $('itemQty').value = entry.qty || '';
+      $('itemSize').value = entry.size || '';
+      $('itemCategory').value = entry.category || '';
+      $('itemRoute').value = entry.routeOrder !== undefined ? entry.routeOrder : '';
+      $('itemNotes').value = entry.notes || '';
+    }
+
+    // Keyboard navigation for suggestions
+    itemNameInput.addEventListener('keydown', function(e) {
+      const items = suggestionsBox.querySelectorAll('.suggestion');
+      if (!items.length) return;
+      if (e.key === 'ArrowDown') {
+        activeSuggestion = (activeSuggestion + 1) % items.length;
+        updateActive();
+        e.preventDefault();
+      } else if (e.key === 'ArrowUp') {
+        activeSuggestion = (activeSuggestion + items.length - 1) % items.length;
+        updateActive();
+        e.preventDefault();
+      } else if (e.key === 'Enter' && activeSuggestion !== -1) {
+        items[activeSuggestion].dispatchEvent(new Event('mousedown'));
+        e.preventDefault();
+      }
+    });
+    function updateActive() {
+      const items = suggestionsBox.querySelectorAll('.suggestion');
+      items.forEach((el, idx) => el.classList.toggle('active', idx === activeSuggestion));
+    }
+
+    // Hide suggestions on blur
+    itemNameInput.addEventListener('blur', function() {
+      setTimeout(() => { suggestionsBox.style.display = 'none'; }, 100); // Allow click to register
+    });
+
   </script>
 
   <script>
