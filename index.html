@@ -5,6 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Kaufland Route List</title>
   <style>
+  /* Tabs */
+.tabs{ display:flex; gap:8px; align-items:center; }
+.tab{
+  padding:8px 12px; border-radius:999px; border:1px solid #e5e7eb;
+  background:#fff; cursor:pointer; box-shadow: var(--shadow);
+  font-weight:600;
+}
+.tab.active{ background:#111; color:#fff; border-color:#111; }
+
   :root { --radius: 16px; --pad: 14px; --shadow: 0 8px 30px rgba(0,0,0,.06);} 
   * { box-sizing: border-box; }
   body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji'; margin: 0; background: #f7f7fb; color: #111; }
@@ -214,6 +223,11 @@
         <h1>🛒 Kaufland Route List</h1>
         <div id="householdTag" class="pill" title="Household code helps you both see the same list.">household: <span id="householdView">—</span></div>
       </div>
+      <div class="group tabs" id="tabs">
+  <button id="tabList" class="tab active" type="button">List</button>
+  <button id="tabRecipes" class="tab" type="button">Recipes</button>
+</div>
+
       <div class="group auth">
         <input id="household" placeholder="Household code (e.g., kino-ines)" />
         <button id="setHousehold">Set</button>
@@ -225,6 +239,7 @@
 
   <main class="wrap">
     <div id="status" class="status"></div>
+<div id="view-list">
 
     <section class="card">
       <div class="row">
@@ -309,6 +324,15 @@
       <strong>How it works</strong>
       <p>Use this app to keep a shared grocery list in sync. Make sure you are <em>signed in</em> and your <em>household code</em> matches. Add items, set their category/route once. Optionally attach a photo for brand/label. Tap a thumbnail to view it large.</p>
     </section>
+  </div> <!-- /#view-list -->
+
+<div id="view-recipes" style="display:none">
+  <section class="card">
+    <strong>Recipes</strong>
+    <p>This is the Recipes tab. We’ll build the full recipe editor here next.</p>
+  </section>
+</div>
+
   </main>
 
   <footer>Built for two people. Data lives in your Firebase project.</footer>
