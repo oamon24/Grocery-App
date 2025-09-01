@@ -551,14 +551,6 @@ if (tabRecipesBtn) tabRecipesBtn.onclick = () => setActiveTab('recipes');
 setActiveTab(localStorage.getItem('activeTab') || 'list');
 
 
-function setActiveTab(tab){ // tab is 'list' or 'recipes'
-  const isList = tab === 'list';
-  if (viewList) viewList.style.display = isList ? '' : 'none';
-  if (viewRecipes) viewRecipes.style.display = isList ? 'none' : '';
-  if (tabListBtn) tabListBtn.classList.toggle('active', isList);
-  if (tabRecipesBtn) tabRecipesBtn.classList.toggle('active', !isList);
-  localStorage.setItem('activeTab', tab);
-}
 
 // Wire buttons
 if (tabListBtn) tabListBtn.onclick = () => setActiveTab('list');
@@ -578,7 +570,7 @@ setActiveTab(localStorage.getItem('activeTab') || 'list');
     let catalogCache = new Map();
     let lastAddedId = null;
 // === Recipes: state & element refs ===
-let recipesUnsub = null;
+
 let recipeIngUnsub = null;
 let recipeDocUnsub = null;
 let currentRecipeId = null;
@@ -694,7 +686,7 @@ const nrServings = $('nrServings');
 const nrNotes = $('nrNotes');
 const nrCancel = $('nrCancel');
 const nrCreate = $('nrCreate');
-const btnNewRecipe = $('btnNewRecipe');
+
 
 function openNewRecipeDialog(){
   if (!newRecipeDialog) return;
@@ -1250,10 +1242,8 @@ function renderRecipeIngredients(items) {
       const photoName = $('photoName');
       if (photoName) photoName.textContent = f ? (f.name || '1 image selected') : '';
       if (f) setPhotoPreview('');
-         }
+       }
 
-        
-};
  // === Open a recipe detail page ===
 async function openRecipeDetail(recipeId) {
   if (!auth || !auth.currentUser || !household) { alert('Sign in and set household first.'); return; }
@@ -1274,9 +1264,9 @@ async function openRecipeDetail(recipeId) {
   recipeDocUnsub = ref.onSnapshot(snap => {
     const d = snap.data() || {};
     currentRecipeDoc = d;
-    currentBaseServings = Number(d.baseServings || 1) || 1;
+    currentBaseServings = Number(d.defaultServings || 1) || 1;
     if (rdTitle) rdTitle.textContent = d.name || 'Recipe';
-    if (rdServings) rdServings.value = currentBaseServings;
+  if (rdServings) rdServings.value = currentBaseServings;
     renderRecipeIngredients(currentRecipeIngredients);
   });
 
@@ -1351,6 +1341,8 @@ if (rdAddNeeded) rdAddNeeded.onclick = async () => {
     });
   await batch.commit();
   showToast('Needed items added to List');
+  };
+
 // === Autocomplete in Recipe Detail (reuses main list’s data) ===
 function rSuggestionMeta(it){
   const parts=[]; if(it.category) parts.push(it.category);
@@ -1480,7 +1472,7 @@ if (rAddBtn) rAddBtn.onclick = async () => {
   rClearUpdateMode();
 };
 // hide existing preview if choosing a new file
-    }
+    
     function setPhotoPreview(url){
       const img = $('photoPreview'); if (!img) return;
       if (url){ img.src = url; img.style.display = 'block'; }
