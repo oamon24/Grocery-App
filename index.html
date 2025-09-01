@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Kaufland Route List</title>
   <style>
+    
     /* Recipe list rows */
 .recipeRow{
   display:flex; align-items:center; justify-content:space-between;
@@ -202,6 +203,16 @@
   .popup h3{ margin:6px 8px 10px; font-size:15px; }
   .popup .choices{ display:grid; gap:8px; }
   .popup .choices button{ width:100%; }
+    .tabbtn{
+  border-radius: 999px;
+  padding: 8px 14px;
+  border: 1px solid #e7e7ef;
+  background: #fff;
+}
+.tabbtn.active{
+  background:#111; color:#fff; border-color:#111;
+}
+
   </style>
 
   <!-- Firebase SDKs from CDN -->
@@ -238,6 +249,7 @@
   <button id="tabRecipes" class="tab" type="button">Recipes</button>
 </div>
 
+
       <div class="group auth">
         <input id="household" placeholder="Household code (e.g., kino-ines)" />
         <button id="setHousehold">Set</button>
@@ -248,10 +260,14 @@
   </header>
 
   <main class="wrap">
+    <div id="listPage">
+
     <div id="status" class="status"></div>
 <div id="view-list">
 
     <section class="card">
+
+
       <div class="row">
                 <div style="flex:2; min-width:220px; position:relative;">
 
@@ -356,6 +372,80 @@
   </section>
 
 </div>
+</div>
+
+<section id="recipeDetailPage" class="card" style="display:none">
+  <div class="toolbar" style="align-items:center">
+    <div class="group">
+      <button id="rdBack" type="button">← Back</button>
+      <strong id="rdTitle">Recipe</strong>
+      <span class="muted" id="rdSubtitle"></span>
+    </div>
+    <div class="group">
+      <label>Portions</label>
+      <input id="rdServings" type="number" min="1" step="1" value="2" style="width:90px"/>
+      <button id="rdReset"      type="button">Reset to base</button>
+      <button id="rdSaveScaled" class="primary" type="button">Save scaled</button>
+      <button id="rdAddNeeded"  type="button">Add needed to List</button>
+    </div>
+  </div>
+
+  <!-- Add ingredient (same layout vibe as main page, but scoped to recipes) -->
+  <div class="row" style="margin-top:8px">
+    <div style="flex:2; min-width:220px; position:relative;">
+      <label>Ingredient</label>
+      <input id="rItemName" type="text" placeholder="e.g., Milch, Bananen" />
+      <div id="rAutoList" class="ac-list" role="listbox" aria-label="Suggestions" style="display:none"></div>
+      <div id="rUpdateTag" class="updateTag" style="display:none"></div>
+    </div>
+
+    <div>
+      <label>Qty</label>
+      <input id="rItemQty" class="qty" type="text" placeholder="e.g., 2, 500g" />
+    </div>
+    <div style="min-width:120px;">
+      <label>Size</label>
+      <input id="rItemSize" class="size" type="text" placeholder="e.g., 500g, 1L" />
+    </div>
+    <div style="min-width:180px;">
+      <label>Category</label>
+      <select id="rItemCategory" class="category">
+        <option value="">— Select —</option>
+        <option>Produce</option><option>Meat & Poultry</option><option>Fish & Seafood</option>
+        <option>Dairy & Eggs</option><option>Bakery</option><option>Pantry</option>
+        <option>Frozen</option><option>Beverages</option><option>Snacks & Confectionery</option>
+        <option>Household & Cleaning</option><option>Personal Care & Health</option><option>Other</option>
+      </select>
+    </div>
+    <div style="min-width:120px;">
+      <label>Route</label>
+      <input id="rItemRoute" class="route" type="number" step="0.1" placeholder="e.g., 12" />
+    </div>
+    <div style="flex:1; min-width:200px;">
+      <label>Notes</label>
+      <input id="rItemNotes" class="notes" type="text" placeholder="e.g., brand, ripeness" />
+    </div>
+
+    <div><button id="rAdd" class="primary">Add ingredient</button></div>
+  </div>
+
+  <!-- Ingredient list -->
+  <div class="toolbar" style="margin-top:12px;">
+    <div class="group">
+      <span class="pill">Ingredients</span>
+    </div>
+    <div class="group">
+      <span class="muted">Check “Have it” to skip when adding to List</span>
+    </div>
+  </div>
+
+  <div id="recipeIngList" class="list" aria-live="polite"></div>
+  <div id="recipeIngEmpty" class="empty" style="display:none">
+    <svg class="icon" aria-hidden="true"><use href="#i-cart"></use></svg>
+    <div class="headline">No ingredients yet</div>
+    <div class="muted">Add your first ingredient above.</div>
+  </div>
+</section>
 
   </main>
 
@@ -376,18 +466,25 @@
       </div>
     </div>
   </div>
+
 <!-- New Recipe dialog -->
 <div id="newRecipeDialog" class="popup-backdrop" role="dialog" aria-modal="true" aria-hidden="true">
-  <div class="popup" role="document">
-    <h3 style="margin:6px 8px 10px;">New recipe</h3>
-    <div class="row" style="margin-bottom:10px;">
-      <input id="nrName" type="text" placeholder="Recipe name (e.g., Spaghetti Bolognese)" style="flex:2; min-width:220px;">
-      <input id="nrServings" type="number" min="1" step="1" value="2" style="width:120px;" placeholder="Servings">
-      <input id="nrNotes" type="text" placeholder="Optional notes" style="flex:1; min-width:180px;">
-    </div>
-    <div class="row" style="justify-content:flex-end; gap:8px;">
-      <button id="nrCancel" type="button">Cancel</button>
-      <button id="nrCreate" class="primary" type="button">Create</button>
+  <div class="popup" role="document" style="max-width:360px;">
+    <h3>New recipe</h3>
+    <div class="row" style="gap:8px; flex-direction:column; align-items:stretch;">
+      <label>Recipe name</label>
+      <input id="nrName" type="text" placeholder="e.g., Chicken Alfredo"/>
+
+      <label>Default portions</label>
+      <input id="nrServings" type="number" min="1" step="1" value="2"/>
+
+      <label>Notes (optional)</label>
+      <input id="nrNotes" type="text" placeholder="e.g., Sunday dinner"/>
+
+      <div class="row" style="justify-content:flex-end; gap:8px;">
+        <button id="nrCancel" type="button">Cancel</button>
+        <button id="nrCreate" class="primary" type="button">Create</button>
+      </div>
     </div>
   </div>
 </div>
@@ -453,11 +550,6 @@ if (tabListBtn) tabListBtn.onclick = () => setActiveTab('list');
 if (tabRecipesBtn) tabRecipesBtn.onclick = () => setActiveTab('recipes');
 setActiveTab(localStorage.getItem('activeTab') || 'list');
 
-// === Tabs: List / Recipes ===
-const tabListBtn = $('tabList');
-const tabRecipesBtn = $('tabRecipes');
-const viewList = $('view-list');
-const viewRecipes = $('view-recipes');
 
 function setActiveTab(tab){ // tab is 'list' or 'recipes'
   const isList = tab === 'list';
@@ -485,6 +577,49 @@ setActiveTab(localStorage.getItem('activeTab') || 'list');
     let lastSnapshotItems = [];
     let catalogCache = new Map();
     let lastAddedId = null;
+// === Recipes: state & element refs ===
+let recipesUnsub = null;
+let recipeIngUnsub = null;
+let recipeDocUnsub = null;
+let currentRecipeId = null;
+let currentRecipeDoc = null; // { name, baseServings }
+let currentBaseServings = 1;
+let currentRecipeIngredients = []; // snapshot cache
+
+// Pages
+const listPage = $('listPage');                 // added earlier in Step 4A
+const recipeDetailPage = $('recipeDetailPage'); // added earlier in Step 4A
+const recipesPage = $('recipesPage');           // if you already added a Recipes list page
+
+// Recipe Detail header controls
+const rdBack = $('rdBack');
+const rdTitle = $('rdTitle');
+const rdSubtitle = $('rdSubtitle');
+const rdServings = $('rdServings');
+const rdReset = $('rdReset');
+const rdSaveScaled = $('rdSaveScaled');
+const rdAddNeeded = $('rdAddNeeded');
+
+// Ingredient add form (inside detail page)
+const rNameInput = $('rItemName');
+const rQtyInput = $('rItemQty');
+const rSizeInput = $('rItemSize');
+const rCatSelect = $('rItemCategory');
+const rRouteInput = $('rItemRoute');
+const rNotesInput = $('rItemNotes');
+const rAddBtn = $('rAdd');
+
+// Autocomplete widgets (detail page)
+const rAutoList = $('rAutoList');
+const rUpdateTag = $('rUpdateTag');
+
+// Ingredient list containers
+const recipeIngListEl = $('recipeIngList');
+const recipeIngEmptyEl = $('recipeIngEmpty');
+
+// Update-mode state (when you pick an existing ingredient suggestion)
+let rSelectedIngId = null;
+let rSelectedInitialHaveIt = false;
 
     // === Recipes state ===
 let unsubRecipes = null;
@@ -546,12 +681,8 @@ function renderRecipesList(items){
     meta.textContent = sv ? `Default: ${sv} portion${sv===1?'':'s'}` : '';
     row.append(title, meta);
 
-    row.onclick = () => {
-      // Placeholder for Step 3: open the recipe editor
-      showToast(`Open "${r.name}" (coming next)`);
-      // setActiveTab('recipes'); // already on recipes
-      // openRecipe(r.id); // will be implemented in Step 3
-    };
+ row.onclick = () => openRecipeDetail(r.id);
+
 
     recipesListEl.appendChild(row);
   }
@@ -588,15 +719,7 @@ if (btnNewRecipe) btnNewRecipe.onclick = () => {
 if (nrCancel) nrCancel.onclick = closeNewRecipeDialog;
 if (newRecipeDialog) newRecipeDialog.onclick = (e)=>{ if (e.target===newRecipeDialog) closeNewRecipeDialog(); };
 
-async function ensureRecipesDoc(){
-  if (!auth || !auth.currentUser || !household) return;
-  try{
-    await db.collection('recipes').doc(household).set(
-      { owner: auth.currentUser.uid, updatedAt: firebase.firestore.FieldValue.serverTimestamp() },
-      { merge: true }
-    );
-  }catch(e){ console.error('ensureRecipesDoc failed', e); }
-}
+
 
 async function createRecipe(){
   if (!auth || !auth.currentUser || !household) return alert('Sign in and set the household code.');
@@ -898,6 +1021,188 @@ async function ensureHouseholdDoc() {
         listEl.appendChild(box);
       }
     }
+// === Qty parse/format helpers (supports 1, 1/2, 1 1/2, 1.5, 1,5, "2 pcs") ===
+function parseQtyNumber(q) {
+  q = (q || '').trim();
+  if (!q) return NaN;
+  // mixed fraction: "1 1/2"
+  let m = q.match(/^(\d+)\s+(\d+)\s*\/\s*(\d+)$/);
+  if (m) return parseInt(m[1]) + parseInt(m[2]) / parseInt(m[3]);
+  // simple fraction: "1/2"
+  m = q.match(/^(\d+)\s*\/\s*(\d+)$/);
+  if (m) return parseInt(m[1]) / parseInt(m[2]);
+  // decimal with comma or dot
+  const dec = q.replace(',', '.').match(/^[-+]?\d*\.?\d+/);
+  if (dec) return parseFloat(dec[0]);
+  return NaN;
+}
+function toFraction(n, maxDen = 16) {
+  if (!isFinite(n)) return '';
+  const sign = n < 0 ? -1 : 1; n = Math.abs(n);
+  const whole = Math.floor(n); let frac = n - whole;
+  if (frac < 1e-8) return String(sign < 0 ? -whole : whole);
+  let bestNum = 0, bestDen = 1, bestErr = 1e9;
+  for (let den = 1; den <= maxDen; den++) {
+    const num = Math.round(frac * den);
+    const err = Math.abs(frac - num / den);
+    if (err < bestErr) { bestErr = err; bestNum = num; bestDen = den; }
+  }
+  const gcd = (a,b)=>b?gcd(b,a%b):a; const g = gcd(bestNum, bestDen);
+  bestNum/=g; bestDen/=g;
+  const totalNum = whole * bestDen + bestNum;
+  const w = Math.floor(totalNum / bestDen);
+  const nrm = totalNum - w * bestDen;
+  const s = sign < 0 ? '-' : '';
+  if (w > 0 && nrm > 0) return `${s}${w} ${nrm}/${bestDen}`;
+  if (w > 0 && nrm === 0) return `${s}${w}`;
+  return `${s}${nrm}/${bestDen}`;
+}
+function scaledQtyStrings(baseQtyStr, scale) {
+  const n = parseQtyNumber(baseQtyStr);
+  if (isNaN(n)) return { frac: baseQtyStr || '', dec: '' };
+  const s = n * scale;
+  return { frac: toFraction(s), dec: s.toFixed(2).replace(/\.00$/, '') };
+}
+
+// === Firestore helpers for current recipe ===
+function recipeDocRef() {
+  if (!auth || !auth.currentUser || !household || !currentRecipeId) return null;
+  return db.collection('recipes').doc(household).collection('recipes').doc(currentRecipeId);
+}
+function recipeIngsCol() {
+  const r = recipeDocRef(); if (!r) return null;
+  return r.collection('ingredients');
+}
+async function updateIngredient(id, patch) {
+  const col = recipeIngsCol(); if (!col) return;
+  await col.doc(id).set({ ...patch, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+}
+async function removeIngredient(id) {
+  const col = recipeIngsCol(); if (!col) return;
+  await col.doc(id).delete();
+}
+
+// === Render ingredient row (Recipe Detail) ===
+function renderRecipeIngRow(it, scale) {
+  const row = document.createElement('div');
+  row.className = 'item';
+  row.dataset.cat = ((it.category || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-'));
+
+  // 1) Left checkbox: "Have it" (exclude when adding to List)
+  const left = document.createElement('div');
+  left.className = 'left';
+  const haveCb = document.createElement('input');
+  haveCb.type = 'checkbox';
+  haveCb.checked = !!it.haveIt;
+  haveCb.title = 'Have it already';
+  haveCb.onchange = () => updateIngredient(it.id, { haveIt: haveCb.checked });
+  left.appendChild(haveCb);
+
+  // 2) Title
+  const line1 = document.createElement('div');
+  line1.className = 'line1';
+  const catdot = document.createElement('span'); catdot.className = 'catdot';
+  const nameEl = document.createElement('span'); nameEl.className = 'name';
+  nameEl.textContent = it.name || '';
+
+  // Missing route flag
+  const routeMissing = (it.routeOrder === undefined || it.routeOrder === null || it.routeOrder === '' || isNaN(parseFloat(it.routeOrder)));
+  if (routeMissing) {
+    const flag = document.createElement('span');
+    flag.textContent = ' 🚩'; flag.title = 'No route number set'; flag.style.color = 'red';
+    nameEl.appendChild(flag);
+  }
+  line1.append(catdot, nameEl);
+
+  // qty (scaled preview) + size
+  const q = scaledQtyStrings(it.baseQty ?? it.qty ?? '', (rdServings && currentBaseServings) ? (Number(rdServings.value || currentBaseServings) / currentBaseServings) : 1);
+  const bits = [];
+  if (q.frac || q.dec) {
+    const qtySpan = document.createElement('span'); qtySpan.className = 'sep';
+    qtySpan.textContent = ' • ';
+    const strong = document.createElement('strong'); strong.textContent = q.frac;
+    const paren = document.createElement('span'); paren.className = 'muted'; paren.textContent = q.dec ? ` (${q.dec})` : '';
+    qtySpan.append(strong, paren);
+    line1.append(qtySpan);
+  }
+  if (it.size) {
+    const sizeSep = document.createElement('span'); sizeSep.className = 'sep'; sizeSep.textContent = ' • ' + it.size;
+    line1.append(sizeSep);
+  }
+
+  // 3) Actions
+  const actions = document.createElement('div');
+  actions.className = 'actions';
+  const editBtn = document.createElement('button');
+  editBtn.type = 'button'; editBtn.className = 'editbtn'; editBtn.textContent = 'Edit';
+  editBtn.onclick = (e) => { e.stopPropagation(); const editing = row.classList.toggle('editing'); editBtn.textContent = editing ? 'Close' : 'Edit'; if (editing) qty.focus(); };
+  const delBtn = document.createElement('button');
+  delBtn.type = 'button'; delBtn.className = 'btn-icon'; delBtn.title = 'Delete ingredient';
+  delBtn.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-trash"></use></svg>';
+  delBtn.onclick = () => removeIngredient(it.id);
+  actions.append(editBtn, delBtn);
+
+  // 4) Below: notes
+  const below = document.createElement('div');
+  below.className = 'below';
+  const mediaCell = document.createElement('div'); // kept for layout symmetry (no photo here)
+  const line2 = document.createElement('div'); line2.className = 'line2'; line2.textContent = it.notes || '';
+  below.append(mediaCell, line2);
+  if (!it.notes) below.classList.add('hidden');
+
+  // 5) Editor
+  const editor = document.createElement('div');
+  editor.className = 'editor';
+
+  const qty = document.createElement('input'); qty.className = 'qty'; qty.placeholder = 'Qty'; qty.value = it.qty || '';
+  qty.onchange = () => updateIngredient(it.id, { qty: qty.value });
+
+  const size = document.createElement('input'); size.className = 'size'; size.placeholder = 'Size'; size.value = it.size || '';
+  size.onchange = () => updateIngredient(it.id, { size: size.value });
+
+  const notes = document.createElement('input'); notes.className = 'notes'; notes.placeholder = 'Notes'; notes.value = it.notes || '';
+  notes.onchange = () => updateIngredient(it.id, { notes: notes.value });
+
+  const cat = document.createElement('select'); cat.className = 'category';
+  ["", "Produce", "Meat & Poultry", "Fish & Seafood", "Dairy & Eggs", "Bakery", "Pantry", "Frozen", "Beverages", "Snacks & Confectionery", "Household & Cleaning", "Personal Care & Health", "Other"].forEach(opt => {
+    const o = document.createElement('option'); o.value = opt; o.textContent = opt || '— Select —';
+    if ((it.category || '') === opt) o.selected = true; cat.appendChild(o);
+  });
+  cat.onchange = () => updateIngredient(it.id, { category: cat.value });
+
+  const route = document.createElement('input'); route.className = 'route'; route.type = 'number'; route.step = '0.1'; route.placeholder = 'Route'; route.value = it.routeOrder ?? '';
+  route.onchange = () => updateIngredient(it.id, { routeOrder: route.value ? Number(route.value) : '' });
+
+  editor.append(qty, size, notes, cat, route);
+
+  // Assemble
+  row.append(left, line1, actions, below, editor);
+  return row;
+}
+
+// Render list for recipe ingredients (uses rdServings/currentBaseServings for preview)
+function renderRecipeIngredients(items) {
+  currentRecipeIngredients = items || [];
+  const sorted = [...currentRecipeIngredients].sort((a,b)=>{
+    const ra = isNaN(parseFloat(a.routeOrder)) ? 1e9 : parseFloat(a.routeOrder);
+    const rb = isNaN(parseFloat(b.routeOrder)) ? 1e9 : parseFloat(b.routeOrder);
+    if (ra !== rb) return ra - rb;
+    return (a.name||'').localeCompare(b.name||'');
+  });
+
+  recipeIngListEl.innerHTML = '';
+  if (!sorted.length) { recipeIngEmptyEl.style.display = 'block'; return; }
+  recipeIngEmptyEl.style.display = 'none';
+  const scale = (rdServings && currentBaseServings) ? (Number(rdServings.value || currentBaseServings) / currentBaseServings) : 1;
+  for (const it of sorted) recipeIngListEl.appendChild(renderRecipeIngRow(it, scale));
+
+  // Update subtitle line with scale factor
+  if (rdSubtitle && currentRecipeDoc) {
+    const scl = (rdServings && currentBaseServings) ? Number(rdServings.value || currentBaseServings) / currentBaseServings : 1;
+    const pct = Math.round(scl * 100);
+    rdSubtitle.textContent = `Base: ${currentBaseServings} • Now: ${rdServings.value || currentBaseServings} (${pct}%)`;
+  }
+}
 
     // ==== PHOTO: shared popup + global inputs ====
     const fileChooser = $('fileChooser');
@@ -944,7 +1249,237 @@ async function ensureHouseholdDoc() {
       newItemPhotoFile = f || null;
       const photoName = $('photoName');
       if (photoName) photoName.textContent = f ? (f.name || '1 image selected') : '';
-      if (f) setPhotoPreview(''); // hide existing preview if choosing a new file
+      if (f) setPhotoPreview('');
+         }
+
+        
+};
+ // === Open a recipe detail page ===
+async function openRecipeDetail(recipeId) {
+  if (!auth || !auth.currentUser || !household) { alert('Sign in and set household first.'); return; }
+  // Unsubscribe previous
+  if (recipeIngUnsub) { recipeIngUnsub(); recipeIngUnsub = null; }
+  if (recipeDocUnsub) { recipeDocUnsub(); recipeDocUnsub = null; }
+
+  currentRecipeId = recipeId;
+
+  // Show the detail page
+  if (listPage) listPage.style.display = 'none';
+  if (recipesPage) recipesPage.style.display = 'none';
+  recipeDetailPage.style.display = 'block';
+
+  const ref = recipeDocRef(); if (!ref) return;
+
+  // Listen for recipe doc (name, baseServings)
+  recipeDocUnsub = ref.onSnapshot(snap => {
+    const d = snap.data() || {};
+    currentRecipeDoc = d;
+    currentBaseServings = Number(d.baseServings || 1) || 1;
+    if (rdTitle) rdTitle.textContent = d.name || 'Recipe';
+    if (rdServings) rdServings.value = currentBaseServings;
+    renderRecipeIngredients(currentRecipeIngredients);
+  });
+
+  // Listen for ingredient changes
+  recipeIngUnsub = ref.collection('ingredients').onSnapshot(snap => {
+    const arr = [];
+    snap.forEach(doc => arr.push({ id: doc.id, ...doc.data() }));
+    renderRecipeIngredients(arr);
+  });
+}
+
+// Back button
+if (rdBack) rdBack.onclick = () => {
+  // leave listeners
+  if (recipeIngUnsub) { recipeIngUnsub(); recipeIngUnsub = null; }
+  if (recipeDocUnsub) { recipeDocUnsub(); recipeDocUnsub = null; }
+  currentRecipeId = null; currentRecipeDoc = null; currentRecipeIngredients = [];
+  recipeDetailPage.style.display = 'none';
+  // Prefer showing Recipes list if you have it; else go back to main list
+  if (recipesPage) recipesPage.style.display = 'block';
+  else if (listPage) listPage.style.display = 'block';
+};
+
+// Change servings → live preview only
+if (rdServings) rdServings.addEventListener('input', () => renderRecipeIngredients(currentRecipeIngredients));
+
+// Reset to base (no DB write; just reset input + rerender)
+if (rdReset) rdReset.onclick = () => {
+  if (!currentBaseServings) return;
+  rdServings.value = currentBaseServings;
+  renderRecipeIngredients(currentRecipeIngredients);
+};
+
+// Save scaled → write scaled qty (as fraction) back to each ingredient's `qty` (keeps `baseQty`)
+if (rdSaveScaled) rdSaveScaled.onclick = async () => {
+  if (!auth || !auth.currentUser || !household || !currentRecipeId) return;
+  const scale = Number(rdServings.value || currentBaseServings) / currentBaseServings;
+  const col = recipeIngsCol(); if (!col) return;
+  const batch = db.batch();
+  currentRecipeIngredients.forEach(it => {
+    const q = scaledQtyStrings(it.baseQty ?? it.qty ?? '', scale);
+    const ref = col.doc(it.id);
+    batch.set(ref, { qty: q.frac }, { merge: true });
+  });
+  await batch.commit();
+  showToast('Scaled quantities saved');
+};
+
+// Add needed items (unchecked “Have it”) to the main List
+if (rdAddNeeded) rdAddNeeded.onclick = async () => {
+  if (!auth || !auth.currentUser || !household || !currentRecipeId) return;
+  const scale = Number(rdServings.value || currentBaseServings) / currentBaseServings;
+  const itemsCol = db.collection('lists').doc(household).collection('items');
+
+  const batch = db.batch();
+  currentRecipeIngredients
+    .filter(it => !it.haveIt)
+    .forEach(it => {
+      const q = scaledQtyStrings(it.baseQty ?? it.qty ?? '', scale);
+      const ref = itemsCol.doc(); // new item
+      batch.set(ref, {
+        name: it.name || '',
+        qty: q.frac + (q.dec ? ` (${q.dec})` : ''),
+        size: it.size || '',
+        notes: it.notes || '',
+        category: it.category || '',
+        routeOrder: (it.routeOrder === '' || it.routeOrder === undefined || it.routeOrder === null) ? '' : Number(it.routeOrder),
+        checked: false,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    });
+  await batch.commit();
+  showToast('Needed items added to List');
+// === Autocomplete in Recipe Detail (reuses main list’s data) ===
+function rSuggestionMeta(it){
+  const parts=[]; if(it.category) parts.push(it.category);
+  if(it.size) parts.push(it.size);
+  if(it.routeOrder!=='' && !isNaN(parseFloat(it.routeOrder))) parts.push('Route '+it.routeOrder);
+  return parts.join(' • ');
+}
+function rShowSuggestions(q){
+  if (!rAutoList) return;
+  q = (q||'').trim().toLowerCase();
+  if (!q){ rAutoList.style.display='none'; rAutoList.innerHTML=''; return; }
+  const matches = lastSnapshotItems
+    .filter(it => (it.name||'').toLowerCase().includes(q))
+    .sort((a,b)=>{
+      const an=(a.name||'').toLowerCase(), bn=(b.name||'').toLowerCase();
+      const as = an.startsWith(q) ? 0 : 1;
+      const bs = bn.startsWith(q) ? 0 : 1;
+      if (as !== bs) return as - bs;
+      return an.localeCompare(bn);
+    })
+    .slice(0,8);
+  if (!matches.length){ rAutoList.style.display='none'; rAutoList.innerHTML=''; return; }
+  rAutoList.innerHTML = '';
+  for (const it of matches){
+    const row = document.createElement('div');
+    row.className = 'ac-item';
+    row.setAttribute('role','option');
+    row.dataset.id = it.id;
+    row.innerHTML = '<div class="ac-title">'+escapeHtml(it.name||'')+'</div>' +
+                    '<div class="ac-meta">'+escapeHtml(rSuggestionMeta(it))+'</div>';
+    rAutoList.appendChild(row);
+  }
+  rAutoList.style.display = 'block';
+}
+function rClearUpdateMode(){
+  rSelectedIngId = null;
+  rSelectedInitialHaveIt = false;
+  if (rUpdateTag){ rUpdateTag.style.display='none'; rUpdateTag.innerHTML=''; }
+}
+function rApplySuggestion(item){
+  rSelectedIngId = item.id;
+  rSelectedInitialHaveIt = false;
+
+  rNameInput.value = item.name || '';
+  rQtyInput.value = item.qty || '';
+  rSizeInput.value = item.size || '';
+  rNotesInput.value = item.notes || '';
+  rCatSelect.value = item.category || '';
+  rRouteInput.value = (item.routeOrder === '' || item.routeOrder === undefined || item.routeOrder === null) ? '' : item.routeOrder;
+
+  if (rUpdateTag){
+    rUpdateTag.innerHTML = 'Updating: <strong>'+escapeHtml(item.name||'')+'</strong> <button type="button" id="rCancelUpdate" aria-label="Cancel">×</button>';
+    rUpdateTag.style.display = 'inline-flex';
+    const c = $('rCancelUpdate'); if (c) c.onclick = () => rClearUpdateMode();
+  }
+
+  if (rAutoList){ rAutoList.style.display='none'; rAutoList.innerHTML=''; }
+  if (rQtyInput) rQtyInput.focus();
+}
+
+// Wire autocomplete events
+if (rNameInput){
+  rNameInput.addEventListener('input', () => rShowSuggestions(rNameInput.value));
+  document.addEventListener('click', (e) => {
+    if (!rAutoList) return;
+    if (e.target === rNameInput || (e.target.closest && e.target.closest('#rAutoList'))) return;
+    rAutoList.style.display='none';
+  });
+}
+if (rAutoList){
+  rAutoList.addEventListener('mousedown', (e) => {
+    const el = e.target.closest('.ac-item'); if (!el) return;
+    const id = el.dataset.id;
+    const item = lastSnapshotItems.find(x => x.id === id);
+    if (item) rApplySuggestion(item);
+    e.preventDefault();
+  });
+}
+
+// Add ingredient to current recipe
+if (rAddBtn) rAddBtn.onclick = async () => {
+  if (!auth || !auth.currentUser || !household || !currentRecipeId) return alert('Open a recipe first.');
+  const name = (rNameInput.value||'').trim(); if (!name) return alert('Type an ingredient name.');
+  const qty = (rQtyInput.value||'').trim();
+  const size = (rSizeInput.value||'').trim();
+  let category = rCatSelect.value && rCatSelect.value.trim ? rCatSelect.value.trim() : rCatSelect.value;
+  let routeOrder = rRouteInput.value ? Number(rRouteInput.value) : '';
+  const notes = (rNotesInput.value||'').trim();
+
+  // Fill from catalog if missing
+  const known = catalogCache.get(name.toLowerCase());
+  if (known){
+    if (!category && known.category) category = known.category;
+    if ((routeOrder === '' || isNaN(routeOrder)) && (known.routeOrder || known.routeOrder===0)) routeOrder = known.routeOrder;
+  }
+
+  try{
+    const col = recipeIngsCol(); if (!col) return;
+    const ref = col.doc();
+    await ref.set({
+      name, qty, baseQty: qty, size, notes,
+      category: category || '',
+      routeOrder: routeOrder === '' ? '' : Number(routeOrder),
+      haveIt: false,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    // also save into catalog for future autocomplete (same as main)
+    await db.collection('catalog').doc(household).collection('items')
+      .doc(name.toLowerCase())
+      .set({
+        name,
+        category: category || '',
+        routeOrder: routeOrder === '' ? '' : Number(routeOrder),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    catalogCache.set(name.toLowerCase(), { category: category || '', routeOrder: routeOrder === '' ? '' : Number(routeOrder) });
+  } catch(e){
+    alert('Add ingredient failed: ' + (e.message || e));
+    return;
+  }
+
+  // clear form
+  rNameInput.value=''; rQtyInput.value=''; rSizeInput.value='';
+  rCatSelect.value=''; rRouteInput.value=''; rNotesInput.value='';
+  rNameInput.focus();
+  rClearUpdateMode();
+};
+// hide existing preview if choosing a new file
     }
     function setPhotoPreview(url){
       const img = $('photoPreview'); if (!img) return;
@@ -1352,6 +1887,9 @@ line1.append(catdot, nameEl);
 
     sortModeEl.onchange = () => { localStorage.setItem('sortMode', sortModeEl.value); render(lastSnapshotItems); };
     filterModeEl.onchange = () => { localStorage.setItem('filterMode', filterModeEl.value); render(lastSnapshotItems); };
+
+
+// Call subscribeRecipes when auth or household changes
 
     updateStatus();
   </script>
