@@ -556,6 +556,75 @@ function renderRecipesList(items){
     recipesListEl.appendChild(row);
   }
 }
+// === New Recipe dialog wiring ===
+const newRecipeDialog = $('newRecipeDialog');
+const nrName = $('nrName');
+const nrServings = $('nrServings');
+const nrNotes = $('nrNotes');
+const nrCancel = $('nrCancel');
+const nrCreate = $('nrCreate');
+const btnNewRecipe = $('btnNewRecipe');
+
+function openNewRecipeDialog(){
+  if (!newRecipeDialog) return;
+  newRecipeDialog.classList.add('show');
+  newRecipeDialog.setAttribute('aria-hidden','false');
+  if (nrName) { nrName.value=''; nrName.focus(); }
+  if (nrServings) nrServings.value = 2;
+  if (nrNotes) nrNotes.value = '';
+  const onEsc = (e)=>{ if (e.key==='Escape') closeNewRecipeDialog(); };
+  document.addEventListener('keydown', onEsc, { once:true });
+}
+function closeNewRecipeDialog(){
+  if (!newRecipeDialog) return;
+  newRecipeDialog.classList.remove('show');
+  newRecipeDialog.setAttribute('aria-hidden','true');
+}
+
+if (btnNewRecipe) btnNewRecipe.onclick = () => {
+  if (!auth || !auth.currentUser || !household) return alert('Sign in and set the household code.');
+  openNewRecipeDialog();
+};
+if (nrCancel) nrCancel.onclick = closeNewRecipeDialog;
+if (newRecipeDialog) newRecipeDialog.onclick = (e)=>{ if (e.target===newRecipeDialog) closeNewRecipeDialog(); };
+
+async function ensureRecipesDoc(){
+  if (!auth || !auth.currentUser || !household) return;
+  try{
+    await db.collection('recipes').doc(household).set(
+      { owner: auth.currentUser.uid, updatedAt: firebase.firestore.FieldValue.serverTimestamp() },
+      { merge: true }
+    );
+  }catch(e){ console.error('ensureRecipesDoc failed', e); }
+}
+
+async function createRecipe(){
+  if (!auth || !auth.currentUser || !household) return alert('Sign in and set the household code.');
+  const name = (nrName && nrName.value || '').trim();
+  const servings = nrServings ? Math.max(1, parseInt(nrServings.value || '2', 10)) : 2;
+  const notes = (nrNotes && nrNotes.value || '').trim();
+
+  if (!name) { alert('Please enter a recipe name.'); if (nrName) nrName.focus(); return; }
+
+  try{
+    await ensureRecipesDoc();
+    const ref = db.collection('recipes').doc(household).collection('recipes').doc();
+    await ref.set({
+      name,
+      nameLower: name.toLowerCase(),
+      defaultServings: servings,
+      notes,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      owner: auth.currentUser.uid
+    });
+    closeNewRecipeDialog();
+    showToast('Recipe created');
+  }catch(e){
+    alert('Create failed: ' + (e.message || e));
+  }
+}
+if (nrCreate) nrCreate.onclick = createRecipe;
 
 
     // New-item pending photo
@@ -669,7 +738,8 @@ function renderRecipesList(items){
     setHouseholdUI();
 
     function setControlsEnabled(enabled){
-      ['add','clearChecked','sortMode','filterMode','itemName','itemQty','itemCategory','itemRoute','itemSize','itemNotes','newItemAddPhoto']
+        ['add','clearChecked','sortMode','filterMode','itemName','itemQty','itemCategory','itemRoute','itemSize','itemNotes','newItemAddPhoto','btnNewRecipe']
+
         .forEach(id => { const n = $(id); if (!n) return; n.disabled = !enabled; n.classList.toggle('disabled', !enabled); });
     }
 
@@ -721,7 +791,8 @@ function renderRecipesList(items){
       user = u;
       $('signIn').style.display = u ? 'none' : 'inline-block';
       $('signOut').style.display = u ? 'inline-block' : 'none';
-      subscribeList(); warmCatalog(); updateStatus();
+            subscribeList(); warmCatalog(); updateStatus(); subscribeRecipes();
+
     });
 // === ensure parent /lists/{household} exists and is owned by current user ===
 async function ensureHouseholdDoc() {
