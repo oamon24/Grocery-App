@@ -5,6 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Kaufland Route List</title>
   <style>
+    /* Recipe list rows */
+.recipeRow{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:10px; padding:10px 12px;
+  border:1px solid #eee; border-radius:12px; background:#fff;
+  box-shadow: var(--shadow);
+}
+.recipeRow .title{ font-weight:700; }
+.recipeRow .meta{ color:#5b5b66; font-size:13px; }
+
   /* Tabs */
 .tabs{ display:flex; gap:8px; align-items:center; }
 .tab{
@@ -327,10 +337,24 @@
   </div> <!-- /#view-list -->
 
 <div id="view-recipes" style="display:none">
-  <section class="card">
-    <strong>Recipes</strong>
-    <p>This is the Recipes tab. We’ll build the full recipe editor here next.</p>
+   <section class="card">
+    <div class="toolbar">
+      <div class="group">
+        <strong>Recipes</strong>
+        <span id="recipesCount" class="muted"></span>
+      </div>
+      <div class="group">
+        <button id="btnNewRecipe" class="primary" type="button">New recipe</button>
+      </div>
+    </div>
+
+    <div id="recipesList" class="list" style="margin-top:12px;"></div>
+    <div id="recipesEmpty" class="empty" style="display:none">
+      <div class="headline">No recipes yet</div>
+      <div class="muted">Click “New recipe” to create one.</div>
+    </div>
   </section>
+
 </div>
 
   </main>
@@ -352,6 +376,21 @@
       </div>
     </div>
   </div>
+<!-- New Recipe dialog -->
+<div id="newRecipeDialog" class="popup-backdrop" role="dialog" aria-modal="true" aria-hidden="true">
+  <div class="popup" role="document">
+    <h3 style="margin:6px 8px 10px;">New recipe</h3>
+    <div class="row" style="margin-bottom:10px;">
+      <input id="nrName" type="text" placeholder="Recipe name (e.g., Spaghetti Bolognese)" style="flex:2; min-width:220px;">
+      <input id="nrServings" type="number" min="1" step="1" value="2" style="width:120px;" placeholder="Servings">
+      <input id="nrNotes" type="text" placeholder="Optional notes" style="flex:1; min-width:180px;">
+    </div>
+    <div class="row" style="justify-content:flex-end; gap:8px;">
+      <button id="nrCancel" type="button">Cancel</button>
+      <button id="nrCreate" class="primary" type="button">Create</button>
+    </div>
+  </div>
+</div>
 
   <script>
     // Register service worker for PWA installability
@@ -389,6 +428,31 @@
     const sortModeEl = $('sortMode');
     const filterModeEl = $('filterMode');
     const statusEl = $('status');
+
+    // === Recipes elements ===
+const recipesListEl = $('recipesList');
+const recipesEmptyEl = $('recipesEmpty');
+const recipesCountEl = $('recipesCount');
+const btnNewRecipe = $('btnNewRecipe');
+
+// === Tabs (already added in Step 1) ===
+const tabListBtn = $('tabList');
+const tabRecipesBtn = $('tabRecipes');
+const viewList = $('view-list');
+const viewRecipes = $('view-recipes');
+
+function setActiveTab(tab){ // 'list' or 'recipes'
+  const isList = tab === 'list';
+  if (viewList) viewList.style.display = isList ? '' : 'none';
+  if (viewRecipes) viewRecipes.style.display = isList ? 'none' : '';
+  if (tabListBtn) tabListBtn.classList.toggle('active', isList);
+  if (tabRecipesBtn) tabRecipesBtn.classList.toggle('active', !isList);
+  localStorage.setItem('activeTab', tab);
+}
+if (tabListBtn) tabListBtn.onclick = () => setActiveTab('list');
+if (tabRecipesBtn) tabRecipesBtn.onclick = () => setActiveTab('recipes');
+setActiveTab(localStorage.getItem('activeTab') || 'list');
+
 // === Tabs: List / Recipes ===
 const tabListBtn = $('tabList');
 const tabRecipesBtn = $('tabRecipes');
@@ -421,6 +485,78 @@ setActiveTab(localStorage.getItem('activeTab') || 'list');
     let lastSnapshotItems = [];
     let catalogCache = new Map();
     let lastAddedId = null;
+
+    // === Recipes state ===
+let unsubRecipes = null;
+let lastSnapshotRecipes = [];
+
+// Ensure parent /recipes/{household} doc exists and is owned by current user
+async function ensureRecipesDoc(){
+  if (!auth || !auth.currentUser || !household) return;
+  try{
+    await db.collection('recipes').doc(household).set(
+      { owner: auth.currentUser.uid, updatedAt: firebase.firestore.FieldValue.serverTimestamp() },
+      { merge: true }
+    );
+  }catch(e){ console.error('ensureRecipesDoc failed', e); }
+}
+
+// Subscribe to recipe list
+async function subscribeRecipes(){
+  if (unsubRecipes) { unsubRecipes(); unsubRecipes = null; }
+  if (!auth || !auth.currentUser || !household) {
+    renderRecipesList([]); return;
+  }
+  await ensureRecipesDoc();
+  unsubRecipes = db.collection('recipes').doc(household).collection('recipes')
+    .orderBy('nameLower')
+    .onSnapshot(snap => {
+      const rows = [];
+      snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
+      lastSnapshotRecipes = rows;
+      renderRecipesList(rows);
+    }, err => {
+      console.error(err);
+      alert('Cannot read recipes. Check Firestore rules and that Firestore is enabled.');
+    });
+}
+
+// Render recipe list
+function renderRecipesList(items){
+  if (!recipesListEl) return;
+  recipesListEl.innerHTML = '';
+  const sorted = [...items].sort((a,b)=> (a.name||'').localeCompare(b.name||''));
+  if (!sorted.length){
+    if (recipesEmptyEl) recipesEmptyEl.style.display = '';
+    if (recipesCountEl) recipesCountEl.textContent = '';
+    return;
+  }
+  if (recipesEmptyEl) recipesEmptyEl.style.display = 'none';
+  if (recipesCountEl) recipesCountEl.textContent = `(${sorted.length})`;
+
+  for (const r of sorted){
+    const row = document.createElement('div');
+    row.className = 'recipeRow';
+    const title = document.createElement('div');
+    title.className = 'title';
+    title.textContent = r.name || 'Untitled';
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    const sv = (r.defaultServings || r.defaultServings === 0) ? r.defaultServings : '';
+    meta.textContent = sv ? `Default: ${sv} portion${sv===1?'':'s'}` : '';
+    row.append(title, meta);
+
+    row.onclick = () => {
+      // Placeholder for Step 3: open the recipe editor
+      showToast(`Open "${r.name}" (coming next)`);
+      // setActiveTab('recipes'); // already on recipes
+      // openRecipe(r.id); // will be implemented in Step 3
+    };
+
+    recipesListEl.appendChild(row);
+  }
+}
+
 
     // New-item pending photo
     let newItemPhotoFile = null;
@@ -553,6 +689,8 @@ setActiveTab(localStorage.getItem('activeTab') || 'list');
   setHouseholdUI();
   await ensureHouseholdDoc();           // ← add this line
   subscribeList();
+       subscribeRecipes();
+
   updateStatus();
 };
 
