@@ -553,8 +553,6 @@ setActiveTab(localStorage.getItem('activeTab') || 'list');
 
 
 
-// Restore last tab on load
-setActiveTab(localStorage.getItem('activeTab') || 'list');
 
     // Preferences
     const savedSort = localStorage.getItem('sortMode'); if (savedSort) sortModeEl.value = savedSort;
@@ -578,7 +576,7 @@ let currentRecipeIngredients = []; // snapshot cache
 // Pages
 const listPage = $('listPage');                 // added earlier in Step 4A
 const recipeDetailPage = $('recipeDetailPage'); // added earlier in Step 4A
-          // if you already added a Recipes list page
+        
 
 // Recipe Detail header controls
 const rdBack = $('rdBack');
