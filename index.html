@@ -389,6 +389,27 @@
     const sortModeEl = $('sortMode');
     const filterModeEl = $('filterMode');
     const statusEl = $('status');
+// === Tabs: List / Recipes ===
+const tabListBtn = $('tabList');
+const tabRecipesBtn = $('tabRecipes');
+const viewList = $('view-list');
+const viewRecipes = $('view-recipes');
+
+function setActiveTab(tab){ // tab is 'list' or 'recipes'
+  const isList = tab === 'list';
+  if (viewList) viewList.style.display = isList ? '' : 'none';
+  if (viewRecipes) viewRecipes.style.display = isList ? 'none' : '';
+  if (tabListBtn) tabListBtn.classList.toggle('active', isList);
+  if (tabRecipesBtn) tabRecipesBtn.classList.toggle('active', !isList);
+  localStorage.setItem('activeTab', tab);
+}
+
+// Wire buttons
+if (tabListBtn) tabListBtn.onclick = () => setActiveTab('list');
+if (tabRecipesBtn) tabRecipesBtn.onclick = () => setActiveTab('recipes');
+
+// Restore last tab on load
+setActiveTab(localStorage.getItem('activeTab') || 'list');
 
     // Preferences
     const savedSort = localStorage.getItem('sortMode'); if (savedSort) sortModeEl.value = savedSort;
