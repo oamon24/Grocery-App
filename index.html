@@ -583,8 +583,26 @@
       const line1 = document.createElement('div');
       line1.className = 'line1';
       const catdot = document.createElement('span'); catdot.className = 'catdot';
-      const nameEl = document.createElement('span'); nameEl.className = 'name'; nameEl.textContent = it.name || '';
-      line1.append(catdot, nameEl);
+      const nameEl = document.createElement('span');
+nameEl.className = 'name';
+nameEl.textContent = it.name || '';
+
+// Show red flag if routeOrder is missing or invalid
+const routeMissing = (
+  it.routeOrder === undefined ||
+  it.routeOrder === null ||
+  it.routeOrder === '' ||
+  isNaN(parseFloat(it.routeOrder))
+);
+if (routeMissing) {
+  const flag = document.createElement('span');
+  flag.textContent = ' 🚩';
+  flag.title = 'No route number set';
+  flag.style.color = 'red';
+  nameEl.appendChild(flag);
+}
+
+line1.append(catdot, nameEl);
       const bits = [it.qty || '', it.size || ''].filter(Boolean).join(' • ');
       if (bits) {
         const sep = document.createElement('span'); sep.className = 'sep'; sep.textContent = ' • ' + bits;
