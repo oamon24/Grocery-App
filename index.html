@@ -377,13 +377,15 @@
       setControlsEnabled(ready);
     }
 
-    $('setHousehold').onclick = () => {
-      household = $('household').value.trim();
-      localStorage.setItem('household', household);
-      setHouseholdUI();
-      subscribeList();
-      updateStatus();
-    };
+   $('setHousehold').onclick = async () => {
+  household = $('household').value.trim();
+  localStorage.setItem('household', household);
+  setHouseholdUI();
+  await ensureHouseholdDoc();           // ← add this line
+  subscribeList();
+  updateStatus();
+};
+
 
    $('signIn').onclick = async () => {
   try {
@@ -413,16 +415,33 @@
       $('signOut').style.display = u ? 'inline-block' : 'none';
       subscribeList(); warmCatalog(); updateStatus();
     });
+// === ensure parent /lists/{household} exists and is owned by current user ===
+async function ensureHouseholdDoc() {
+  if (!auth || !auth.currentUser || !household) return;
+  try {
+    await db.collection('lists').doc(household).set(
+      {
+        owner: auth.currentUser.uid,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      },
+      { merge: true }
+    );
+  } catch (e) {
+    console.error('ensureHouseholdDoc failed', e);
+  }
+}
 
-    function subscribeList(){
-      if (unsubList) { unsubList(); unsubList = null; }
-      if (!auth || !auth.currentUser || !household) { render([]); return; }
-      unsubList = db.collection('lists').doc(household).collection('items').onSnapshot(snap => {
-        const items = []; snap.forEach(d => items.push({ id: d.id, ...d.data() }));
-        lastSnapshotItems = items;
-        render(items);
-      }, err => { console.error(err); alert('Cannot read list. Check Firestore rules and that Firestore is enabled.'); });
-    }
+   async function subscribeList(){
+  if (unsubList) { unsubList(); unsubList = null; }
+  if (!auth || !auth.currentUser || !household) { render([]); return; }
+  await ensureHouseholdDoc();  // ← add this line
+  unsubList = db.collection('lists').doc(household).collection('items').onSnapshot(snap => {
+    const items = []; snap.forEach(d => items.push({ id: d.id, ...d.data() }));
+    lastSnapshotItems = items;
+    render(items);
+  }, err => { console.error(err); alert('Cannot read list. Check Firestore rules and that Firestore is enabled.'); });
+}
+
 
     function warmCatalog(){
       if (!auth || !auth.currentUser || !household) return;
