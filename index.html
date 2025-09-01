@@ -140,6 +140,24 @@
   }
   .toast.show{ opacity: 1; transform: translateX(-50%) translateY(0); }
   :root { color-scheme: light; }
+      /* === Autocomplete & update mode === */
+  .ac-list{
+    position:absolute; left:0; right:0; top:100%; margin-top:4px;
+    background:#fff; border:1px solid #e7e7ef; border-radius:12px; box-shadow: var(--shadow);
+    max-height: 280px; overflow:auto; z-index: 6;
+  }
+  .ac-item{ display:flex; flex-direction:column; gap:2px; padding:8px 10px; cursor:pointer; border-bottom:1px solid #f0f0f5; }
+  .ac-item:last-child{ border-bottom:none; }
+  .ac-item:hover{ background:#f7f7fb; }
+  .ac-title{ font-weight:600; }
+  .ac-meta{ color:#5b5b66; font-size:12px; }
+
+  .updateTag{
+    margin-top:6px; display:inline-flex; align-items:center; gap:8px;
+    background:#fff; border:1px solid #e7e7ef; border-radius:10px; padding:6px 8px;
+  }
+  .updateTag button{ border:none; background:#eee; border-radius:999px; padding:2px 8px; cursor:pointer; }
+
 
   .lightbox{
     position: fixed; inset: 0; background: rgba(0,0,0,.85);
@@ -210,9 +228,13 @@
 
     <section class="card">
       <div class="row">
-        <div style="flex:2; min-width:220px;">
+                <div style="flex:2; min-width:220px; position:relative;">
+
           <label>Item</label>
           <input id="itemName" type="text" placeholder="e.g., Milch, Bananen" />
+                            <div id="autoList" class="ac-list" role="listbox" aria-label="Suggestions" style="display:none"></div>
+          <div id="updateTag" class="updateTag" style="display:none"></div>
+
         </div>
         <div>
           <label>Qty</label>
@@ -247,6 +269,8 @@
           <div class="row" style="gap:8px; align-items:center;">
             <button id="newItemAddPhoto" type="button">Add photo</button>
             <span id="photoName" class="muted"></span>
+                        <img id="photoPreview" class="thumb" style="display:none" alt="Preview">
+
           </div>
         </div>
 
@@ -355,6 +379,107 @@
 
     // New-item pending photo
     let newItemPhotoFile = null;
+        // === Autocomplete / Update mode state ===
+    let selectedItemId = null;
+    let selectedItemInitialChecked = false;
+    let selectedItemPhotoPath = null;
+
+    const nameInput = $('itemName');
+    const autoList = $('autoList');
+
+    function escapeHtml(s){ 
+      return (s||'').replace(/[&<>\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function suggestionMeta(it){
+      const parts = [];
+      if (it.category) parts.push(it.category);
+      if (it.size) parts.push(it.size);
+      if (it.routeOrder !== '' && !isNaN(parseFloat(it.routeOrder))) parts.push('Route ' + it.routeOrder);
+      return parts.join(' • ');
+    }
+
+    function showSuggestions(q){
+      if (!autoList) return;
+      q = (q||'').trim().toLowerCase();
+      if (!q){ autoList.style.display='none'; autoList.innerHTML=''; return; }
+      const matches = lastSnapshotItems
+        .filter(it => (it.name||'').toLowerCase().includes(q))
+        .sort((a,b)=>{
+          const an=(a.name||'').toLowerCase(), bn=(b.name||'').toLowerCase();
+          const as = an.startsWith(q) ? 0 : 1;
+          const bs = bn.startsWith(q) ? 0 : 1;
+          if (as !== bs) return as - bs;
+          return an.localeCompare(bn);
+        })
+        .slice(0,8);
+      if (!matches.length){ autoList.style.display='none'; autoList.innerHTML=''; return; }
+      autoList.innerHTML = '';
+      for (const it of matches){
+        const row = document.createElement('div');
+        row.className = 'ac-item';
+        row.setAttribute('role','option');
+        row.dataset.id = it.id;
+        row.innerHTML = '<div class="ac-title">'+escapeHtml(it.name||'')+'</div>' +
+                        '<div class="ac-meta">'+escapeHtml(suggestionMeta(it))+'</div>';
+        autoList.appendChild(row);
+      }
+      autoList.style.display = 'block';
+    }
+
+    function clearUpdateMode(){
+      selectedItemId = null;
+      selectedItemInitialChecked = false;
+      selectedItemPhotoPath = null;
+      const tag = $('updateTag'); if (tag){ tag.style.display='none'; tag.innerHTML=''; }
+      setPhotoPreview('');
+    }
+
+    function applySuggestion(item){
+      selectedItemId = item.id;
+      selectedItemInitialChecked = !!item.checked;
+      selectedItemPhotoPath = item.photoPath || null;
+
+      $('itemName').value = item.name || '';
+      $('itemQty').value = item.qty || '';
+      $('itemSize').value = item.size || '';
+      $('itemNotes').value = item.notes || '';
+      $('itemCategory').value = item.category || '';
+      $('itemRoute').value = (item.routeOrder === '' || item.routeOrder === undefined || item.routeOrder === null) ? '' : item.routeOrder;
+
+      setNewPhotoFile(null);
+      setPhotoPreview(item.photoUrl || '');
+
+      const tag = $('updateTag');
+      if (tag){
+        tag.innerHTML = 'Updating: <strong>'+escapeHtml(item.name||'')+'</strong> <button type="button" id="cancelUpdate" aria-label="Cancel">×</button>';
+        tag.style.display = 'inline-flex';
+        const cancel = $('cancelUpdate'); if (cancel) cancel.onclick = () => clearUpdateMode();
+      }
+
+      if (autoList){ autoList.style.display='none'; autoList.innerHTML=''; }
+      const qtyField = $('itemQty'); if (qtyField) qtyField.focus();
+    }
+
+    // Wire events
+    if (nameInput){
+      nameInput.addEventListener('input', () => showSuggestions(nameInput.value));
+      document.addEventListener('click', (e) => {
+        if (!autoList) return;
+        if (e.target === nameInput || (e.target.closest && e.target.closest('#autoList'))) return;
+        autoList.style.display='none';
+      });
+    }
+    if (autoList){
+      autoList.addEventListener('mousedown', (e) => {
+        const el = e.target.closest('.ac-item'); if (!el) return;
+        const id = el.dataset.id;
+        const item = lastSnapshotItems.find(x => x.id === id);
+        if (item) applySuggestion(item);
+        e.preventDefault();
+      });
+    }
+
 
     function setHouseholdUI() {
       $('household').value = household;
@@ -561,10 +686,18 @@ async function ensureHouseholdDoc() {
       btnCancel.onclick = cleanup;
     }
 
-    function setNewPhotoFile(f){
+       function setNewPhotoFile(f){
       newItemPhotoFile = f || null;
       const photoName = $('photoName');
       if (photoName) photoName.textContent = f ? (f.name || '1 image selected') : '';
+      if (f) setPhotoPreview(''); // hide existing preview if choosing a new file
+    }
+    function setPhotoPreview(url){
+      const img = $('photoPreview'); if (!img) return;
+      if (url){ img.src = url; img.style.display = 'block'; }
+      else { img.removeAttribute('src'); img.style.display = 'none'; }
+    }
+
     }
 
     // Photo upload helpers for items
@@ -839,7 +972,7 @@ line1.append(catdot, nameEl);
       });
     };
 
-    $('add').onclick = async () => {
+        $('add').onclick = async () => {
       if (!auth || !auth.currentUser || !household) return alert('Click Sign in, then set the household code.');
       const name = $('itemName').value.trim(); if (!name) return alert('Type an item name.');
       const qty = $('itemQty').value.trim();
@@ -853,6 +986,114 @@ line1.append(catdot, nameEl);
       if (known){
         if (!category && known.category) category = known.category;
         if ((routeOrder === '' || isNaN(routeOrder)) && (known.routeOrder || known.routeOrder===0)) routeOrder = known.routeOrder;
+      }
+
+      // === UPDATE existing item if a suggestion was selected ===
+      if (selectedItemId){
+        try{
+          await updateItem(selectedItemId, {
+            name,
+            qty,
+            size,
+            notes,
+            category: category || '',
+            routeOrder: routeOrder === '' ? '' : Number(routeOrder),
+            checked: false, // force unchecked so it shows on the active list
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+
+          if (photoFile){
+            try {
+              await uploadItemPhoto(photoFile, selectedItemId, selectedItemPhotoPath || null);
+            } catch(e){ console.warn('Photo upload during update failed:', e.message); }
+          }
+
+          // Update catalog (same as create path)
+          try{
+            await db.collection('catalog').doc(household).collection('items')
+              .doc(name.toLowerCase())
+              .set({
+                name,
+                category: category || '',
+                routeOrder: routeOrder === '' ? '' : Number(routeOrder),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+              }, { merge: true });
+            catalogCache.set(name.toLowerCase(), {
+              category: category || '',
+              routeOrder: routeOrder === '' ? '' : Number(routeOrder)
+            });
+          } catch(e){ console.warn('Catalog save failed:', e.message); }
+
+          showToast(selectedItemInitialChecked ? `Unchecked and updated '${name}'.` : `Updated '${name}'.`);
+        } catch(e){
+          alert('Failed to update: ' + (e.message || e));
+          return;
+        }
+
+        // Clear form + state
+        $('itemName').value=''; $('itemQty').value=''; $('itemSize').value='';
+        $('itemCategory').value=''; $('itemRoute').value=''; $('itemNotes').value='';
+        $('itemName').focus();
+        newItemPhotoFile = null;
+        const pn = $('photoName'); if (pn) pn.textContent = '';
+        setPhotoPreview('');
+        clearUpdateMode();
+        return;
+      }
+
+      // === CREATE new item (existing behavior) ===
+      let newId = null;
+      try {
+        const ref = db.collection('lists').doc(household).collection('items').doc();
+        newId = ref.id;
+        await ref.set({
+          name, qty, size, notes,
+          category: category || '',
+          routeOrder: routeOrder === '' ? '' : Number(routeOrder),
+          checked: false,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        lastAddedId = newId;
+      } catch(e){
+        return alert('Add failed: ' + (e.message || e));
+      }
+
+      if (photoFile && newId){
+        try{
+          await uploadItemPhoto(photoFile, newId, null);
+        } catch(e){ console.warn('Photo upload failed:', e.message); }
+      }
+
+      // Save to catalog for next time
+      if (name){
+        try{
+          await db.collection('catalog').doc(household).collection('items')
+            .doc(name.toLowerCase())
+            .set({
+              name,
+              category: category || '',
+              routeOrder: routeOrder === '' ? '' : Number(routeOrder),
+              updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+          catalogCache.set(name.toLowerCase(), {
+            category: category || '',
+            routeOrder: routeOrder === '' ? '' : Number(routeOrder)
+          });
+        } catch(e){ console.warn('Catalog save failed:', e.message); }
+      }
+
+      // clear form (existing)
+      $('itemName').value=''; $('itemQty').value=''; $('itemSize').value='';
+      $('itemCategory').value=''; $('itemRoute').value=''; $('itemNotes').value='';
+      $('itemName').focus();
+
+      // clear pending new photo
+      newItemPhotoFile = null;
+      const pn = $('photoName'); if (pn) pn.textContent = '';
+      setPhotoPreview('');
+    };
+
       }
 
       let newId = null;
