@@ -382,13 +382,20 @@
       <span class="muted" id="rdSubtitle"></span>
     </div>
     <div class="group">
+      <label>Base portions</label>
+      <input id="rdBasePortions" type="number" min="1" step="1" value="2" style="width:90px"/>
+      <button id="rdSaveBase" type="button">Save base</button>
+    </div>
+    <div class="group">
       <label>Portions</label>
       <input id="rdServings" type="number" min="1" step="1" value="2" style="width:90px"/>
       <button id="rdReset"      type="button">Reset to base</button>
       <button id="rdSaveScaled" class="primary" type="button">Save scaled</button>
-      <button id="rdAddNeeded"  type="button">Add needed to List</button>
+      <button id="rdAddNeeded"  type="button">Add missing to List</button>
+      <button id="rdAddAll"     type="button">Add all to List</button>
     </div>
   </div>
+
 
   <!-- Add ingredient (same layout vibe as main page, but scoped to recipes) -->
   <div class="row" style="margin-top:8px">
@@ -397,6 +404,15 @@
       <input id="rItemName" type="text" placeholder="e.g., Milch, Bananen" />
       <div id="rAutoList" class="ac-list" role="listbox" aria-label="Suggestions" style="display:none"></div>
       <div id="rUpdateTag" class="updateTag" style="display:none"></div>
+          <div style="min-width:220px;">
+      <label>Photo</label>
+      <div class="row" style="gap:8px; align-items:center;">
+        <button id="rAddPhoto" type="button">Add photo</button>
+        <span id="rPhotoName" class="muted"></span>
+        <img id="rPhotoPreview" class="thumb" style="display:none" alt="Preview">
+      </div>
+    </div>
+
     </div>
 
     <div>
@@ -433,11 +449,23 @@
   <div class="toolbar" style="margin-top:12px;">
     <div class="group">
       <span class="pill">Ingredients</span>
-    </div>
-    <div class="group">
       <span class="muted">Check “Have it” to skip when adding to List</span>
     </div>
+    <div class="group">
+      <label>Sort by</label>
+      <select id="rSortMode">
+        <option value="route">Route</option>
+        <option value="category">Category</option>
+      </select>
+      <label>Filter</label>
+      <select id="rFilterMode">
+        <option value="all">All</option>
+        <option value="need">Need</option>
+        <option value="have">Have</option>
+      </select>
+    </div>
   </div>
+
 
   <div id="recipeIngList" class="list" aria-live="polite"></div>
   <div id="recipeIngEmpty" class="empty" style="display:none">
