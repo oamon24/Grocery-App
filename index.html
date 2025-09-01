@@ -552,9 +552,6 @@ setActiveTab(localStorage.getItem('activeTab') || 'list');
 
 
 
-// Wire buttons
-if (tabListBtn) tabListBtn.onclick = () => setActiveTab('list');
-if (tabRecipesBtn) tabRecipesBtn.onclick = () => setActiveTab('recipes');
 
 // Restore last tab on load
 setActiveTab(localStorage.getItem('activeTab') || 'list');
@@ -581,7 +578,7 @@ let currentRecipeIngredients = []; // snapshot cache
 // Pages
 const listPage = $('listPage');                 // added earlier in Step 4A
 const recipeDetailPage = $('recipeDetailPage'); // added earlier in Step 4A
-const recipesPage = $('recipesPage');           // if you already added a Recipes list page
+          // if you already added a Recipes list page
 
 // Recipe Detail header controls
 const rdBack = $('rdBack');
@@ -1255,7 +1252,7 @@ async function openRecipeDetail(recipeId) {
 
   // Show the detail page
   if (listPage) listPage.style.display = 'none';
-  if (recipesPage) recipesPage.style.display = 'none';
+
   recipeDetailPage.style.display = 'block';
 
   const ref = recipeDocRef(); if (!ref) return;
@@ -1283,12 +1280,20 @@ if (rdBack) rdBack.onclick = () => {
   // leave listeners
   if (recipeIngUnsub) { recipeIngUnsub(); recipeIngUnsub = null; }
   if (recipeDocUnsub) { recipeDocUnsub(); recipeDocUnsub = null; }
-  currentRecipeId = null; currentRecipeDoc = null; currentRecipeIngredients = [];
+
+  currentRecipeId = null;
+  currentRecipeDoc = null;
+  currentRecipeIngredients = [];
+
   recipeDetailPage.style.display = 'none';
-  // Prefer showing Recipes list if you have it; else go back to main list
-  if (recipesPage) recipesPage.style.display = 'block';
-  else if (listPage) listPage.style.display = 'block';
+
+  // Return to the main page on the Recipes tab
+  if (listPage) {
+    listPage.style.display = 'block';
+    setActiveTab('recipes');
+  }
 };
+
 
 // Change servings → live preview only
 if (rdServings) rdServings.addEventListener('input', () => renderRecipeIngredients(currentRecipeIngredients));
