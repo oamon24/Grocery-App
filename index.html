@@ -698,7 +698,7 @@ async function ensureHouseholdDoc() {
       else { img.removeAttribute('src'); img.style.display = 'none'; }
     }
 
-    }
+  
 
     // Photo upload helpers for items
     async function uploadItemPhoto(file, itemId, prevPath){
@@ -1094,61 +1094,7 @@ line1.append(catdot, nameEl);
       setPhotoPreview('');
     };
 
-      }
-
-      let newId = null;
-      try {
-        const ref = db.collection('lists').doc(household).collection('items').doc();
-        newId = ref.id;
-        await ref.set({
-          name, qty, size, category, routeOrder, notes,
-          checked: false,
-          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-          createdBy: auth.currentUser.uid
-        });
-        lastAddedId = ref.id;
-        showToast(`Added: ${name}`);
-      } catch (e) {
-        alert('Add failed. Make sure Firestore is enabled and rules allow writes.\n\n' + e.message);
-        return;
-      }
-
-      if (photoFile && newId){
-        try {
-          await uploadItemPhoto(photoFile, newId, null);
-          showToast('Photo uploaded');
-        } catch(e){
-          alert('Photo upload failed: ' + (e.message||e));
-        }
-      }
-
-      // Update catalog
-      if (category || routeOrder !== ''){
-        try{
-          await db.collection('catalog').doc(household).collection('items')
-            .doc(name.toLowerCase())
-            .set({
-              name,
-              category: category || '',
-              routeOrder: routeOrder === '' ? '' : Number(routeOrder),
-              updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true });
-          catalogCache.set(name.toLowerCase(), {
-            category: category || '',
-            routeOrder: routeOrder === '' ? '' : Number(routeOrder)
-          });
-        } catch(e){ console.warn('Catalog save failed:', e.message); }
-      }
-
-      // clear form
-      $('itemName').value=''; $('itemQty').value=''; $('itemSize').value='';
-      $('itemCategory').value=''; $('itemRoute').value=''; $('itemNotes').value='';
-      $('itemName').focus();
-
-      // clear pending new photo
-      newItemPhotoFile = null;
-      const pn = $('photoName'); if (pn) pn.textContent = '';
-    };
+    
 
     sortModeEl.onchange = () => { localStorage.setItem('sortMode', sortModeEl.value); render(lastSnapshotItems); };
     filterModeEl.onchange = () => { localStorage.setItem('filterMode', filterModeEl.value); render(lastSnapshotItems); };
