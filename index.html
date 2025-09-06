@@ -219,7 +219,8 @@
   <button id="tabShopping" class="tab" type="button">Shopping</button>
 </div>
 
-      <div class="group auth">
+      <div id="authControls" class="group auth">
+
         <input id="household" placeholder="Household code (e.g., kino-ines)" />
         <button id="setHousehold">Set</button>
         <button id="signIn" class="primary">Sign in</button>
@@ -1148,6 +1149,10 @@ $('howItWorks').style.display = isShopping ? 'none' : '';
     // Hide the "How it works" card
   const how = $('howItWorks');
   if (how) how.style.display = isShopping ? 'none' : '';
+    // Hide the auth controls (household input + sign in/out)
+  const authControls = $('authControls');
+  if (authControls) authControls.style.display = isShopping ? 'none' : '';
+
 
 
 
