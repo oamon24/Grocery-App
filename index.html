@@ -767,7 +767,7 @@ arr.sort((a,b) => (a.name||'').localeCompare(b.name||''));
 lastSnapshotRecipes = arr;
 renderRecipes(arr);
 
-      renderRecipes(arr);
+      
     }, err => {
       console.error(err);
       alert('Cannot read recipes. Check Firestore rules.');
@@ -786,21 +786,16 @@ renderRecipes(arr);
       }).catch(()=>{});
     }
 
-    function render(items){
-  // Decide which filter to apply
+
+function render(items){
+  // Start from all items
   let filtered = items;
 
   if (activeTab === 'shopping') {
-   if (activeTab === 'shopping') {
-  // Live filter: hide items as soon as they’re checked
-  filtered = items.filter(i => !i.checked);
-} else {
-
-      // Fallback: if somehow no set, show unchecked
-      filtered = items.filter(i => !i.checked);
-    }
+    // Shopping tab: ONLY unchecked items
+    filtered = items.filter(i => !i.checked);
   } else {
-    // Normal behavior from the dropdown
+    // List tab: obey the dropdown filter
     const filterMode = filterModeEl.value;
     if (filterMode === 'unchecked') filtered = items.filter(i => !i.checked);
     else if (filterMode === 'checked') filtered = items.filter(i => !!i.checked);
@@ -814,6 +809,7 @@ renderRecipes(arr);
     }
   }
 
+  // Render by chosen sort mode
   const mode = sortModeEl.value;
   if (mode === 'category') renderGroupedByCategory(filtered);
   else renderFlatByRoute(filtered);
@@ -891,9 +887,18 @@ function renderRecipes(arr){
     row.style.alignItems = 'center';
     row.style.gap = '8px';
 
-    const left = document.createElement('div');
-    left.innerHTML = `<strong>${escapeHtml(r.name||'Untitled')}</strong> 
+   const left = document.createElement('div');
+left.innerHTML = `<strong>${escapeHtml(r.name||'Untitled')}</strong> 
       <span class="muted">(${r.basePortions||1} portions)</span>`;
+
+// optional: steps count hint
+if (typeof r.stepCount === 'number') {
+  const hint = document.createElement('span');
+  hint.className = 'muted';
+  hint.textContent = ` • ${r.stepCount} step${r.stepCount===1?'':'s'}`;
+  left.appendChild(hint);
+}
+
     if (r.tags && r.tags.length){
       const tags = document.createElement('span');
       tags.className = 'muted';
@@ -1013,21 +1018,14 @@ function renderRecipes(arr){
       const cb = document.createElement('input');
       cb.type = 'checkbox';
       cb.checked = !!it.checked;
-      cb.onchange = () => {
-  // When checking an item, also reset its qty to "0"
-  if (cb.checked) {
-    updateItem(it.id, {
-      checked: true,
-      qty: '0',
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
-  } else {
-    updateItem(it.id, {
-      checked: false,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
-  }
+  cb.onchange = () => {
+  updateItem(it.id, {
+    checked: !!cb.checked,
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  });
 };
+
+
 
       left.appendChild(cb);
 
@@ -1438,13 +1436,10 @@ if (recipesView) recipesView.style.display = isRecipes ? '' : 'none';
 
   localStorage.setItem('activeTab', tab);
 
-  // Re-render list when toggling away/back to List
-  if (tab !== 'list') {
-    // No-op for now for recipes; list stays cached
-  } else {
-    render(lastSnapshotItems || []);
-  }
+    // Always re-render so filtering matches the active tab
+  render(lastSnapshotItems || []);
 }
+
 
 // Wire tab buttons
 if (tabListBtn) tabListBtn.onclick = () => setActiveTab('list');
@@ -1663,6 +1658,223 @@ async function loadRecipeIngredients(recipeId){
     addIngredientRow();
   }
 }
+    // ===== Recipe Steps helpers =====
+
+// Create one step row
+function createStepRow(prefill=null){
+  const row = document.createElement('div');
+  row.className = 'step-row';
+
+  row.innerHTML = `
+    <div class="step-num">1</div>
+    <textarea class="step-text" placeholder="Describe this step…"></textarea>
+    <div style="display:flex; gap:6px;">
+      <button class="step-up"   type="button" title="Move up">↑</button>
+      <button class="step-down" type="button" title="Move down">↓</button>
+      <button class="step-del"  type="button" title="Remove">✕</button>
+    </div>
+  `;
+
+  // Prefill
+  if (prefill && prefill.text) {
+    row.querySelector('.step-text').value = prefill.text;
+  }
+
+  // Handlers
+  const up   = row.querySelector('.step-up');
+  const down = row.querySelector('.step-down');
+  const del  = row.querySelector('.step-del');
+
+  up.onclick = () => {
+    const host = $('rmSteps'); if (!host) return;
+    const prev = row.previousElementSibling;
+    if (prev && prev.classList.contains('step-row')) {
+      host.insertBefore(row, prev);
+      renumberStepRows();
+    }
+  };
+  down.onclick = () => {
+    const host = $('rmSteps'); if (!host) return;
+    const next = row.nextElementSibling;
+    if (next && next.classList.contains('step-row')) {
+      host.insertBefore(next, row);
+      renumberStepRows();
+    }
+  };
+  del.onclick = () => {
+    row.remove();
+    renumberStepRows();
+  };
+
+  // Renumber on input (so empty/filled doesn’t matter; purely cosmetic while editing)
+  row.querySelector('.step-text').addEventListener('input', () => {
+    // no-op for now; kept for future validation hooks
+  });
+
+  return row;
+}
+
+function addStepRow(prefill=null){
+  const host = $('rmSteps'); if (!host) return;
+  const r = createStepRow(prefill);
+  host.appendChild(r);
+  renumberStepRows();
+  const ta = r.querySelector('.step-text'); if (ta) ta.focus();
+}
+
+function renumberStepRows(){
+  const rows = Array.from(document.querySelectorAll('#rmSteps .step-row'));
+  rows.forEach((r, i) => {
+    const badge = r.querySelector('.step-num'); if (badge) badge.textContent = (i+1);
+  });
+}
+    // Basic drag & drop for step rows (pointer events)
+function enableStepDragDrop(){
+  const host = $('rmSteps'); if (!host) return;
+
+  let dragging = null;
+  let placeholder = null;
+  let startY = 0;
+
+  function onPointerMove(e){
+    if (!dragging) return;
+    e.preventDefault();
+    const y = e.clientY;
+    const dy = y - startY;
+    dragging.style.transform = `translateY(${dy}px)`;
+
+    // Find the step-row we're hovering over to place placeholder
+    const rows = Array.from(host.querySelectorAll('.step-row')).filter(r => r !== dragging);
+    const midY = dragging.getBoundingClientRect().top + dragging.offsetHeight/2 + dy;
+
+    let insertBefore = null;
+    for (const r of rows){
+      const rect = r.getBoundingClientRect();
+      if (midY < rect.top + rect.height/2){ insertBefore = r; break; }
+    }
+    if (insertBefore) host.insertBefore(placeholder, insertBefore);
+    else host.appendChild(placeholder);
+  }
+
+  function onPointerUp(){
+    if (!dragging) return;
+    dragging.style.transform = '';
+    dragging.classList.remove('is-pressed');
+    // Insert dragged row at placeholder
+    host.insertBefore(dragging, placeholder);
+    placeholder.remove(); placeholder = null;
+
+    document.removeEventListener('pointermove', onPointerMove);
+    document.removeEventListener('pointerup', onPointerUp);
+    dragging.releasePointerCapture && dragging.releasePointerCapture(dragging._pointerId);
+    dragging = null;
+    renumberStepRows();
+  }
+
+  host.addEventListener('pointerdown', (e) => {
+    const row = e.target.closest('.step-row'); if (!row) return;
+    // Allow grabbing via number badge or left area
+    if (!e.target.closest('.step-num') && !e.target.closest('.step-text')) return;
+    // if text area drag is annoying, change the line above to only .step-num
+
+    dragging = row;
+    dragging._pointerId = e.pointerId;
+    dragging.setPointerCapture && dragging.setPointerCapture(e.pointerId);
+    startY = e.clientY;
+
+    // Placeholder
+    placeholder = document.createElement('div');
+    placeholder.style.height = `${row.offsetHeight}px`;
+    placeholder.style.border = '1px dashed #e5e7eb';
+    placeholder.style.borderRadius = '10px';
+    host.insertBefore(placeholder, row.nextElementSibling);
+
+    dragging.classList.add('is-pressed');
+    document.addEventListener('pointermove', onPointerMove);
+    document.addEventListener('pointerup', onPointerUp);
+  });
+}
+
+
+function readAllSteps(){
+  const rows = Array.from(document.querySelectorAll('#rmSteps .step-row'));
+  const list = [];
+  rows.forEach((r, i) => {
+    const text = (r.querySelector('.step-text')?.value || '').trim();
+    if (text) list.push({ order: i, text, done: false });
+  });
+  return list;
+}
+
+// Load steps (edit mode) ordered by 'order'
+async function loadRecipeSteps(recipeId){
+  try{
+    const host = $('rmSteps'); if (!host) return;
+    host.innerHTML = '';
+    const qs = await db.collection('recipes').doc(household)
+      .collection('recipes').doc(recipeId).collection('steps')
+      .orderBy('order', 'asc').get();
+
+    if (qs.empty){
+      addStepRow(); // start with one blank
+      return;
+    }
+    qs.forEach(d => {
+      const x = d.data() || {};
+      addStepRow({ text: x.text || '' });
+    });
+    renumberStepRows();
+  } catch(e){
+    console.warn('Failed to load steps:', e.message || e);
+    const host = $('rmSteps'); if (host){ host.innerHTML=''; addStepRow(); }
+  }
+}
+// === Hard-delete a recipe (danger!) ===
+// Removes cover file, subcollections (ingredients, steps), then the recipe doc.
+// Exposed as window.hardDeleteRecipe(recipeId) and also via Alt+Click on Delete.
+async function hardDeleteRecipe(recipeId){
+  if (!auth || !auth.currentUser || !household || !recipeId) throw new Error('Not ready');
+
+  // Load recipe meta first (for coverPath)
+  const ref = db.collection('recipes').doc(household).collection('recipes').doc(recipeId);
+  const snap = await ref.get();
+  if (!snap.exists) return;
+
+  const data = snap.data() || {};
+  const who = (auth.currentUser.email || auth.currentUser.uid || 'unknown');
+  console.log('[HardDelete] Starting for', recipeId);
+
+  // 1) Delete cover file if any
+  if (data.coverPath) {
+    try { await storage.ref().child(data.coverPath).delete(); } catch(e){ console.warn('cover delete failed:', e.message||e); }
+  }
+
+  // 2) Delete subcollections
+  const ingCol = ref.collection('ingredients');
+  const stepCol = ref.collection('steps');
+
+  // Helper to batch-delete a small collection
+  async function deleteAll(colRef){
+    const qs = await colRef.get();
+    if (qs.empty) return;
+    const batch = db.batch();
+    qs.forEach(d => batch.delete(d.ref));
+    await batch.commit();
+  }
+
+  await deleteAll(ingCol);
+  await deleteAll(stepCol);
+
+  // 3) Finally delete the recipe doc
+  await ref.delete();
+
+  showToast('Recipe hard-deleted');
+  console.log('[HardDelete] Done for', recipeId, 'by', who);
+}
+
+// Expose for console use
+window.hardDeleteRecipe = hardDeleteRecipe;
+
 
 // ==== Recipes: modal wiring (shell only) ====
     let editingRecipeId = null; // null = add mode, otherwise recipeId
@@ -1694,11 +1906,20 @@ const rmDelete = $('rmDelete');
     // Add-ingredient button (wire once at top-level)
 const rmAddIngBtn = $('rmAddIng');
 if (rmAddIngBtn) rmAddIngBtn.onclick = () => addIngredientRow();
+    // Add-step button
+const rmAddStepBtn = $('rmAddStep');
+if (rmAddStepBtn) rmAddStepBtn.onclick = () => addStepRow();
+
 
 
 function openRecipeModal(mode='add', data=null){
   $('rmTitle').textContent = mode === 'edit' ? 'Edit Recipe' : 'Add Recipe';
   editingRecipeId = (mode === 'edit' && data && data.id) ? data.id : null;
+  // Show Delete only in edit mode
+if (rmDelete) {
+  rmDelete.style.display = editingRecipeId ? '' : 'none';
+}
+
 
   // reset fields
   $('rmName').value = (data && data.name) || '';
@@ -1735,8 +1956,19 @@ if (editingRecipeId) {
 } else {
   addIngredientRow(); // start with one empty row
 }
-// Steps shell (we’ll wire later)
+// Steps
 $('rmSteps').innerHTML = '';
+if (editingRecipeId) {
+  // load existing steps for edit
+  loadRecipeSteps(editingRecipeId);
+  enableStepDragDrop();
+
+} else {
+  addStepRow(); // start with one empty row
+  enableStepDragDrop();
+
+}
+
 
 
   // show modal
@@ -1752,6 +1984,45 @@ function closeRecipeModal(){
 
 if (btnOpenAddRecipe) btnOpenAddRecipe.onclick = () => openRecipeModal('add');
 if (rmClose) rmClose.onclick = closeRecipeModal;
+   // Delete button: soft delete by default; ALT+Click => hard delete
+if (rmDelete) rmDelete.onclick = async (ev) => {
+  if (!auth || !auth.currentUser || !household || !editingRecipeId) return;
+
+  const hard = !!ev.altKey; // hold Alt for hard delete
+  if (!hard) {
+    const ok = confirm('Delete this recipe? It will be hidden from the list (soft delete).');
+    if (!ok) return;
+
+    try {
+      const ref = db.collection('recipes').doc(household)
+        .collection('recipes').doc(editingRecipeId);
+
+      await ref.set({
+        deletedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedBy: (auth.currentUser.email || auth.currentUser.uid || 'unknown')
+      }, { merge: true });
+
+      showToast('Recipe deleted');
+      closeRecipeModal();
+    } catch (e) {
+      console.error(e);
+      alert('Delete failed: ' + (e.message || e));
+    }
+  } else {
+    const ok = confirm('HARD DELETE? This will permanently remove the recipe, its steps and ingredients, and the cover file. This cannot be undone.');
+    if (!ok) return;
+    try {
+      await hardDeleteRecipe(editingRecipeId);
+      closeRecipeModal();
+    } catch (e) {
+      console.error(e);
+      alert('Hard delete failed: ' + (e.message || e));
+    }
+  }
+};
+
+
 if (rmSave) rmSave.onclick = async () => {
   if (!auth || !auth.currentUser || !household) { alert('Sign in and set the household first.'); return; }
   
@@ -1839,9 +2110,43 @@ if (rmSave) rmSave.onclick = async () => {
       });
     });
 
-    await batch.commit();
+      await batch.commit();
+
+    // === Save steps (replace-all strategy) ===
+    try{
+      const stepsCol = db.collection('recipes').doc(household)
+        .collection('recipes').doc(recipeId).collection('steps');
+
+      // delete existing
+      const existingSteps = await stepsCol.get();
+      const sBatch = db.batch();
+      existingSteps.forEach(doc => sBatch.delete(doc.ref));
+
+      // add current rows
+      const steps = readAllSteps(); // [{order, text, done:false}, ...]
+      steps.forEach(s => {
+        const ref = stepsCol.doc();
+        sBatch.set(ref, {
+          order: Number(s.order) || 0,
+          text: s.text || '',
+          done: !!s.done
+        });
+      });
+
+      await sBatch.commit();
+      // also update stepCount in recipe meta
+const stepCount = (steps && steps.length) ? steps.length : 0;
+await db.collection('recipes').doc(household)
+  .collection('recipes').doc(recipeId)
+  .set({ stepCount }, { merge: true });
+
+    } catch(e){
+      console.warn('Failed to save steps:', e.message || e);
+      // We don’t abort the whole save; ingredients/meta are already saved.
+    }
 
     closeRecipeModal();
+
 
   } catch (e) {
     console.error(e);
@@ -2065,6 +2370,7 @@ if (atlAddBtn) atlAddBtn.onclick = async () => {
           // optionally fill size/notes if empty
           size: existing.size || ing.size || '',
           notes: existing.notes || ing.notes || '',
+          checked: false, // force it back onto the Shopping list
           updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         }, { merge: true });
       } else {
