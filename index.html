@@ -1013,7 +1013,22 @@ function renderRecipes(arr){
       const cb = document.createElement('input');
       cb.type = 'checkbox';
       cb.checked = !!it.checked;
-      cb.onchange = () => updateItem(it.id, { checked: cb.checked });
+      cb.onchange = () => {
+  // When checking an item, also reset its qty to "0"
+  if (cb.checked) {
+    updateItem(it.id, {
+      checked: true,
+      qty: '0',
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  } else {
+    updateItem(it.id, {
+      checked: false,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  }
+};
+
       left.appendChild(cb);
 
       /* 2) Title */
@@ -1676,6 +1691,10 @@ const recipeModal = $('recipeModal');
 const rmClose = $('rmClose');
 const rmSave = $('rmSave');
 const rmDelete = $('rmDelete');
+    // Add-ingredient button (wire once at top-level)
+const rmAddIngBtn = $('rmAddIng');
+if (rmAddIngBtn) rmAddIngBtn.onclick = () => addIngredientRow();
+
 
 function openRecipeModal(mode='add', data=null){
   $('rmTitle').textContent = mode === 'edit' ? 'Edit Recipe' : 'Add Recipe';
@@ -1735,9 +1754,7 @@ if (btnOpenAddRecipe) btnOpenAddRecipe.onclick = () => openRecipeModal('add');
 if (rmClose) rmClose.onclick = closeRecipeModal;
 if (rmSave) rmSave.onclick = async () => {
   if (!auth || !auth.currentUser || !household) { alert('Sign in and set the household first.'); return; }
-  // Add-ingredient button in the modal
-const rmAddIngBtn = $('rmAddIng');
-if (rmAddIngBtn) rmAddIngBtn.onclick = () => addIngredientRow();
+  
 
 
   const name = ($('rmName').value || '').trim();
