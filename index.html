@@ -214,10 +214,12 @@
         <h1>🛒 Kaufland Route List</h1>
         <div id="householdTag" class="pill" title="Household code helps you both see the same list.">household: <span id="householdView">—</span></div>
       </div>
-      <div class="group tabs" id="tabs">
+    <div class="group tabs" id="tabs">
   <button id="tabList" class="tab active" type="button">List</button>
   <button id="tabShopping" class="tab" type="button">Shopping</button>
+  <button id="tabRecipes" class="tab" type="button">Recipes</button>
 </div>
+
 
       <div id="authControls" class="group auth">
 
@@ -232,7 +234,8 @@
   <main class="wrap">
     <div id="status" class="status"></div>
 
-    <section class="card">
+    <section id="listSection" class="card">
+
       <div id="addRow" class="row">
 
                 <div style="flex:2; min-width:220px; position:relative;">
@@ -312,6 +315,20 @@
         <div class="muted">Add your first item above.</div>
       </div>
     </section>
+<!-- ==================== Recipes View (shell) ==================== -->
+<section id="recipesView" class="card" style="display:none; margin-top:14px;">
+  <div class="toolbar" style="margin-top:0;">
+    <div class="group">
+      <h2 style="margin:0;">Recipes</h2>
+      <span id="recipesCount" class="pill">0 recipes</span>
+    </div>
+    <div class="group">
+      <input id="recipeSearch" placeholder="Search recipes…" />
+      <button id="btnOpenAddRecipe" class="primary" type="button">Add Recipe</button>
+    </div>
+  </div>
+  <div id="recipeList" class="list" style="margin-top:12px;"></div>
+</section>
 
     <section id="howItWorks" class="card" style="margin-top:14px;">
 
@@ -374,13 +391,15 @@
     const sortModeEl = $('sortMode');
     const filterModeEl = $('filterMode');
     const statusEl = $('status');
-    // Tabs + filter group
+ // Tabs + filter group
 const tabListBtn = $('tabList');
 const tabShoppingBtn = $('tabShopping');
+const tabRecipesBtn = $('tabRecipes');
 const filterGroup = $('filterGroup');
 
 // Tab state
 let activeTab = 'list';
+
 
 
 
@@ -1161,42 +1180,55 @@ line1.append(catdot, nameEl);
 
     sortModeEl.onchange = () => { localStorage.setItem('sortMode', sortModeEl.value); render(lastSnapshotItems); };
     filterModeEl.onchange = () => { localStorage.setItem('filterMode', filterModeEl.value); render(lastSnapshotItems); };
-function setActiveTab(tab){ // 'list' | 'shopping'
+function setActiveTab(tab){ // 'list' | 'shopping' | 'recipes'
   activeTab = tab;
   const isShopping = tab === 'shopping';
+  const isRecipes  = tab === 'recipes';
 
   // Toggle tab highlight
-  if (tabListBtn) tabListBtn.classList.toggle('active', tab === 'list');
-  if (tabShoppingBtn) tabShoppingBtn.classList.toggle('active', tab === 'shopping');
+  if (tabListBtn)     tabListBtn.classList.toggle('active', tab === 'list');
+  if (tabShoppingBtn) tabShoppingBtn.classList.toggle('active', isShopping);
+  if (tabRecipesBtn)  tabRecipesBtn.classList.toggle('active', isRecipes);
 
-  // Hide Filter group in Shopping, show otherwise
-  if (filterGroup) filterGroup.style.display = isShopping ? 'none' : '';
-  const addRow = $('addRow');
-if (addRow) addRow.style.display = isShopping ? 'none' : '';
-const clearBtn = $('clearChecked');
-if (clearBtn) clearBtn.style.display = isShopping ? 'none' : '';
-$('howItWorks').style.display = isShopping ? 'none' : '';
-    // Hide the "How it works" card
+  // Sections
+  const listSection = $('listSection');
+  const recipesView = $('recipesView');
+ // Show the shopping list on both List and Shopping tabs; hide only on Recipes
+if (listSection) listSection.style.display = isRecipes ? 'none' : '';
+if (recipesView) recipesView.style.display = isRecipes ? '' : 'none';
+
+
+  // Show list-only controls on List tab; hide elsewhere
+  const addRow   = $('addRow');
+  const clearBtn = $('clearChecked');
+  if (addRow)   addRow.style.display   = (tab === 'list') ? '' : 'none';
+  if (clearBtn) clearBtn.style.display = (tab === 'list') ? '' : 'none';
+
+  // Hide Filter group outside List
+  if (filterGroup) filterGroup.style.display = (tab === 'list') ? '' : 'none';
+
+  // "How it works" only on List; auth controls visible except Shopping
   const how = $('howItWorks');
-  if (how) how.style.display = isShopping ? 'none' : '';
-    // Hide the auth controls (household input + sign in/out)
+  if (how) how.style.display = (tab === 'list') ? '' : 'none';
+
   const authControls = $('authControls');
   if (authControls) authControls.style.display = isShopping ? 'none' : '';
 
-
-
-
- 
-
   localStorage.setItem('activeTab', tab);
 
-  // Re-render list with the correct mode
-  render(lastSnapshotItems || []);
+  // Re-render list when toggling away/back to List
+  if (tab !== 'list') {
+    // No-op for now for recipes; list stays cached
+  } else {
+    render(lastSnapshotItems || []);
+  }
 }
 
 // Wire tab buttons
 if (tabListBtn) tabListBtn.onclick = () => setActiveTab('list');
 if (tabShoppingBtn) tabShoppingBtn.onclick = () => setActiveTab('shopping');
+if (tabRecipesBtn) tabRecipesBtn.onclick = () => setActiveTab('recipes');
+
 
 // Restore last tab (default to 'list')
 setActiveTab(localStorage.getItem('activeTab') || 'list');
