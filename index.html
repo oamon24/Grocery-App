@@ -758,12 +758,15 @@ async function subscribeRecipes(){
   if (!auth || !auth.currentUser || !household) { renderRecipes([]); return; }
 
   unsubRecipes = db.collection('recipes').doc(household).collection('recipes')
-    .where('deletedAt','==',null)
-    .orderBy('name')
-    .onSnapshot(snap => {
+  .where('deletedAt','==', null)
+  .onSnapshot(snap => {
+
       const arr = [];
-      snap.forEach(d => arr.push({ id: d.id, ...d.data() }));
-      lastSnapshotRecipes = arr;
+snap.forEach(d => arr.push({ id: d.id, ...d.data() }));
+arr.sort((a,b) => (a.name||'').localeCompare(b.name||''));
+lastSnapshotRecipes = arr;
+renderRecipes(arr);
+
       renderRecipes(arr);
     }, err => {
       console.error(err);
@@ -1436,7 +1439,236 @@ if (tabRecipesBtn) tabRecipesBtn.onclick = () => setActiveTab('recipes');
 
 // Restore last tab (default to 'list')
 setActiveTab(localStorage.getItem('activeTab') || 'list');
+    // ==== Recipe ingredient helpers ====
+function nameKey(s){ return (s||'').trim().toLowerCase(); }
+
+// Build one ingredient row object from current DOM row
+function readIngRow(row){
+  return {
+    name: (row.querySelector('.ing-name')?.value || '').trim(),
+    nameKey: nameKey(row.querySelector('.ing-name')?.value || ''),
+    qty: (row.querySelector('.ing-qty')?.value || '').trim(),
+    size: (row.querySelector('.ing-size')?.value || '').trim(),
+   
+    
+    notes: (row.querySelector('.ing-notes')?.value || '').trim()
+  };
+}
+
+// Gather all ingredient rows from the modal
+function readAllIngredients(){
+  const rows = Array.from(document.querySelectorAll('#rmIngList .ing-row'));
+  const list = rows.map(readIngRow).filter(x => x.name); // keep only rows with a name
+  return list;
+}
+
+// Create an ingredient row DOM (with autocomplete for name)
+function createIngRow(prefill=null){
+  const row = document.createElement('div');
+  row.className = 'ing-row';
+  row.style.display = 'grid';
+  row.style.gridTemplateColumns = '1.2fr 0.7fr 0.8fr 1fr 100px 1fr auto';
+  row.style.gap = '8px';
+  row.style.alignItems = 'center';
+
+  row.innerHTML = `
+    <input class="ing-name"  placeholder="Name" />
+    <input class="ing-qty"   placeholder="Qty (recipe)" />
+    <input class="ing-size"  placeholder="Size (kept as text)" />
+  <input class="ing-notes" placeholder="Notes" />
+<span class="ing-updateTag muted" style="display:none;"></span>
+<button class="ing-del" type="button" title="Remove">✕</button>
+`;
+// Ensure no update tag initially
+const tagEl = row.querySelector('.ing-updateTag');
+if (tagEl){ tagEl.style.display='none'; tagEl.innerHTML=''; }
+
+
+
+  // Prefill if provided
+  if (prefill){
+    row.querySelector('.ing-name').value  = prefill.name || '';
+    row.querySelector('.ing-qty').value   = prefill.qty || '';
+    row.querySelector('.ing-size').value  = prefill.size || '';
+   
+    row.querySelector('.ing-notes').value = prefill.notes || '';
+  }
+
+  // Delete row
+  row.querySelector('.ing-del').onclick = () => row.remove();
+
+  // ENTER on the last field adds a new row
+  row.querySelector('.ing-notes').addEventListener('keydown', (e)=>{
+    if (e.key === 'Enter' && !e.isComposing){
+      e.preventDefault();
+      addIngredientRow(); // defined below
+    }
+  });
+
+  // === Inline autocomplete for name (reusing your catalog + lastSnapshotItems) ===
+  const nameInput = row.querySelector('.ing-name');
+  const ac = document.createElement('div');
+  ac.className = 'ac-list';
+  ac.style.position = 'absolute';
+  ac.style.display = 'none';
+  ac.style.zIndex = '70';
+  ac.style.maxHeight = '240px';
+  ac.style.overflow = 'auto';
+  ac.style.left = '0'; ac.style.right = '0';
+  // wrap name input to position ac-list
+  const wrap = document.createElement('div');
+  wrap.style.position = 'relative';
+  nameInput.replaceWith(wrap);
+  wrap.appendChild(nameInput);
+  wrap.appendChild(ac);
+
+  function buildSuggestionMeta(it){
+    const parts = [];
+    if (it.category) parts.push(it.category);
+    if (it.size) parts.push(it.size);
+    if (it.routeOrder !== '' && !isNaN(parseFloat(it.routeOrder))) parts.push('Route ' + it.routeOrder);
+    return parts.join(' • ');
+  }
+
+  function openAC(q){
+    q = (q||'').trim().toLowerCase();
+    if (!q){ ac.style.display='none'; ac.innerHTML=''; return; }
+
+    // source: lastSnapshotItems (live list) + catalogCache
+    const pool = [];
+
+// Live list items (often have richer data incl. notes)
+lastSnapshotItems.forEach(d => pool.push({
+  name: d.name || '',
+  category: d.category || '',
+  size: d.size || '',
+  routeOrder: (d.routeOrder ?? ''),
+  notes: d.notes || ''
+}));
+
+// Catalog fallback (category/route remembered; no notes/size usually)
+catalogCache.forEach((v, k) => {
+  pool.push({
+    name: k, // k is lowercased, but fine for prefilling
+    category: v.category || '',
+    size: '',
+    routeOrder: (v.routeOrder ?? ''),
+    notes: ''
+  });
+});
+
+
+    const seen = new Set();
+    const matches = pool.filter(it => {
+      const n = (it.name||'').toLowerCase();
+      if (seen.has(n)) return false;
+      if (n.includes(q)){ seen.add(n); return true; }
+      return false;
+    }).sort((a,b)=>{
+      const an=(a.name||'').toLowerCase(), bn=(b.name||'').toLowerCase();
+      const as = an.startsWith(q) ? 0 : 1;
+      const bs = bn.startsWith(q) ? 0 : 1;
+      if (as !== bs) return as - bs;
+      return an.localeCompare(bn);
+    }).slice(0,8);
+
+    if (!matches.length){ ac.style.display='none'; ac.innerHTML=''; return; }
+
+ ac.innerHTML = '';
+matches.forEach(it => {
+  const opt = document.createElement('div');
+  opt.className = 'ac-item';
+  opt.innerHTML =
+    '<div class="ac-title">' + escapeHtml(it.name) + '</div>' +
+    '<div class="ac-meta">' + escapeHtml(buildSuggestionMeta(it)) + '</div>';
+
+  // When a suggestion is picked
+  opt.onmousedown = (e) => {
+    e.preventDefault();
+    nameInput.value = it.name;
+
+    const hostRow = wrap.closest('.ing-row') || opt;
+
+    // Prefill size/notes only if empty
+    const sizeEl  = hostRow.querySelector('.ing-size');
+    if (sizeEl && it.size && !sizeEl.value) sizeEl.value = it.size;
+
+    const notesEl = hostRow.querySelector('.ing-notes');
+    if (notesEl && it.notes && !notesEl.value) notesEl.value = it.notes;
+
+    // “Updating: … ×” tag (no backticks)
+    const tag = hostRow.querySelector('.ing-updateTag');
+    if (tag) {
+      tag.innerHTML = 'Updating: <strong>' + escapeHtml(it.name) + '</strong> <button type="button" class="cancelUpdate">×</button>';
+      tag.style.display = 'inline';
+      const cancelBtn = tag.querySelector('.cancelUpdate');
+      cancelBtn.onclick = () => {
+        tag.style.display = 'none';
+        tag.innerHTML = '';
+        nameInput.value = '';
+        nameInput.focus();
+      };
+    }
+
+    ac.style.display = 'none';
+  };
+
+  ac.appendChild(opt);
+});
+ac.style.display = 'block';
+
+  }
+
+  nameInput.addEventListener('input', ()=>openAC(nameInput.value));
+  document.addEventListener('click', (e)=>{
+    if (!ac.contains(e.target) && e.target !== nameInput) ac.style.display='none';
+  });
+
+  return row;
+}
+
+function addIngredientRow(prefill=null){
+  const host = $('rmIngList'); if (!host) return;
+  const r = createIngRow(prefill);
+  host.appendChild(r);
+  r.querySelector('.ing-name').focus();
+}
+
+// Load ingredients into modal when editing
+async function loadRecipeIngredients(recipeId){
+  try{
+    const snap = await db.collection('recipes').doc(household)
+      .collection('recipes').doc(recipeId).collection('ingredients').get();
+    $('rmIngList').innerHTML = '';
+    if (snap.empty){ addIngredientRow(); return; }
+    snap.forEach(doc => addIngredientRow(doc.data()));
+  } catch(e){
+    console.warn('Failed to load ingredients:', e.message || e);
+    $('rmIngList').innerHTML = '';
+    addIngredientRow();
+  }
+}
+
 // ==== Recipes: modal wiring (shell only) ====
+    let editingRecipeId = null; // null = add mode, otherwise recipeId
+
+// Toggle tags on/off inside the modal
+const rmTagsEl = $('rmTags');
+if (rmTagsEl) {
+  rmTagsEl.addEventListener('click', (e) => {
+    const chip = e.target.closest('.tagchip');
+    if (!chip) return;
+    chip.classList.toggle('active');
+  });
+}
+function getActiveTags(){
+  const chips = document.querySelectorAll('#rmTags .tagchip.active');
+  return Array.from(chips).map(el => el.dataset.tag).filter(Boolean);
+}
+function clearActiveTags(){
+  document.querySelectorAll('#rmTags .tagchip.active').forEach(el => el.classList.remove('active'));
+}
+
 const recipesView = $('recipesView');
 const btnOpenAddRecipe = $('btnOpenAddRecipe');
 
@@ -1447,20 +1679,52 @@ const rmDelete = $('rmDelete');
 
 function openRecipeModal(mode='add', data=null){
   $('rmTitle').textContent = mode === 'edit' ? 'Edit Recipe' : 'Add Recipe';
-  // reset fields (we'll fill real data later)
-  $('rmName').value = '';
-  $('rmBasePortions').value = 2;
-  // clear cover preview
-  const p = $('rmCoverPreview'); if (p){ p.src=''; p.style.display='none'; }
-  $('rmCoverName').textContent = '';
-  $('rmCoverRemove').style.display = 'none';
-  // clear lists
-  $('rmIngList').innerHTML = '';
-  $('rmSteps').innerHTML = '';
+  editingRecipeId = (mode === 'edit' && data && data.id) ? data.id : null;
+
+  // reset fields
+  $('rmName').value = (data && data.name) || '';
+  $('rmBasePortions').value = (data && data.basePortions) || 2;
+
+  // tags
+  clearActiveTags();
+  const preset = (data && Array.isArray(data.tags)) ? data.tags : [];
+  preset.forEach(t => {
+    const chip = document.querySelector(`#rmTags .tagchip[data-tag="${t}"]`);
+    if (chip) chip.classList.add('active');
+  });
+
+  // cover preview (actual upload wired later)
+  const p = $('rmCoverPreview'); 
+  if (p){
+    if (data && data.coverUrl){
+      p.src = data.coverUrl; p.style.display='block';
+      $('rmCoverRemove').style.display = '';
+      $('rmCoverName').textContent = '';
+    } else {
+      p.src=''; p.style.display='none';
+      $('rmCoverRemove').style.display = 'none';
+      $('rmCoverName').textContent = '';
+    }
+  }
+
+  // clear lists (ingredients/steps wired later)
+  // Ingredients
+$('rmIngList').innerHTML = '';
+if (editingRecipeId) {
+  // load existing ingredients for edit
+  loadRecipeIngredients(editingRecipeId);
+} else {
+  addIngredientRow(); // start with one empty row
+}
+// Steps shell (we’ll wire later)
+$('rmSteps').innerHTML = '';
+
+
   // show modal
   recipeModal.classList.add('show');
   recipeModal.setAttribute('aria-hidden','false');
   $('rmName').focus();
+
 }
 function closeRecipeModal(){
   recipeModal.classList.remove('show');
@@ -1469,7 +1733,105 @@ function closeRecipeModal(){
 
 if (btnOpenAddRecipe) btnOpenAddRecipe.onclick = () => openRecipeModal('add');
 if (rmClose) rmClose.onclick = closeRecipeModal;
-// rmSave and rmDelete will be wired in later steps
+if (rmSave) rmSave.onclick = async () => {
+  if (!auth || !auth.currentUser || !household) { alert('Sign in and set the household first.'); return; }
+  // Add-ingredient button in the modal
+const rmAddIngBtn = $('rmAddIng');
+if (rmAddIngBtn) rmAddIngBtn.onclick = () => addIngredientRow();
+
+
+  const name = ($('rmName').value || '').trim();
+  const basePortions = Math.max(1, parseInt(($('rmBasePortions').value || '1'), 10));
+  const tags = getActiveTags();
+  if (!name) { alert('Please enter a recipe name.'); $('rmName').focus(); return; }
+
+  const nameLower = name.toLowerCase();
+
+  try {
+    const col = db.collection('recipes').doc(household).collection('recipes');
+
+    // Duplicate-name guard (ignore the same doc if editing)
+    const qs = await col.where('nameLower','==', nameLower).get();
+    const dup = qs.docs.find(d => {
+      const data = d.data() || {};
+      const isDeleted = !!data.deletedAt;
+      const isSame = editingRecipeId && d.id === editingRecipeId;
+      return !isDeleted && !isSame;
+    });
+    if (dup) {
+      alert('A recipe with that name already exists.');
+      return;
+    }
+
+    const now = firebase.firestore.FieldValue.serverTimestamp();
+    const who = (auth.currentUser.email || auth.currentUser.uid || 'unknown');
+
+    if (!editingRecipeId) {
+      // ADD
+      const ref = col.doc();
+      await ref.set({
+        name,
+        nameLower,
+        basePortions,
+        tags,
+        coverUrl: null,
+        coverPath: null,
+        lastUsedServings: basePortions,
+        createdAt: now,
+        createdBy: who,
+        updatedAt: now,
+        updatedBy: who,
+        deletedAt: null
+      });
+      showToast('Recipe created');
+        } else {
+      // UPDATE meta
+      const ref = col.doc(editingRecipeId);
+      await ref.set({
+        name,
+        nameLower,
+        basePortions,
+        tags,
+        updatedAt: now,
+        updatedBy: who
+      }, { merge: true });
+      showToast('Recipe updated');
+    }
+
+    // === Save ingredients (replace-all strategy) ===
+    const recipeId = editingRecipeId ? editingRecipeId : (await db.collection('recipes').doc(household).collection('recipes').where('nameLower','==', nameLower).limit(1).get()).docs[0].id;
+
+    const ingCol = db.collection('recipes').doc(household).collection('recipes').doc(recipeId).collection('ingredients');
+    // delete existing
+    const existing = await ingCol.get();
+    const batch = db.batch();
+    existing.forEach(doc => batch.delete(doc.ref));
+
+    // add current rows
+    const ings = readAllIngredients();
+    ings.forEach(it => {
+      const ref = ingCol.doc();
+      batch.set(ref, {
+        name: it.name,
+        nameKey: it.nameKey,
+        qty: it.qty,           // scaling happens later, not here
+        size: it.size,         // never scaled (your requirement)
+        
+        
+        notes: it.notes
+      });
+    });
+
+    await batch.commit();
+
+    closeRecipeModal();
+
+  } catch (e) {
+    console.error(e);
+    alert('Save failed: ' + (e.message || e));
+  }
+};
+
 
 
 // ==== Add-to-List modal wiring (shell only) ====
