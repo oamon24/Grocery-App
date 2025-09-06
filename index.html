@@ -627,10 +627,6 @@ async function ensureHouseholdDoc() {
 }
 
 
-      const mode = sortModeEl.value;
-      if (mode === 'category') renderGroupedByCategory(filtered);
-      else renderFlatByRoute(filtered);
-    }
 
     function renderFlatByRoute(items){
       const sorted = [...items].sort((a,b)=>{
