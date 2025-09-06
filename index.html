@@ -112,6 +112,15 @@
     padding-top: 8px;
   }
   .qty{ width:100%; }
+    /* Inline qty shown on list rows (non-editing) */
+.qty-inline{
+  width: 74px;
+  padding: 6px 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font: inherit;
+}
+
   .route, .category, .size, .notes { width: 100%; }
 
   @media (max-width: 560px){
@@ -1018,12 +1027,35 @@ if (typeof r.stepCount === 'number') {
       const cb = document.createElement('input');
       cb.type = 'checkbox';
       cb.checked = !!it.checked;
-  cb.onchange = () => {
-  updateItem(it.id, {
-    checked: !!cb.checked,
+ cb.onchange = async () => {
+  const isChecked = !!cb.checked;
+  const patch = {
+    checked: isChecked,
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-  });
+  };
+
+  // If the user checks the box, zero the qty
+  if (isChecked) {
+    patch.qty = '0';
+  }
+
+  try {
+    await updateItem(it.id, patch);
+
+    // reflect local state
+    it.checked = isChecked;
+    if (isChecked) {
+      it.qty = '0';
+      // Update the inline qty input on this row (if present)
+      const qi = row.querySelector('.qty-inline');
+      if (qi) qi.value = '0';
+    }
+  } catch (e) {
+    console.error('Checkbox update failed:', e);
+    showToast('Failed to update item');
+  }
 };
+
 
 
 
@@ -1053,11 +1085,68 @@ if (routeMissing) {
 }
 
 line1.append(catdot, nameEl);
-      const bits = [it.qty || '', it.size || ''].filter(Boolean).join(' • ');
-      if (bits) {
-        const sep = document.createElement('span'); sep.className = 'sep'; sep.textContent = ' • ' + bits;
-        line1.append(sep);
-      }
+     // Inline editable qty + optional size text
+const sep = document.createElement('span');
+sep.className = 'sep';
+sep.textContent = ' • ';
+
+// Qty input
+const qtyInline = document.createElement('input');
+qtyInline.type = 'text';
+qtyInline.inputMode = 'decimal';
+qtyInline.placeholder = 'Qty';
+qtyInline.className = 'qty-inline';
+qtyInline.value = it.qty || '';
+
+// When qty changes: save immediately. If item was checked AND old qty was 0/empty and new qty is positive/non-empty,
+// auto-uncheck so it returns to the Shopping list.
+qtyInline.addEventListener('change', async () => {
+  const newQty = (qtyInline.value || '').trim();
+
+  // helper: treat "", "0", "0.0", "0,0" as zero-ish
+  const asNum = (s) => (typeof parseNum === 'function' ? parseNum(s) : NaN);
+  const wasZeroish = !it.qty || asNum(it.qty) === 0;
+
+  // positive/non-empty if: numeric > 0 OR non-numeric but non-empty string
+  const n = asNum(newQty);
+  const nowPositive = (Number.isFinite(n) && n > 0) || (!Number.isFinite(n) && newQty !== '');
+
+  const shouldUncheck = !!it.checked && wasZeroish && nowPositive;
+
+  try {
+    const patch = {
+      qty: newQty,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    if (shouldUncheck) patch.checked = false;
+
+    await updateItem(it.id, patch);
+
+    // reflect local state
+    it.qty = newQty;
+    if (shouldUncheck) {
+      cb.checked = false;
+      it.checked = false;
+      showToast('Moved back to Shopping');
+    }
+  } catch (e) {
+    console.error('Qty inline update failed:', e);
+    showToast('Failed to update qty');
+  }
+});
+
+
+// Optional size text after qty
+sep.appendChild(qtyInline);
+if (it.size) {
+  const sizeSpan = document.createElement('span');
+  sizeSpan.className = 'muted';
+  sizeSpan.textContent = ' • ' + it.size;
+  sep.appendChild(sizeSpan);
+}
+
+line1.append(sep);
+
 
       /* 3) Actions */
       const actions = document.createElement('div');
