@@ -183,6 +183,36 @@
   .popup h3{ margin:6px 8px 10px; font-size:15px; }
   .popup .choices{ display:grid; gap:8px; }
   .popup .choices button{ width:100%; }
+    /* === Modal primitives (shared) === */
+.modal{ position:fixed; inset:0; background:rgba(0,0,0,.25);
+  display:none; align-items:center; justify-content:center; z-index:60; }
+.modal.show{ display:flex; }
+.modal-card{ width:min(740px,95vw); background:#fff; border:1px solid #eee;
+  border-radius:16px; box-shadow:0 8px 30px rgba(0,0,0,.12); }
+.modal-head{ display:flex; align-items:center; justify-content:space-between;
+  padding:14px 16px; border-bottom:1px solid #eee; }
+.modal-body{ padding:14px 16px; max-height:65vh; overflow:auto; display:grid; gap:10px; }
+.modal-foot{ padding:12px 16px; border-top:1px solid #eee; display:flex; gap:8px; }
+
+.input-row{ display:grid; gap:8px; grid-template-columns: 1fr 160px; }
+@media (max-width:560px){ .input-row{ grid-template-columns: 1fr; } }
+
+.tag-row{ display:flex; flex-wrap:wrap; gap:8px; }
+.tagchip{ padding:6px 10px; border:1px solid #e5e7eb; border-radius:999px; cursor:pointer; user-select:none; }
+.tagchip.active{ background:#111; color:#fff; border-color:#111; }
+
+.preset-row{ display:flex; gap:8px; flex-wrap:wrap; }
+.preset{ padding:6px 10px; border:1px solid #e5e7eb; border-radius:999px; cursor:pointer; }
+.preset.active{ background:#111; color:#fff; border-color:#111; }
+
+.checklist{ display:grid; gap:8px; }
+.checkrow{ display:grid; grid-template-columns: 24px 1fr auto; align-items:center; gap:10px;
+  border:1px solid #eee; border-radius:12px; padding:8px 10px; background:#fff; }
+
+.step-row{ display:grid; grid-template-columns: auto 1fr auto; gap:8px; align-items:start; }
+.step-num{ min-width:36px; height:36px; display:grid; place-items:center; border-radius:10px; background:#f5f6fa; border:1px solid #e7e7ef; font-weight:700; }
+.step-text{ width:100%; min-height:48px; border:1px solid #e5e7eb; border-radius:10px; padding:8px 10px; }
+
   </style>
 
   <!-- Firebase SDKs from CDN -->
@@ -354,6 +384,104 @@
       </div>
     </div>
   </div>
+<!-- ==================== Recipe Editor Modal (shell) ==================== -->
+<div id="recipeModal" class="modal" aria-hidden="true">
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="rmTitle">
+    <div class="modal-head">
+      <h3 id="rmTitle" style="margin:0;">Add Recipe</h3>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <button id="rmDelete" class="danger" type="button" style="display:none">Delete</button>
+        <button id="rmClose"  type="button">✕</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <!-- Meta -->
+      <label>
+        <div>Name</div>
+        <input id="rmName" placeholder="e.g., Chicken Tikka" />
+      </label>
+      <div class="input-row">
+        <label>
+          <div>Base portions</div>
+          <input id="rmBasePortions" type="number" min="1" value="2" />
+        </label>
+        <div>
+          <div>Tags</div>
+          <div id="rmTags" class="tag-row">
+            <span class="tagchip" data-tag="vegan">vegan</span>
+            <span class="tagchip" data-tag="quick">quick</span>
+            <span class="tagchip" data-tag="dessert">dessert</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cover photo -->
+      <div>
+        <div>Cover photo</div>
+        <div class="row" style="gap:8px; align-items:center;">
+          <button id="rmCoverBtn" type="button">Add/Change cover</button>
+          <span id="rmCoverName" class="muted"></span>
+          <img id="rmCoverPreview" class="thumb" style="display:none" alt="Cover preview">
+          <button id="rmCoverRemove" type="button" style="display:none">Remove</button>
+        </div>
+      </div>
+
+      <!-- Ingredients (just a placeholder list for now; full editor later) -->
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <strong>Ingredients</strong>
+        <button id="rmAddIng" type="button">Add Ingredient</button>
+      </div>
+      <div id="rmIngList" class="checklist"></div>
+
+      <!-- Steps (builder shell; full logic later) -->
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <strong>Steps</strong>
+        <button id="rmAddStep" type="button">Add Step</button>
+      </div>
+      <div id="rmSteps" class="checklist"></div>
+    </div>
+    <div class="modal-foot">
+      <div style="flex:1"></div>
+      <button id="rmSave" class="primary" type="button">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== Add Recipe to List Modal (shell) ==================== -->
+<div id="addToListModal" class="modal" aria-hidden="true">
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="atlTitle">
+    <div class="modal-head">
+      <h3 id="atlTitle" style="margin:0;">Add Recipe to List</h3>
+      <button id="atlClose" type="button">✕</button>
+    </div>
+    <div class="modal-body">
+      <div>
+        <div>Portions</div>
+        <div class="row" style="gap:8px; align-items:center;">
+          <button id="atlDec" type="button">–</button>
+          <input id="atlServings" type="number" min="1" value="2" style="width:90px; text-align:center;">
+          <button id="atlInc" type="button">+</button>
+        </div>
+        <div class="preset-row" style="margin-top:8px;">
+          <button class="preset" data-x="1">1×</button>
+          <button class="preset" data-x="1.5">1.5×</button>
+          <button class="preset" data-x="2">2×</button>
+        </div>
+      </div>
+
+      <label style="margin-top:8px;">
+        <input type="checkbox" id="atlSelectAll" checked> Select/Deselect all
+      </label>
+
+      <div id="atlList" class="checklist"></div>
+    </div>
+    <div class="modal-foot">
+      <div style="flex:1"></div>
+      <button id="atlAdd" class="primary" type="button">Add to Shopping List</button>
+    </div>
+  </div>
+</div>
+
 
   <script>
     // Register service worker for PWA installability
@@ -413,6 +541,9 @@ let activeTab = 'list';
     let lastSnapshotItems = [];
     let catalogCache = new Map();
     let lastAddedId = null;
+let unsubRecipes = null;
+let lastSnapshotRecipes = [];
+
 
     // New-item pending photo
     let newItemPhotoFile = null;
@@ -584,7 +715,10 @@ let activeTab = 'list';
       user = u;
       $('signIn').style.display = u ? 'none' : 'inline-block';
       $('signOut').style.display = u ? 'inline-block' : 'none';
-      subscribeList(); warmCatalog(); updateStatus();
+      subscribeList(); 
+  subscribeRecipes(); 
+  warmCatalog(); 
+  updateStatus();
     });
 // === ensure parent /lists/{household} exists and is owned by current user ===
 // Ensure /lists/{household} exists and add current user to members
@@ -618,6 +752,23 @@ async function ensureHouseholdDoc() {
     lastSnapshotItems = items;
     render(items);
   }, err => { console.error(err); alert('Cannot read list. Check Firestore rules and that Firestore is enabled.'); });
+}
+async function subscribeRecipes(){
+  if (unsubRecipes) { unsubRecipes(); unsubRecipes = null; }
+  if (!auth || !auth.currentUser || !household) { renderRecipes([]); return; }
+
+  unsubRecipes = db.collection('recipes').doc(household).collection('recipes')
+    .where('deletedAt','==',null)
+    .orderBy('name')
+    .onSnapshot(snap => {
+      const arr = [];
+      snap.forEach(d => arr.push({ id: d.id, ...d.data() }));
+      lastSnapshotRecipes = arr;
+      renderRecipes(arr);
+    }, err => {
+      console.error(err);
+      alert('Cannot read recipes. Check Firestore rules.');
+    });
 }
 
 
@@ -713,6 +864,59 @@ async function ensureHouseholdDoc() {
         listEl.appendChild(box);
       }
     }
+function renderRecipes(arr){
+  const list = $('recipeList');
+  const count = $('recipesCount');
+  if (!list || !count) return;
+  list.innerHTML = '';
+
+  count.textContent = `${arr.length} recipe${arr.length===1?'':'s'}`;
+
+  if (!arr.length){
+    const empty = document.createElement('div');
+    empty.className = 'muted';
+    empty.textContent = 'No recipes yet. Click "Add Recipe".';
+    list.appendChild(empty);
+    return;
+  }
+
+  for (const r of arr){
+    const row = document.createElement('div');
+    row.className = 'recipeRow';
+    row.style.display = 'flex';
+    row.style.justifyContent = 'space-between';
+    row.style.alignItems = 'center';
+    row.style.gap = '8px';
+
+    const left = document.createElement('div');
+    left.innerHTML = `<strong>${escapeHtml(r.name||'Untitled')}</strong> 
+      <span class="muted">(${r.basePortions||1} portions)</span>`;
+    if (r.tags && r.tags.length){
+      const tags = document.createElement('span');
+      tags.className = 'muted';
+      tags.textContent = ' ' + r.tags.join(', ');
+      left.appendChild(tags);
+    }
+
+    const right = document.createElement('div');
+    right.style.display = 'flex';
+    right.style.gap = '6px';
+
+    const editBtn = document.createElement('button');
+    editBtn.textContent = 'Edit';
+    editBtn.onclick = () => openRecipeModal('edit', r);
+
+    const addBtn = document.createElement('button');
+    addBtn.textContent = 'Add to List';
+    addBtn.onclick = () => openAddToListModal(r);
+
+    right.append(editBtn, addBtn);
+
+    row.append(left, right);
+    list.appendChild(row);
+  }
+}
+
 
     // ==== PHOTO: shared popup + global inputs ====
     const fileChooser = $('fileChooser');
@@ -1232,6 +1436,62 @@ if (tabRecipesBtn) tabRecipesBtn.onclick = () => setActiveTab('recipes');
 
 // Restore last tab (default to 'list')
 setActiveTab(localStorage.getItem('activeTab') || 'list');
+// ==== Recipes: modal wiring (shell only) ====
+const recipesView = $('recipesView');
+const btnOpenAddRecipe = $('btnOpenAddRecipe');
+
+const recipeModal = $('recipeModal');
+const rmClose = $('rmClose');
+const rmSave = $('rmSave');
+const rmDelete = $('rmDelete');
+
+function openRecipeModal(mode='add', data=null){
+  $('rmTitle').textContent = mode === 'edit' ? 'Edit Recipe' : 'Add Recipe';
+  // reset fields (we'll fill real data later)
+  $('rmName').value = '';
+  $('rmBasePortions').value = 2;
+  // clear cover preview
+  const p = $('rmCoverPreview'); if (p){ p.src=''; p.style.display='none'; }
+  $('rmCoverName').textContent = '';
+  $('rmCoverRemove').style.display = 'none';
+  // clear lists
+  $('rmIngList').innerHTML = '';
+  $('rmSteps').innerHTML = '';
+  // show modal
+  recipeModal.classList.add('show');
+  recipeModal.setAttribute('aria-hidden','false');
+  $('rmName').focus();
+}
+function closeRecipeModal(){
+  recipeModal.classList.remove('show');
+  recipeModal.setAttribute('aria-hidden','true');
+}
+
+if (btnOpenAddRecipe) btnOpenAddRecipe.onclick = () => openRecipeModal('add');
+if (rmClose) rmClose.onclick = closeRecipeModal;
+// rmSave and rmDelete will be wired in later steps
+
+
+// ==== Add-to-List modal wiring (shell only) ====
+const addToListModal = $('addToListModal');
+const atlClose = $('atlClose');
+
+function openAddToListModal(){
+  // reset to base values
+  $('atlServings').value = 2;
+  $('atlSelectAll').checked = true;
+  $('atlList').innerHTML = ''; // will be populated in later step
+  addToListModal.classList.add('show');
+  addToListModal.setAttribute('aria-hidden','false');
+  $('atlServings').focus();
+}
+function closeAddToListModal(){
+  addToListModal.classList.remove('show');
+  addToListModal.setAttribute('aria-hidden','true');
+}
+
+if (atlClose) atlClose.onclick = closeAddToListModal;
+// 'atlAdd' will be wired later, along with quick-add buttons
 
     updateStatus();
   </script>
