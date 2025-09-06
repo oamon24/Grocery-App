@@ -381,7 +381,7 @@ const filterGroup = $('filterGroup');
 
 // Tab state
 let activeTab = 'list';
-let shoppingStickyIds = null; // IDs frozen when entering Shopping
+
 
 
     // Preferences
@@ -511,14 +511,23 @@ let shoppingStickyIds = null; // IDs frozen when entering Shopping
     }
 
     function updateStatus(){
-      const bits = [];
-      if (!auth || !db) bits.push('<span class="bad">SDK not loaded</span>');
-      bits.push(auth && auth.currentUser ? '<span class="ok">Signed in</span>' : 'Not signed in');
-      bits.push('household: <strong>' + (household || '—') + '</strong>');
-      statusEl.innerHTML = bits.join(' • ');
-      const ready = !!auth && !!db && !!auth.currentUser && !!household;
-      setControlsEnabled(ready);
-    }
+  // Clear safely
+  statusEl.textContent = '';
+  const add = (txt) => {
+    const s = document.createElement('span');
+    s.innerText = txt;
+    if (statusEl.childNodes.length) statusEl.append(' • ');
+    statusEl.append(s);
+  };
+
+  if (!auth || !db) add('SDK not loaded');
+  add(auth && auth.currentUser ? 'Signed in' : 'Not signed in');
+  add('household: ' + (household || '—'));
+
+  const ready = !!auth && !!db && !!auth.currentUser && !!household;
+  setControlsEnabled(ready);
+}
+
 
    $('setHousehold').onclick = async () => {
   household = $('household').value.trim();
@@ -559,20 +568,27 @@ let shoppingStickyIds = null; // IDs frozen when entering Shopping
       subscribeList(); warmCatalog(); updateStatus();
     });
 // === ensure parent /lists/{household} exists and is owned by current user ===
+// Ensure /lists/{household} exists and add current user to members
 async function ensureHouseholdDoc() {
   if (!auth || !auth.currentUser || !household) return;
+
   try {
-    await db.collection('lists').doc(household).set(
-      {
-        owner: auth.currentUser.uid,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      },
-      { merge: true }
-    );
+    const uid = auth.currentUser.uid;
+
+    // Data structure: members is a map of uid:true
+    const data = {
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      members: {}
+    };
+    data.members[uid] = true;
+
+    // Merge so it adds the user without overwriting existing members
+    await db.collection('lists').doc(household).set(data, { merge: true });
   } catch (e) {
     console.error('ensureHouseholdDoc failed', e);
   }
 }
+
 
    async function subscribeList(){
   if (unsubList) { unsubList(); unsubList = null; }
@@ -602,10 +618,11 @@ async function ensureHouseholdDoc() {
   let filtered = items;
 
   if (activeTab === 'shopping') {
-    // Freeze the set of IDs captured when we entered Shopping
-    if (shoppingStickyIds && shoppingStickyIds.size > 0) {
-      filtered = items.filter(i => shoppingStickyIds.has(i.id));
-    } else {
+   if (activeTab === 'shopping') {
+  // Live filter: hide items as soon as they’re checked
+  filtered = items.filter(i => !i.checked);
+} else {
+
       // Fallback: if somehow no set, show unchecked
       filtered = items.filter(i => !i.checked);
     }
@@ -851,6 +868,8 @@ line1.append(catdot, nameEl);
                 mountThumb(url);
                 below.classList.remove('hidden');
                 showToast('Photo updated');
+                removePhotoBtn.disabled = false;
+
               } catch(e){ alert('Upload failed: ' + (e.message || e)); }
             }
           });
@@ -918,6 +937,8 @@ line1.append(catdot, nameEl);
               mountThumb(url);
               below.classList.remove('hidden');
               showToast('Photo updated');
+              removePhotoBtn.disabled = false;
+
             } catch(e){ alert('Upload failed: ' + (e.message || e)); }
           }
         });
@@ -985,15 +1006,24 @@ line1.append(catdot, nameEl);
       await db.collection('lists').doc(household).collection('items').doc(id).delete();
     }
 
-    $('clearChecked').onclick = async () => {
-      if (!auth || !auth.currentUser || !household) return alert('Sign in and set household first.');
-      const qs = await db.collection('lists').doc(household).collection('items').where('checked','==',true).get();
-      const batch = db.batch(); qs.forEach(doc => {
-        const d = doc.data(); if (d.photoPath) { try { storage.ref().child(d.photoPath).delete(); } catch(e){} }
-        batch.delete(doc.ref);
-      });
-      await batch.commit();
-    };
+  $('clearChecked').onclick = async () => {
+  if (!auth || !auth.currentUser || !household) return alert('Sign in and set household first.');
+
+  // Uncheck all checked items; do NOT delete docs or photos.
+  const qs = await db.collection('lists').doc(household).collection('items')
+    .where('checked','==',true).get();
+
+  if (qs.empty) { showToast('Nothing to clear'); return; }
+
+  const batch = db.batch();
+  qs.forEach(doc => {
+    batch.set(doc.ref, { checked: false, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+  });
+
+  await batch.commit();
+  showToast('Unchecked all items');
+};
+
 
     // === Add new item ===
     $('newItemAddPhoto').onclick = () => {
@@ -1156,15 +1186,7 @@ $('howItWorks').style.display = isShopping ? 'none' : '';
 
 
 
-  // Capture the current set of unchecked item IDs when entering Shopping
-  if (isShopping) {
-    shoppingStickyIds = new Set(
-      (lastSnapshotItems || []).filter(i => !i.checked).map(i => i.id)
-    );
-  } else {
-    // Leaving Shopping clears the sticky set
-    shoppingStickyIds = null;
-  }
+ 
 
   localStorage.setItem('activeTab', tab);
 
