@@ -1834,28 +1834,259 @@ if (rmAddIngBtn) rmAddIngBtn.onclick = () => addIngredientRow();
 
 
 
-// ==== Add-to-List modal wiring (shell only) ====
+// ==== Add-to-List modal wiring (full) ====
 const addToListModal = $('addToListModal');
-const atlClose = $('atlClose');
+const atlClose       = $('atlClose');
+const atlListEl      = $('atlList');
+const atlServingsEl  = $('atlServings');
+const atlInc         = $('atlInc');
+const atlDec         = $('atlDec');
+const atlPresets     = document.querySelectorAll('.preset-row .preset');
+const atlSelectAll   = $('atlSelectAll');
+const atlAddBtn      = $('atlAdd');
 
-function openAddToListModal(){
-  // reset to base values
-  $('atlServings').value = 2;
-  $('atlSelectAll').checked = true;
-  $('atlList').innerHTML = ''; // will be populated in later step
+let atlRecipe = null;          // recipe meta being added
+let atlBasePortions = 2;       // base portions (from recipe)
+let atlIngredients = [];       // [{name, nameKey, qty, size, notes}, ...]
+let atlServings = 2;           // current servings in the modal
+
+// --- Qty helpers (numbers only; keep text if not a number)
+function parseNum(s){
+  const n = parseFloat((s||'').toString().trim().replace(',', '.'));
+  return Number.isFinite(n) ? n : null;
+}
+function fmtNum(n){
+  // 2 decimals max, strip trailing zeros
+  const s = (Math.round(n*100)/100).toString();
+  return /.\d$/.test(s) ? s : Number(s).toString();
+}
+function scaleQtyStr(qtyStr, factor){
+  const n = parseNum(qtyStr);
+  if (n === null) return qtyStr || '';
+  return fmtNum(n * factor);
+}
+function addQtyStr(aStr, bStr){
+  const a = parseNum(aStr), b = parseNum(bStr);
+  if (a === null || b === null){
+    // fallback: prefer non-empty, otherwise concatenate
+    if (!aStr) return bStr;
+    if (!bStr) return aStr;
+    return aStr + ' + ' + bStr;
+  }
+  return fmtNum(a + b);
+}
+
+// Find existing list item (case-insensitive name match)
+function findExistingItem(nameKey){
+  const key = (nameKey||'').trim().toLowerCase();
+  return lastSnapshotItems.find(it => (it.name||'').trim().toLowerCase() === key) || null;
+}
+
+// Build the checklist rows for current servings
+function renderAtlList(){
+  if (!atlListEl) return;
+  atlListEl.innerHTML = '';
+
+  const factor = Math.max(1, atlServings) / Math.max(1, atlBasePortions);
+
+  for (const ing of atlIngredients){
+    const scaledQty = scaleQtyStr(ing.qty || '', factor);
+    const existing  = findExistingItem(ing.nameKey || ing.name);
+    const haveTxt   = existing && (existing.qty || existing.size) 
+      ? (existing.qty || '') 
+      : '';
+
+    const row = document.createElement('div');
+    row.className = 'checkrow';
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = true;
+
+    const label = document.createElement('div');
+    const main = document.createElement('div');
+    main.innerHTML = '<strong>'+escapeHtml(ing.name)+'</strong>' +
+      (ing.size ? ' <span class="muted">• '+escapeHtml(ing.size)+'</span>' : '');
+    const sub  = document.createElement('div');
+    sub.className = 'muted';
+    sub.textContent = 'Qty: ' + (scaledQty || '—');
+    if (haveTxt){
+      const hint = document.createElement('span');
+      hint.className = 'muted';
+      hint.textContent = '  (have ' + haveTxt + ' already)';
+      sub.appendChild(hint);
+    }
+    label.append(main, sub);
+
+    row.append(cb, label, document.createElement('div'));
+    // store refs on DOM for readback
+    row._ing = ing;
+    row._cb  = cb;
+    row._scaledQty = scaledQty;
+
+    atlListEl.appendChild(row);
+  }
+}
+
+// Open modal for a recipe
+async function openAddToListModal(recipe){
+  atlRecipe = recipe || null;
+  atlBasePortions = (recipe && recipe.basePortions) ? Number(recipe.basePortions) : 2;
+  atlServings = recipe && recipe.lastUsedServings ? Number(recipe.lastUsedServings) : atlBasePortions;
+
+  // Load ingredients from the recipe subcollection fresh (authoritative)
+  atlIngredients = [];
+  try{
+    const qs = await db.collection('recipes').doc(household)
+      .collection('recipes').doc(recipe.id).collection('ingredients').get();
+    qs.forEach(d => {
+      const x = d.data() || {};
+      atlIngredients.push({
+        name: x.name || '',
+        nameKey: (x.nameKey || (x.name||'')).toLowerCase(),
+        qty: x.qty || '',
+        size: x.size || '',
+        notes: x.notes || ''
+      });
+    });
+  } catch(e){
+    console.warn('Failed to load recipe ingredients:', e.message||e);
+  }
+
+  // Reset UI
+  atlServingsEl.value = atlServings;
+  if (atlSelectAll) atlSelectAll.checked = true;
+  renderAtlList();
+
   addToListModal.classList.add('show');
   addToListModal.setAttribute('aria-hidden','false');
-  $('atlServings').focus();
+  atlServingsEl.focus();
 }
+
 function closeAddToListModal(){
   addToListModal.classList.remove('show');
   addToListModal.setAttribute('aria-hidden','true');
 }
 
+// wire close
 if (atlClose) atlClose.onclick = closeAddToListModal;
-// 'atlAdd' will be wired later, along with quick-add buttons
 
-    updateStatus();
+// servings +/- buttons
+if (atlInc) atlInc.onclick = () => {
+  atlServings = Math.max(1, Number(atlServingsEl.value||atlServings) + 1);
+  atlServingsEl.value = atlServings;
+  renderAtlList();
+};
+if (atlDec) atlDec.onclick = () => {
+  atlServings = Math.max(1, Number(atlServingsEl.value||atlServings) - 1);
+  atlServingsEl.value = atlServings;
+  renderAtlList();
+};
+
+// presets (1×, 1.5×, 2× relative to base portions)
+atlPresets.forEach(btn=>{
+  btn.onclick = () => {
+    const mult = parseFloat(btn.dataset.x);
+    if (!Number.isFinite(mult)) return;
+    atlServings = Math.max(1, Math.round(atlBasePortions * mult));
+    atlServingsEl.value = atlServings;
+    renderAtlList();
+    // simple visual state
+    atlPresets.forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+  };
+});
+
+// keyboard ↑/↓ in servings
+if (atlServingsEl){
+  atlServingsEl.addEventListener('keydown', (e)=>{
+    if (e.key === 'ArrowUp'){ e.preventDefault(); atlInc.click(); }
+    if (e.key === 'ArrowDown'){ e.preventDefault(); atlDec.click(); }
+  });
+  atlServingsEl.addEventListener('change', ()=>{
+    const v = parseInt(atlServingsEl.value||atlServings, 10);
+    atlServings = Number.isFinite(v) && v>0 ? v : atlServings;
+    atlServingsEl.value = atlServings;
+    renderAtlList();
+  });
+}
+
+// select/deselect all
+if (atlSelectAll){
+  atlSelectAll.onchange = () => {
+    document.querySelectorAll('#atlList .checkrow input[type="checkbox"]').forEach(cb=>{
+      cb.checked = atlSelectAll.checked;
+    });
+  };
+}
+
+// Commit: add selected ingredients (merged) to shopping list
+if (atlAddBtn) atlAddBtn.onclick = async () => {
+  if (!auth || !auth.currentUser || !household) { alert('Sign in and set the household first.'); return; }
+  try{
+    const factor = Math.max(1, atlServings) / Math.max(1, atlBasePortions);
+
+    const rows = Array.from(document.querySelectorAll('#atlList .checkrow'));
+    const chosen = rows.filter(r => r._cb && r._cb.checked);
+
+    if (!chosen.length){ showToast('Nothing selected'); return; }
+
+    const batch = db.batch();
+
+    for (const row of chosen){
+      const ing = row._ing;
+      const scaledQty = scaleQtyStr(ing.qty || '', factor);
+
+      // Find existing list item
+      const existing = findExistingItem(ing.nameKey || ing.name);
+      if (existing){
+        // merge qty
+        const newQty = addQtyStr(existing.qty || '', scaledQty);
+        const ref = db.collection('lists').doc(household).collection('items').doc(existing.id);
+        batch.set(ref, {
+          qty: newQty,
+          // optionally fill size/notes if empty
+          size: existing.size || ing.size || '',
+          notes: existing.notes || ing.notes || '',
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+      } else {
+        // new item; pull category/route from catalogCache if available
+        const catKnown = catalogCache.get((ing.name||'').toLowerCase()) || {};
+        const ref = db.collection('lists').doc(household).collection('items').doc();
+        batch.set(ref, {
+          name: ing.name,
+          qty: scaledQty,
+          size: ing.size || '',
+          notes: ing.notes || '',
+          category: catKnown.category || '',
+          routeOrder: (catKnown.routeOrder === 0 || catKnown.routeOrder) ? catKnown.routeOrder : '',
+          checked: false,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      }
+    }
+
+    // Update recipe lastUsedServings
+    if (atlRecipe && atlRecipe.id){
+      const rref = db.collection('recipes').doc(household).collection('recipes').doc(atlRecipe.id);
+      batch.set(rref, {
+        lastUsedServings: atlServings,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedBy: (auth.currentUser.email || auth.currentUser.uid || 'unknown')
+      }, { merge: true });
+    }
+
+    await batch.commit();
+    showToast('Added to shopping list');
+    closeAddToListModal();
+  } catch(e){
+    console.error(e);
+    alert('Add failed: ' + (e.message || e));
+  }
+};
+
   </script>
 
   <script>
