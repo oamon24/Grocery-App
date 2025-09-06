@@ -5,26 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Kaufland Route List</title>
   <style>
-    
-    /* Recipe list rows */
-.recipeRow{
-  display:flex; align-items:center; justify-content:space-between;
-  gap:10px; padding:10px 12px;
-  border:1px solid #eee; border-radius:12px; background:#fff;
-  box-shadow: var(--shadow);
-}
-.recipeRow .title{ font-weight:700; }
-.recipeRow .meta{ color:#5b5b66; font-size:13px; }
-
-  /* Tabs */
-.tabs{ display:flex; gap:8px; align-items:center; }
-.tab{
-  padding:8px 12px; border-radius:999px; border:1px solid #e5e7eb;
-  background:#fff; cursor:pointer; box-shadow: var(--shadow);
-  font-weight:600;
-}
-.tab.active{ background:#111; color:#fff; border-color:#111; }
-
   :root { --radius: 16px; --pad: 14px; --shadow: 0 8px 30px rgba(0,0,0,.06);} 
   * { box-sizing: border-box; }
   body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji'; margin: 0; background: #f7f7fb; color: #111; }
@@ -203,16 +183,6 @@
   .popup h3{ margin:6px 8px 10px; font-size:15px; }
   .popup .choices{ display:grid; gap:8px; }
   .popup .choices button{ width:100%; }
-    .tabbtn{
-  border-radius: 999px;
-  padding: 8px 14px;
-  border: 1px solid #e7e7ef;
-  background: #fff;
-}
-.tabbtn.active{
-  background:#111; color:#fff; border-color:#111;
-}
-
   </style>
 
   <!-- Firebase SDKs from CDN -->
@@ -244,13 +214,10 @@
         <h1>🛒 Kaufland Route List</h1>
         <div id="householdTag" class="pill" title="Household code helps you both see the same list.">household: <span id="householdView">—</span></div>
       </div>
-  <div class="group tabs" id="tabs">
+      <div class="group tabs" id="tabs">
   <button id="tabList" class="tab active" type="button">List</button>
   <button id="tabShopping" class="tab" type="button">Shopping</button>
-  <button id="tabRecipes" class="tab" type="button">Recipes</button>
 </div>
-
-
 
       <div class="group auth">
         <input id="household" placeholder="Household code (e.g., kino-ines)" />
@@ -262,14 +229,9 @@
   </header>
 
   <main class="wrap">
-    <div id="listPage">
-
     <div id="status" class="status"></div>
-<div id="view-list">
 
     <section class="card">
-
-
       <div class="row">
                 <div style="flex:2; min-width:220px; position:relative;">
 
@@ -329,9 +291,10 @@
           </select>
           <button id="clearChecked">Clear checked</button>
         </div>
-        <div class="group">
-          <label>Filter</label>
-          <select id="filterMode">
+        <div class="group" id="filterGroup">
+  <label>Filter</label>
+  <select id="filterMode">
+
             <option value="all">All</option>
             <option value="unchecked">Only unchecked</option>
             <option value="checked">Only checked</option>
@@ -352,131 +315,6 @@
       <strong>How it works</strong>
       <p>Use this app to keep a shared grocery list in sync. Make sure you are <em>signed in</em> and your <em>household code</em> matches. Add items, set their category/route once. Optionally attach a photo for brand/label. Tap a thumbnail to view it large.</p>
     </section>
-  </div> <!-- /#view-list -->
-
-<div id="view-recipes" style="display:none">
-   <section class="card">
-    <div class="toolbar">
-      <div class="group">
-        <strong>Recipes</strong>
-        <span id="recipesCount" class="muted"></span>
-      </div>
-      <div class="group">
-        <button id="btnNewRecipe" class="primary" type="button">New recipe</button>
-      </div>
-    </div>
-
-    <div id="recipesList" class="list" style="margin-top:12px;"></div>
-    <div id="recipesEmpty" class="empty" style="display:none">
-      <div class="headline">No recipes yet</div>
-      <div class="muted">Click “New recipe” to create one.</div>
-    </div>
-  </section>
-
-</div>
-</div>
-
-<section id="recipeDetailPage" class="card" style="display:none">
-  <div class="toolbar" style="align-items:center">
-    <div class="group">
-      <button id="rdBack" type="button">← Back</button>
-      <strong id="rdTitle">Recipe</strong>
-      <span class="muted" id="rdSubtitle"></span>
-    </div>
-    <div class="group">
-      <label>Base portions</label>
-      <input id="rdBasePortions" type="number" min="1" step="1" value="2" style="width:90px"/>
-      <button id="rdSaveBase" type="button">Save base</button>
-    </div>
-    <div class="group">
-      <label>Portions</label>
-      <input id="rdServings" type="number" min="1" step="1" value="2" style="width:90px"/>
-      <button id="rdReset"      type="button">Reset to base</button>
-      <button id="rdSaveScaled" class="primary" type="button">Save scaled</button>
-      <button id="rdAddNeeded"  type="button">Add missing to List</button>
-      <button id="rdAddAll"     type="button">Add all to List</button>
-    </div>
-  </div>
-
-
-  <!-- Add ingredient (same layout vibe as main page, but scoped to recipes) -->
-  <div class="row" style="margin-top:8px">
-    <div style="flex:2; min-width:220px; position:relative;">
-      <label>Ingredient</label>
-      <input id="rItemName" type="text" placeholder="e.g., Milch, Bananen" />
-      <div id="rAutoList" class="ac-list" role="listbox" aria-label="Suggestions" style="display:none"></div>
-      <div id="rUpdateTag" class="updateTag" style="display:none"></div>
-          <div style="min-width:220px;">
-      <label>Photo</label>
-      <div class="row" style="gap:8px; align-items:center;">
-        <button id="rAddPhoto" type="button">Add photo</button>
-        <span id="rPhotoName" class="muted"></span>
-        <img id="rPhotoPreview" class="thumb" style="display:none" alt="Preview">
-      </div>
-    </div>
-
-    </div>
-
-    <div>
-      <label>Qty</label>
-      <input id="rItemQty" class="qty" type="text" placeholder="e.g., 2, 500g" />
-    </div>
-    <div style="min-width:120px;">
-      <label>Size</label>
-      <input id="rItemSize" class="size" type="text" placeholder="e.g., 500g, 1L" />
-    </div>
-    <div style="min-width:180px;">
-      <label>Category</label>
-      <select id="rItemCategory" class="category">
-        <option value="">— Select —</option>
-        <option>Produce</option><option>Meat & Poultry</option><option>Fish & Seafood</option>
-        <option>Dairy & Eggs</option><option>Bakery</option><option>Pantry</option>
-        <option>Frozen</option><option>Beverages</option><option>Snacks & Confectionery</option>
-        <option>Household & Cleaning</option><option>Personal Care & Health</option><option>Other</option>
-      </select>
-    </div>
-    <div style="min-width:120px;">
-      <label>Route</label>
-      <input id="rItemRoute" class="route" type="number" step="0.1" placeholder="e.g., 12" />
-    </div>
-    <div style="flex:1; min-width:200px;">
-      <label>Notes</label>
-      <input id="rItemNotes" class="notes" type="text" placeholder="e.g., brand, ripeness" />
-    </div>
-
-    <div><button id="rAdd" class="primary">Add ingredient</button></div>
-  </div>
-
-  <!-- Ingredient list -->
-  <div class="toolbar" style="margin-top:12px;">
-    <div class="group">
-      <span class="pill">Ingredients</span>
-      <span class="muted">Check “Have it” to skip when adding to List</span>
-    </div>
-    <div class="group">
-      <label>Sort by</label>
-      <select id="rSortMode">
-        <option value="route">Route</option>
-        <option value="category">Category</option>
-      </select>
-      <label>Filter</label>
-      <select id="rFilterMode">
-        <option value="all">All</option>
-        <option value="need">Need</option>
-        <option value="have">Have</option>
-      </select>
-    </div>
-  </div>
-
-
-  <div id="recipeIngList" class="list" aria-live="polite"></div>
-  <div id="recipeIngEmpty" class="empty" style="display:none">
-    <svg class="icon" aria-hidden="true"><use href="#i-cart"></use></svg>
-    <div class="headline">No ingredients yet</div>
-    <div class="muted">Add your first ingredient above.</div>
-  </div>
-</section>
-
   </main>
 
   <footer>Built for two people. Data lives in your Firebase project.</footer>
@@ -497,28 +335,6 @@
     </div>
   </div>
 
-<!-- New Recipe dialog -->
-<div id="newRecipeDialog" class="popup-backdrop" role="dialog" aria-modal="true" aria-hidden="true">
-  <div class="popup" role="document" style="max-width:360px;">
-    <h3>New recipe</h3>
-    <div class="row" style="gap:8px; flex-direction:column; align-items:stretch;">
-      <label>Recipe name</label>
-      <input id="nrName" type="text" placeholder="e.g., Chicken Alfredo"/>
-
-      <label>Default portions</label>
-      <input id="nrServings" type="number" min="1" step="1" value="2"/>
-
-      <label>Notes (optional)</label>
-      <input id="nrNotes" type="text" placeholder="e.g., Sunday dinner"/>
-
-      <div class="row" style="justify-content:flex-end; gap:8px;">
-        <button id="nrCancel" type="button">Cancel</button>
-        <button id="nrCreate" class="primary" type="button">Create</button>
-      </div>
-    </div>
-  </div>
-</div>
-
   <script>
     // Register service worker for PWA installability
     if ('serviceWorker' in navigator) {
@@ -534,7 +350,7 @@
       apiKey: "AIzaSyAljIHyxs-pvJRi2pRzs2fsPARCQLFQ2Kg",
       authDomain: "grocery-list-77298.firebaseapp.com",
       projectId: "grocery-list-77298",
-      storageBucket: "grocery-list-77298.appspot.com", // If uploads fail, set to YOUR_PROJECT_ID.appspot.com
+      storageBucket: "grocery-list-77298.firebasestorage.app", // If uploads fail, set to YOUR_PROJECT_ID.appspot.com
       messagingSenderId: "1089310382899",
       appId: "1:1089310382899:web:03b24e12f3a9e5c6d63c46"
     };
@@ -555,33 +371,14 @@
     const sortModeEl = $('sortMode');
     const filterModeEl = $('filterMode');
     const statusEl = $('status');
-
-    // === Recipes elements ===
-const recipesListEl = $('recipesList');
-const recipesEmptyEl = $('recipesEmpty');
-const recipesCountEl = $('recipesCount');
-const btnNewRecipe = $('btnNewRecipe');
-
-// === Tabs (already added in Step 1) ===
+    // Tabs + filter group
 const tabListBtn = $('tabList');
-const tabRecipesBtn = $('tabRecipes');
-const viewList = $('view-list');
-const viewRecipes = $('view-recipes');
+const tabShoppingBtn = $('tabShopping');
+const filterGroup = $('filterGroup');
 
-function setActiveTab(tab){ // 'list' or 'recipes'
-  const isList = tab === 'list';
-  if (viewList) viewList.style.display = isList ? '' : 'none';
-  if (viewRecipes) viewRecipes.style.display = isList ? 'none' : '';
-  if (tabListBtn) tabListBtn.classList.toggle('active', isList);
-  if (tabRecipesBtn) tabRecipesBtn.classList.toggle('active', !isList);
-  localStorage.setItem('activeTab', tab);
-}
-if (tabListBtn) tabListBtn.onclick = () => setActiveTab('list');
-if (tabRecipesBtn) tabRecipesBtn.onclick = () => setActiveTab('recipes');
-setActiveTab(localStorage.getItem('activeTab') || 'list');
-
-
-
+// Tab state
+let activeTab = 'list';
+let shoppingStickyIds = null; // IDs frozen when entering Shopping
 
 
     // Preferences
@@ -594,187 +391,6 @@ setActiveTab(localStorage.getItem('activeTab') || 'list');
     let lastSnapshotItems = [];
     let catalogCache = new Map();
     let lastAddedId = null;
-// === Recipes: state & element refs ===
-
-let recipeIngUnsub = null;
-let recipeDocUnsub = null;
-let currentRecipeId = null;
-let currentRecipeDoc = null; // { name, baseServings }
-let currentBasePortions = 1;
-
-let currentRecipeIngredients = []; // snapshot cache
-
-// Pages
-const listPage = $('listPage');                 // added earlier in Step 4A
-const recipeDetailPage = $('recipeDetailPage'); // added earlier in Step 4A
-        
-
-// Recipe Detail header controls
-const rdBack = $('rdBack');
-const rdTitle = $('rdTitle');
-const rdSubtitle = $('rdSubtitle');
-const rdBasePortions = $('rdBasePortions');
-const rdSaveBase = $('rdSaveBase');
-const rdServings = $('rdServings');
-const rdReset = $('rdReset');
-const rdSaveScaled = $('rdSaveScaled');
-const rdAddNeeded = $('rdAddNeeded');
-const rdAddAll = $('rdAddAll');
-
-const rSortModeEl = $('rSortMode');
-const rFilterModeEl = $('rFilterMode');
-
-
-// Ingredient add form (inside detail page)
-const rNameInput = $('rItemName');
-const rQtyInput = $('rItemQty');
-const rSizeInput = $('rItemSize');
-const rCatSelect = $('rItemCategory');
-const rRouteInput = $('rItemRoute');
-const rNotesInput = $('rItemNotes');
-const rAddBtn = $('rAdd');
-
-// Autocomplete widgets (detail page)
-const rAutoList = $('rAutoList');
-const rUpdateTag = $('rUpdateTag');
-
-// Ingredient list containers
-const recipeIngListEl = $('recipeIngList');
-const recipeIngEmptyEl = $('recipeIngEmpty');
-
-// Update-mode state (when you pick an existing ingredient suggestion)
-let rSelectedIngId = null;
-let rSelectedInitialHaveIt = false;
-
-    // === Recipes state ===
-let unsubRecipes = null;
-let lastSnapshotRecipes = [];
-
-// Ensure parent /recipes/{household} doc exists and is owned by current user
-async function ensureRecipesDoc(){
-  if (!auth || !auth.currentUser || !household) return;
-  try{
-    await db.collection('recipes').doc(household).set(
-      { owner: auth.currentUser.uid, updatedAt: firebase.firestore.FieldValue.serverTimestamp() },
-      { merge: true }
-    );
-  }catch(e){ console.error('ensureRecipesDoc failed', e); }
-}
-
-// Subscribe to recipe list
-async function subscribeRecipes(){
-  if (unsubRecipes) { unsubRecipes(); unsubRecipes = null; }
-  if (!auth || !auth.currentUser || !household) {
-    renderRecipesList([]); return;
-  }
-  await ensureRecipesDoc();
-  unsubRecipes = db.collection('recipes').doc(household).collection('recipes')
-    .orderBy('nameLower')
-    .onSnapshot(snap => {
-      const rows = [];
-      snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
-      lastSnapshotRecipes = rows;
-      renderRecipesList(rows);
-    }, err => {
-      console.error(err);
-      alert('Cannot read recipes. Check Firestore rules and that Firestore is enabled.');
-    });
-}
-
-// Render recipe list
-function renderRecipesList(items){
-  if (!recipesListEl) return;
-  recipesListEl.innerHTML = '';
-  const sorted = [...items].sort((a,b)=> (a.name||'').localeCompare(b.name||''));
-  if (!sorted.length){
-    if (recipesEmptyEl) recipesEmptyEl.style.display = '';
-    if (recipesCountEl) recipesCountEl.textContent = '';
-    return;
-  }
-  if (recipesEmptyEl) recipesEmptyEl.style.display = 'none';
-  if (recipesCountEl) recipesCountEl.textContent = `(${sorted.length})`;
-
-  for (const r of sorted){
-    const row = document.createElement('div');
-    row.className = 'recipeRow';
-    const title = document.createElement('div');
-    title.className = 'title';
-    title.textContent = r.name || 'Untitled';
-    const meta = document.createElement('div');
-    meta.className = 'meta';
-    const sv = (r.defaultServings || r.defaultServings === 0) ? r.defaultServings : '';
-    meta.textContent = sv ? `Default: ${sv} portion${sv===1?'':'s'}` : '';
-    row.append(title, meta);
-
- row.onclick = () => openRecipeDetail(r.id);
-
-
-    recipesListEl.appendChild(row);
-  }
-}
-// === New Recipe dialog wiring ===
-const newRecipeDialog = $('newRecipeDialog');
-const nrName = $('nrName');
-const nrServings = $('nrServings');
-const nrNotes = $('nrNotes');
-const nrCancel = $('nrCancel');
-const nrCreate = $('nrCreate');
-
-
-function openNewRecipeDialog(){
-  if (!newRecipeDialog) return;
-  newRecipeDialog.classList.add('show');
-  newRecipeDialog.setAttribute('aria-hidden','false');
-  if (nrName) { nrName.value=''; nrName.focus(); }
-  if (nrServings) nrServings.value = 2;
-  if (nrNotes) nrNotes.value = '';
-  const onEsc = (e)=>{ if (e.key==='Escape') closeNewRecipeDialog(); };
-  document.addEventListener('keydown', onEsc, { once:true });
-}
-function closeNewRecipeDialog(){
-  if (!newRecipeDialog) return;
-  newRecipeDialog.classList.remove('show');
-  newRecipeDialog.setAttribute('aria-hidden','true');
-}
-
-if (btnNewRecipe) btnNewRecipe.onclick = () => {
-  if (!auth || !auth.currentUser || !household) return alert('Sign in and set the household code.');
-  openNewRecipeDialog();
-};
-if (nrCancel) nrCancel.onclick = closeNewRecipeDialog;
-if (newRecipeDialog) newRecipeDialog.onclick = (e)=>{ if (e.target===newRecipeDialog) closeNewRecipeDialog(); };
-
-
-
-async function createRecipe(){
-  if (!auth || !auth.currentUser || !household) return alert('Sign in and set the household code.');
-  const name = (nrName && nrName.value || '').trim();
-  const servings = nrServings ? Math.max(1, parseInt(nrServings.value || '2', 10)) : 2;
-  const notes = (nrNotes && nrNotes.value || '').trim();
-
-  if (!name) { alert('Please enter a recipe name.'); if (nrName) nrName.focus(); return; }
-
-  try{
-    await ensureRecipesDoc();
-    const ref = db.collection('recipes').doc(household).collection('recipes').doc();
-  await ref.set({
-  name,
-  nameLower: name.toLowerCase(),
-  basePortions: servings,
-  notes,
-
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-      owner: auth.currentUser.uid
-    });
-    closeNewRecipeDialog();
-    showToast('Recipe created');
-  }catch(e){
-    alert('Create failed: ' + (e.message || e));
-  }
-}
-if (nrCreate) nrCreate.onclick = createRecipe;
-
 
     // New-item pending photo
     let newItemPhotoFile = null;
@@ -887,8 +503,7 @@ if (nrCreate) nrCreate.onclick = createRecipe;
     setHouseholdUI();
 
     function setControlsEnabled(enabled){
-        ['add','clearChecked','sortMode','filterMode','itemName','itemQty','itemCategory','itemRoute','itemSize','itemNotes','newItemAddPhoto','btnNewRecipe']
-
+      ['add','clearChecked','sortMode','filterMode','itemName','itemQty','itemCategory','itemRoute','itemSize','itemNotes','newItemAddPhoto']
         .forEach(id => { const n = $(id); if (!n) return; n.disabled = !enabled; n.classList.toggle('disabled', !enabled); });
     }
 
@@ -908,8 +523,6 @@ if (nrCreate) nrCreate.onclick = createRecipe;
   setHouseholdUI();
   await ensureHouseholdDoc();           // ← add this line
   subscribeList();
-       subscribeRecipes();
-
   updateStatus();
 };
 
@@ -940,8 +553,7 @@ if (nrCreate) nrCreate.onclick = createRecipe;
       user = u;
       $('signIn').style.display = u ? 'none' : 'inline-block';
       $('signOut').style.display = u ? 'inline-block' : 'none';
-            subscribeList(); warmCatalog(); updateStatus(); subscribeRecipes();
-
+      subscribeList(); warmCatalog(); updateStatus();
     });
 // === ensure parent /lists/{household} exists and is owned by current user ===
 async function ensureHouseholdDoc() {
@@ -983,18 +595,37 @@ async function ensureHouseholdDoc() {
     }
 
     function render(items){
-      const filterMode = filterModeEl.value;
-      let filtered = items;
-      if (filterMode === 'unchecked') filtered = items.filter(i => !i.checked);
-      else if (filterMode === 'checked') filtered = items.filter(i => !!i.checked);
-      else if (filterMode === 'noroute') {
-  filtered = items.filter(i =>
-    i.routeOrder === undefined ||
-    i.routeOrder === null ||
-    i.routeOrder === '' ||
-    isNaN(parseFloat(i.routeOrder))
-  );
+  // Decide which filter to apply
+  let filtered = items;
+
+  if (activeTab === 'shopping') {
+    // Freeze the set of IDs captured when we entered Shopping
+    if (shoppingStickyIds && shoppingStickyIds.size > 0) {
+      filtered = items.filter(i => shoppingStickyIds.has(i.id));
+    } else {
+      // Fallback: if somehow no set, show unchecked
+      filtered = items.filter(i => !i.checked);
     }
+  } else {
+    // Normal behavior from the dropdown
+    const filterMode = filterModeEl.value;
+    if (filterMode === 'unchecked') filtered = items.filter(i => !i.checked);
+    else if (filterMode === 'checked') filtered = items.filter(i => !!i.checked);
+    else if (filterMode === 'noroute') {
+      filtered = items.filter(i =>
+        i.routeOrder === undefined ||
+        i.routeOrder === null ||
+        i.routeOrder === '' ||
+        isNaN(parseFloat(i.routeOrder))
+      );
+    }
+  }
+
+  const mode = sortModeEl.value;
+  if (mode === 'category') renderGroupedByCategory(filtered);
+  else renderFlatByRoute(filtered);
+}
+
 
       const mode = sortModeEl.value;
       if (mode === 'category') renderGroupedByCategory(filtered);
@@ -1047,188 +678,6 @@ async function ensureHouseholdDoc() {
         listEl.appendChild(box);
       }
     }
-// === Qty parse/format helpers (supports 1, 1/2, 1 1/2, 1.5, 1,5, "2 pcs") ===
-function parseQtyNumber(q) {
-  q = (q || '').trim();
-  if (!q) return NaN;
-  // mixed fraction: "1 1/2"
-  let m = q.match(/^(\d+)\s+(\d+)\s*\/\s*(\d+)$/);
-  if (m) return parseInt(m[1]) + parseInt(m[2]) / parseInt(m[3]);
-  // simple fraction: "1/2"
-  m = q.match(/^(\d+)\s*\/\s*(\d+)$/);
-  if (m) return parseInt(m[1]) / parseInt(m[2]);
-  // decimal with comma or dot
-  const dec = q.replace(',', '.').match(/^[-+]?\d*\.?\d+/);
-  if (dec) return parseFloat(dec[0]);
-  return NaN;
-}
-function toFraction(n, maxDen = 16) {
-  if (!isFinite(n)) return '';
-  const sign = n < 0 ? -1 : 1; n = Math.abs(n);
-  const whole = Math.floor(n); let frac = n - whole;
-  if (frac < 1e-8) return String(sign < 0 ? -whole : whole);
-  let bestNum = 0, bestDen = 1, bestErr = 1e9;
-  for (let den = 1; den <= maxDen; den++) {
-    const num = Math.round(frac * den);
-    const err = Math.abs(frac - num / den);
-    if (err < bestErr) { bestErr = err; bestNum = num; bestDen = den; }
-  }
-  const gcd = (a,b)=>b?gcd(b,a%b):a; const g = gcd(bestNum, bestDen);
-  bestNum/=g; bestDen/=g;
-  const totalNum = whole * bestDen + bestNum;
-  const w = Math.floor(totalNum / bestDen);
-  const nrm = totalNum - w * bestDen;
-  const s = sign < 0 ? '-' : '';
-  if (w > 0 && nrm > 0) return `${s}${w} ${nrm}/${bestDen}`;
-  if (w > 0 && nrm === 0) return `${s}${w}`;
-  return `${s}${nrm}/${bestDen}`;
-}
-function scaledQtyStrings(baseQtyStr, scale) {
-  const n = parseQtyNumber(baseQtyStr);
-  if (isNaN(n)) return { frac: baseQtyStr || '', dec: '' };
-  const s = n * scale;
-  return { frac: toFraction(s), dec: s.toFixed(2).replace(/\.00$/, '') };
-}
-
-// === Firestore helpers for current recipe ===
-function recipeDocRef() {
-  if (!auth || !auth.currentUser || !household || !currentRecipeId) return null;
-  return db.collection('recipes').doc(household).collection('recipes').doc(currentRecipeId);
-}
-function recipeIngsCol() {
-  const r = recipeDocRef(); if (!r) return null;
-  return r.collection('ingredients');
-}
-async function updateIngredient(id, patch) {
-  const col = recipeIngsCol(); if (!col) return;
-  await col.doc(id).set({ ...patch, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
-}
-async function removeIngredient(id) {
-  const col = recipeIngsCol(); if (!col) return;
-  await col.doc(id).delete();
-}
-
-// === Render ingredient row (Recipe Detail) ===
-function renderRecipeIngRow(it, scale) {
-  const row = document.createElement('div');
-  row.className = 'item';
-  row.dataset.cat = ((it.category || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-'));
-
-  // 1) Left checkbox: "Have it" (exclude when adding to List)
-  const left = document.createElement('div');
-  left.className = 'left';
-  const haveCb = document.createElement('input');
-  haveCb.type = 'checkbox';
-  haveCb.checked = !!it.haveIt;
-  haveCb.title = 'Have it already';
-  haveCb.onchange = () => updateIngredient(it.id, { haveIt: haveCb.checked });
-  left.appendChild(haveCb);
-
-  // 2) Title
-  const line1 = document.createElement('div');
-  line1.className = 'line1';
-  const catdot = document.createElement('span'); catdot.className = 'catdot';
-  const nameEl = document.createElement('span'); nameEl.className = 'name';
-  nameEl.textContent = it.name || '';
-
-  // Missing route flag
-  const routeMissing = (it.routeOrder === undefined || it.routeOrder === null || it.routeOrder === '' || isNaN(parseFloat(it.routeOrder)));
-  if (routeMissing) {
-    const flag = document.createElement('span');
-    flag.textContent = ' 🚩'; flag.title = 'No route number set'; flag.style.color = 'red';
-    nameEl.appendChild(flag);
-  }
-  line1.append(catdot, nameEl);
-
-  // qty (scaled preview) + size
-  const q = scaledQtyStrings(it.baseQty ?? it.qty ?? '', (rdServings && currentBasePortions) ? (Number(rdServings.value || currentBasePortions) / currentBasePortions) : 1);
-  const bits = [];
-  if (q.frac || q.dec) {
-    const qtySpan = document.createElement('span'); qtySpan.className = 'sep';
-    qtySpan.textContent = ' • ';
-    const strong = document.createElement('strong'); strong.textContent = q.frac;
-    const paren = document.createElement('span'); paren.className = 'muted'; paren.textContent = q.dec ? ` (${q.dec})` : '';
-    qtySpan.append(strong, paren);
-    line1.append(qtySpan);
-  }
-  if (it.size) {
-    const sizeSep = document.createElement('span'); sizeSep.className = 'sep'; sizeSep.textContent = ' • ' + it.size;
-    line1.append(sizeSep);
-  }
-
-  // 3) Actions
-  const actions = document.createElement('div');
-  actions.className = 'actions';
-  const editBtn = document.createElement('button');
-  editBtn.type = 'button'; editBtn.className = 'editbtn'; editBtn.textContent = 'Edit';
-  editBtn.onclick = (e) => { e.stopPropagation(); const editing = row.classList.toggle('editing'); editBtn.textContent = editing ? 'Close' : 'Edit'; if (editing) qty.focus(); };
-  const delBtn = document.createElement('button');
-  delBtn.type = 'button'; delBtn.className = 'btn-icon'; delBtn.title = 'Delete ingredient';
-  delBtn.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-trash"></use></svg>';
-  delBtn.onclick = () => removeIngredient(it.id);
-  actions.append(editBtn, delBtn);
-
-  // 4) Below: notes
-  const below = document.createElement('div');
-  below.className = 'below';
-  const mediaCell = document.createElement('div'); // kept for layout symmetry (no photo here)
-  const line2 = document.createElement('div'); line2.className = 'line2'; line2.textContent = it.notes || '';
-  below.append(mediaCell, line2);
-  if (!it.notes) below.classList.add('hidden');
-
-  // 5) Editor
-  const editor = document.createElement('div');
-  editor.className = 'editor';
-
-  const qty = document.createElement('input'); qty.className = 'qty'; qty.placeholder = 'Qty'; qty.value = it.qty || '';
-  qty.onchange = () => updateIngredient(it.id, { qty: qty.value });
-
-  const size = document.createElement('input'); size.className = 'size'; size.placeholder = 'Size'; size.value = it.size || '';
-  size.onchange = () => updateIngredient(it.id, { size: size.value });
-
-  const notes = document.createElement('input'); notes.className = 'notes'; notes.placeholder = 'Notes'; notes.value = it.notes || '';
-  notes.onchange = () => updateIngredient(it.id, { notes: notes.value });
-
-  const cat = document.createElement('select'); cat.className = 'category';
-  ["", "Produce", "Meat & Poultry", "Fish & Seafood", "Dairy & Eggs", "Bakery", "Pantry", "Frozen", "Beverages", "Snacks & Confectionery", "Household & Cleaning", "Personal Care & Health", "Other"].forEach(opt => {
-    const o = document.createElement('option'); o.value = opt; o.textContent = opt || '— Select —';
-    if ((it.category || '') === opt) o.selected = true; cat.appendChild(o);
-  });
-  cat.onchange = () => updateIngredient(it.id, { category: cat.value });
-
-  const route = document.createElement('input'); route.className = 'route'; route.type = 'number'; route.step = '0.1'; route.placeholder = 'Route'; route.value = it.routeOrder ?? '';
-  route.onchange = () => updateIngredient(it.id, { routeOrder: route.value ? Number(route.value) : '' });
-
-  editor.append(qty, size, notes, cat, route);
-
-  // Assemble
-  row.append(left, line1, actions, below, editor);
-  return row;
-}
-
-// Render list for recipe ingredients (uses rdServings/currentBasePortions for preview)
-function renderRecipeIngredients(items) {
-  currentRecipeIngredients = items || [];
-  const sorted = [...currentRecipeIngredients].sort((a,b)=>{
-    const ra = isNaN(parseFloat(a.routeOrder)) ? 1e9 : parseFloat(a.routeOrder);
-    const rb = isNaN(parseFloat(b.routeOrder)) ? 1e9 : parseFloat(b.routeOrder);
-    if (ra !== rb) return ra - rb;
-    return (a.name||'').localeCompare(b.name||'');
-  });
-
-  recipeIngListEl.innerHTML = '';
-  if (!sorted.length) { recipeIngEmptyEl.style.display = 'block'; return; }
-  recipeIngEmptyEl.style.display = 'none';
-  const scale = (rdServings && currentBasePortions) ? (Number(rdServings.value || currentBasePortions) / currentBasePortions) : 1;
-  for (const it of sorted) recipeIngListEl.appendChild(renderRecipeIngRow(it, scale));
-
-  // Update subtitle line with scale factor
-  if (rdSubtitle && currentRecipeDoc) {
-    const scl = (rdServings && currentBasePortions) ? Number(rdServings.value || currentBasePortions) / currentBasePortions : 1;
-    const pct = Math.round(scl * 100);
-    rdSubtitle.textContent = `Base: ${currentBasePortions} • Now: ${rdServings.value || currentBasePortions} (${pct}%)`;
-  }
-}
 
     // ==== PHOTO: shared popup + global inputs ====
     const fileChooser = $('fileChooser');
@@ -1275,248 +724,8 @@ function renderRecipeIngredients(items) {
       newItemPhotoFile = f || null;
       const photoName = $('photoName');
       if (photoName) photoName.textContent = f ? (f.name || '1 image selected') : '';
-      if (f) setPhotoPreview('');
-       }
-
- // === Open a recipe detail page ===
-async function openRecipeDetail(recipeId) {
-  if (!auth || !auth.currentUser || !household) { alert('Sign in and set household first.'); return; }
-  // Unsubscribe previous
-  if (recipeIngUnsub) { recipeIngUnsub(); recipeIngUnsub = null; }
-  if (recipeDocUnsub) { recipeDocUnsub(); recipeDocUnsub = null; }
-
-  currentRecipeId = recipeId;
-
-  // Show the detail page
-  if (listPage) listPage.style.display = 'none';
-
-  recipeDetailPage.style.display = 'block';
-
-  const ref = recipeDocRef(); if (!ref) return;
-
-  // Listen for recipe doc (name, baseServings)
-  recipeDocUnsub = ref.onSnapshot(snap => {
-  const d = snap.data() || {};
-  currentRecipeDoc = d;
-  currentBasePortions = Number(d.basePortions || 1) || 1;
-  if (rdTitle) rdTitle.textContent = d.name || 'Recipe';
-  if (rdBasePortions) rdBasePortions.value = currentBasePortions;
-  if (rdServings) rdServings.value = currentBasePortions;
-  renderRecipeIngredients(currentRecipeIngredients);
-});
-
-
-  // Listen for ingredient changes
-  recipeIngUnsub = ref.collection('ingredients').onSnapshot(snap => {
-    const arr = [];
-    snap.forEach(doc => arr.push({ id: doc.id, ...doc.data() }));
-    renderRecipeIngredients(arr);
-  });
-}
-
-// Back button
-if (rdBack) rdBack.onclick = () => {
-  // leave listeners
-  if (recipeIngUnsub) { recipeIngUnsub(); recipeIngUnsub = null; }
-  if (recipeDocUnsub) { recipeDocUnsub(); recipeDocUnsub = null; }
-
-  currentRecipeId = null;
-  currentRecipeDoc = null;
-  currentRecipeIngredients = [];
-
-  recipeDetailPage.style.display = 'none';
-
-  // Return to the main page on the Recipes tab
-  if (listPage) {
-    listPage.style.display = 'block';
-    setActiveTab('recipes');
-  }
-};
-
-
-// Change servings → live preview only
-if (rdServings) rdServings.addEventListener('input', () => renderRecipeIngredients(currentRecipeIngredients));
-
-// Reset to base (no DB write; just reset input + rerender)
-if (rdReset) rdReset.onclick = () => {
-  if (!currentBasePortions) return;
-  rdServings.value = currentBasePortions;
-  renderRecipeIngredients(currentRecipeIngredients);
-};
-
-// Save scaled → write scaled qty (as fraction) back to each ingredient's `qty` (keeps `baseQty`)
-if (rdSaveScaled) rdSaveScaled.onclick = async () => {
-  if (!auth || !auth.currentUser || !household || !currentRecipeId) return;
-  const scale = Number(rdServings.value || currentBasePortions) / currentBasePortions;
-  const col = recipeIngsCol(); if (!col) return;
-  const batch = db.batch();
-  currentRecipeIngredients.forEach(it => {
-    const q = scaledQtyStrings(it.baseQty ?? it.qty ?? '', scale);
-    const ref = col.doc(it.id);
-    batch.set(ref, { qty: q.frac }, { merge: true });
-  });
-  await batch.commit();
-  showToast('Scaled quantities saved');
-};
-
-// Add needed items (unchecked “Have it”) to the main List
-if (rdAddNeeded) rdAddNeeded.onclick = async () => {
-  if (!auth || !auth.currentUser || !household || !currentRecipeId) return;
-  const scale = Number(rdServings.value || currentBasePortions) / currentBasePortions;
-  const itemsCol = db.collection('lists').doc(household).collection('items');
-
-  const batch = db.batch();
-  currentRecipeIngredients
-    .filter(it => !it.haveIt)
-    .forEach(it => {
-      const q = scaledQtyStrings(it.baseQty ?? it.qty ?? '', scale);
-      const ref = itemsCol.doc(); // new item
-      batch.set(ref, {
-        name: it.name || '',
-        qty: q.frac + (q.dec ? ` (${q.dec})` : ''),
-        size: it.size || '',
-        notes: it.notes || '',
-        category: it.category || '',
-        routeOrder: (it.routeOrder === '' || it.routeOrder === undefined || it.routeOrder === null) ? '' : Number(it.routeOrder),
-        checked: false,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
-    });
-  await batch.commit();
-  showToast('Needed items added to List');
-  };
-
-// === Autocomplete in Recipe Detail (reuses main list’s data) ===
-function rSuggestionMeta(it){
-  const parts=[]; if(it.category) parts.push(it.category);
-  if(it.size) parts.push(it.size);
-  if(it.routeOrder!=='' && !isNaN(parseFloat(it.routeOrder))) parts.push('Route '+it.routeOrder);
-  return parts.join(' • ');
-}
-function rShowSuggestions(q){
-  if (!rAutoList) return;
-  q = (q||'').trim().toLowerCase();
-  if (!q){ rAutoList.style.display='none'; rAutoList.innerHTML=''; return; }
-  const matches = lastSnapshotItems
-    .filter(it => (it.name||'').toLowerCase().includes(q))
-    .sort((a,b)=>{
-      const an=(a.name||'').toLowerCase(), bn=(b.name||'').toLowerCase();
-      const as = an.startsWith(q) ? 0 : 1;
-      const bs = bn.startsWith(q) ? 0 : 1;
-      if (as !== bs) return as - bs;
-      return an.localeCompare(bn);
-    })
-    .slice(0,8);
-  if (!matches.length){ rAutoList.style.display='none'; rAutoList.innerHTML=''; return; }
-  rAutoList.innerHTML = '';
-  for (const it of matches){
-    const row = document.createElement('div');
-    row.className = 'ac-item';
-    row.setAttribute('role','option');
-    row.dataset.id = it.id;
-    row.innerHTML = '<div class="ac-title">'+escapeHtml(it.name||'')+'</div>' +
-                    '<div class="ac-meta">'+escapeHtml(rSuggestionMeta(it))+'</div>';
-    rAutoList.appendChild(row);
-  }
-  rAutoList.style.display = 'block';
-}
-function rClearUpdateMode(){
-  rSelectedIngId = null;
-  rSelectedInitialHaveIt = false;
-  if (rUpdateTag){ rUpdateTag.style.display='none'; rUpdateTag.innerHTML=''; }
-}
-function rApplySuggestion(item){
-  rSelectedIngId = item.id;
-  rSelectedInitialHaveIt = false;
-
-  rNameInput.value = item.name || '';
-  rQtyInput.value = item.qty || '';
-  rSizeInput.value = item.size || '';
-  rNotesInput.value = item.notes || '';
-  rCatSelect.value = item.category || '';
-  rRouteInput.value = (item.routeOrder === '' || item.routeOrder === undefined || item.routeOrder === null) ? '' : item.routeOrder;
-
-  if (rUpdateTag){
-    rUpdateTag.innerHTML = 'Updating: <strong>'+escapeHtml(item.name||'')+'</strong> <button type="button" id="rCancelUpdate" aria-label="Cancel">×</button>';
-    rUpdateTag.style.display = 'inline-flex';
-    const c = $('rCancelUpdate'); if (c) c.onclick = () => rClearUpdateMode();
-  }
-
-  if (rAutoList){ rAutoList.style.display='none'; rAutoList.innerHTML=''; }
-  if (rQtyInput) rQtyInput.focus();
-}
-
-// Wire autocomplete events
-if (rNameInput){
-  rNameInput.addEventListener('input', () => rShowSuggestions(rNameInput.value));
-  document.addEventListener('click', (e) => {
-    if (!rAutoList) return;
-    if (e.target === rNameInput || (e.target.closest && e.target.closest('#rAutoList'))) return;
-    rAutoList.style.display='none';
-  });
-}
-if (rAutoList){
-  rAutoList.addEventListener('mousedown', (e) => {
-    const el = e.target.closest('.ac-item'); if (!el) return;
-    const id = el.dataset.id;
-    const item = lastSnapshotItems.find(x => x.id === id);
-    if (item) rApplySuggestion(item);
-    e.preventDefault();
-  });
-}
-
-// Add ingredient to current recipe
-if (rAddBtn) rAddBtn.onclick = async () => {
-  if (!auth || !auth.currentUser || !household || !currentRecipeId) return alert('Open a recipe first.');
-  const name = (rNameInput.value||'').trim(); if (!name) return alert('Type an ingredient name.');
-  const qty = (rQtyInput.value||'').trim();
-  const size = (rSizeInput.value||'').trim();
-  let category = rCatSelect.value && rCatSelect.value.trim ? rCatSelect.value.trim() : rCatSelect.value;
-  let routeOrder = rRouteInput.value ? Number(rRouteInput.value) : '';
-  const notes = (rNotesInput.value||'').trim();
-
-  // Fill from catalog if missing
-  const known = catalogCache.get(name.toLowerCase());
-  if (known){
-    if (!category && known.category) category = known.category;
-    if ((routeOrder === '' || isNaN(routeOrder)) && (known.routeOrder || known.routeOrder===0)) routeOrder = known.routeOrder;
-  }
-
-  try{
-    const col = recipeIngsCol(); if (!col) return;
-    const ref = col.doc();
-    await ref.set({
-      name, qty, baseQty: qty, size, notes,
-      category: category || '',
-      routeOrder: routeOrder === '' ? '' : Number(routeOrder),
-      haveIt: false,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
-    // also save into catalog for future autocomplete (same as main)
-    await db.collection('catalog').doc(household).collection('items')
-      .doc(name.toLowerCase())
-      .set({
-        name,
-        category: category || '',
-        routeOrder: routeOrder === '' ? '' : Number(routeOrder),
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      }, { merge: true });
-    catalogCache.set(name.toLowerCase(), { category: category || '', routeOrder: routeOrder === '' ? '' : Number(routeOrder) });
-  } catch(e){
-    alert('Add ingredient failed: ' + (e.message || e));
-    return;
-  }
-
-  // clear form
-  rNameInput.value=''; rQtyInput.value=''; rSizeInput.value='';
-  rCatSelect.value=''; rRouteInput.value=''; rNotesInput.value='';
-  rNameInput.focus();
-  rClearUpdateMode();
-};
-// hide existing preview if choosing a new file
-    
+      if (f) setPhotoPreview(''); // hide existing preview if choosing a new file
+    }
     function setPhotoPreview(url){
       const img = $('photoPreview'); if (!img) return;
       if (url){ img.src = url; img.style.display = 'block'; }
@@ -1923,9 +1132,39 @@ line1.append(catdot, nameEl);
 
     sortModeEl.onchange = () => { localStorage.setItem('sortMode', sortModeEl.value); render(lastSnapshotItems); };
     filterModeEl.onchange = () => { localStorage.setItem('filterMode', filterModeEl.value); render(lastSnapshotItems); };
+function setActiveTab(tab){ // 'list' | 'shopping'
+  activeTab = tab;
+  const isShopping = tab === 'shopping';
 
+  // Toggle tab highlight
+  if (tabListBtn) tabListBtn.classList.toggle('active', tab === 'list');
+  if (tabShoppingBtn) tabShoppingBtn.classList.toggle('active', tab === 'shopping');
 
-// Call subscribeRecipes when auth or household changes
+  // Hide Filter group in Shopping, show otherwise
+  if (filterGroup) filterGroup.style.display = isShopping ? 'none' : '';
+
+  // Capture the current set of unchecked item IDs when entering Shopping
+  if (isShopping) {
+    shoppingStickyIds = new Set(
+      (lastSnapshotItems || []).filter(i => !i.checked).map(i => i.id)
+    );
+  } else {
+    // Leaving Shopping clears the sticky set
+    shoppingStickyIds = null;
+  }
+
+  localStorage.setItem('activeTab', tab);
+
+  // Re-render list with the correct mode
+  render(lastSnapshotItems || []);
+}
+
+// Wire tab buttons
+if (tabListBtn) tabListBtn.onclick = () => setActiveTab('list');
+if (tabShoppingBtn) tabShoppingBtn.onclick = () => setActiveTab('shopping');
+
+// Restore last tab (default to 'list')
+setActiveTab(localStorage.getItem('activeTab') || 'list');
 
     updateStatus();
   </script>
