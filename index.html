@@ -312,13 +312,14 @@
       </div>
     </section>
 
-    <section class="card" style="margin-top:14px;">
+    <section id="howItWorks" class="card" style="margin-top:14px;">
+
       <strong>How it works</strong>
       <p>Use this app to keep a shared grocery list in sync. Make sure you are <em>signed in</em> and your <em>household code</em> matches. Add items, set their category/route once. Optionally attach a photo for brand/label. Tap a thumbnail to view it large.</p>
     </section>
   </main>
 
-  <footer>Built for two people. Data lives in your Firebase project.</footer>
+  <footer>Built for two awesome people.</footer>
 
   <!-- Global hidden file inputs (reused everywhere) -->
   <input id="fileChooser" type="file" accept="image/*" style="display:none" />
@@ -1144,6 +1145,10 @@ if (addRow) addRow.style.display = isShopping ? 'none' : '';
 const clearBtn = $('clearChecked');
 if (clearBtn) clearBtn.style.display = isShopping ? 'none' : '';
 $('howItWorks').style.display = isShopping ? 'none' : '';
+    // Hide the "How it works" card
+  const how = $('howItWorks');
+  if (how) how.style.display = isShopping ? 'none' : '';
+
 
 
   // Capture the current set of unchecked item IDs when entering Shopping
