@@ -232,7 +232,8 @@
     <div id="status" class="status"></div>
 
     <section class="card">
-      <div class="row">
+      <div id="addRow" class="row">
+
                 <div style="flex:2; min-width:220px; position:relative;">
 
           <label>Item</label>
@@ -1138,6 +1139,12 @@ function setActiveTab(tab){ // 'list' | 'shopping'
 
   // Hide Filter group in Shopping, show otherwise
   if (filterGroup) filterGroup.style.display = isShopping ? 'none' : '';
+  const addRow = $('addRow');
+if (addRow) addRow.style.display = isShopping ? 'none' : '';
+const clearBtn = $('clearChecked');
+if (clearBtn) clearBtn.style.display = isShopping ? 'none' : '';
+$('howItWorks').style.display = isShopping ? 'none' : '';
+
 
   // Capture the current set of unchecked item IDs when entering Shopping
   if (isShopping) {
