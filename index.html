@@ -4,225 +4,499 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Kaufland Route List</title>
-  <style>
-  :root { --radius: 16px; --pad: 14px; --shadow: 0 8px 30px rgba(0,0,0,.06);} 
-  * { box-sizing: border-box; }
-  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji', 'Segoe UI Emoji'; margin: 0; background: #f7f7fb; color: #111; }
-  header { position: sticky; top: 0; z-index: 2; background: #ffffffcc; backdrop-filter: blur(8px); border-bottom: 1px solid #eee; }
-  .wrap { max-width: 900px; margin: 0 auto; padding: 14px; }
-  h1 { font-size: 20px; margin: 6px 0 2px; }
-  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; }
-  input[type="text"], input[type="number"], input[type="file"], select { padding: 10px 12px; border-radius: 10px; border: 1px solid #ddd; background: #fff; }
-  input[type="number"]{ width: 100px; }
-  button { padding: 10px 14px; border-radius: 12px; border: 1px solid #ddd; background: #fff; cursor: pointer; box-shadow: var(--shadow); }
-  button.primary{ background: #111; color: #fff; border-color: #111; }
-  .muted{ color:#6b7280; font-size: 13px; }
-  .pill{ padding: 4px 10px; border-radius: 999px; background:#f1f2f6; border:1px solid #e5e7eb; font-size: 12px; }
-  .card { background: #fff; border: 1px solid #eee; border-radius: var(--radius); padding: var(--pad); box-shadow: var(--shadow); }
-  .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .toolbar .group{ display:flex; gap:8px; align-items:center; flex-wrap: wrap; }
-  .list { margin-top: 10px; display: grid; gap: 12px; }
-  .groupHeader{ display:flex; align-items:center; gap:10px; font-weight:700; color:#222; padding:4px 2px 0; }
-  .groupHeader .dot{ width:8px; height:8px; border-radius:999px; background:#ddd; }
-  .groupBox{ display:grid; gap:8px; }
+<style>
+/* =========================================================
+   NEON DARK THEME (with light variant)
+   - Accent: hot pink
+   - Dark-first design; soft glass, rounded, high contrast
+   - Force theme by adding data-theme="dark" | "light" to <html>
+   ========================================================= */
 
-  /* ===== Two-line item layout ===== */
-  .item {
-    display: grid;
-    grid-template-columns: 28px 1fr auto;
-    grid-template-rows: auto auto;
-    gap: 10px 10px;
-    align-items: center;
-    padding: 8px 10px;
-    border: 1px solid #eee;
-    border-radius: 12px;
-    background: #fff;
-    transition: transform .06s ease, box-shadow .12s ease, border-color .12s ease;
-    max-width: 100%;
-  }
-  .left { grid-column: 1; grid-row: 1; display:flex; align-items:center; justify-content:center; }
-  .item input[type="checkbox"] { width: 18px; height: 18px; }
+/* ---------- Shared tokens ---------- */
+:root{
+  --radius: 16px;
+  --pad: 14px;
 
-  .line1 {
-    grid-column: 2; grid-row: 1;
-    font-size: 16px; line-height: 1.25; font-weight: 700;
-    overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
-    min-width: 0;
-  }
-  .line1 .name { font-weight: 700; }
-  .line1 .sep { opacity: .6; font-weight: 600; }
+  --primary: #ff007f;          /* hot pink */
+  --on-primary: #ffffff;
 
-  .actions{
-    grid-column: 3; grid-row: 1;
-    display: flex; gap: 6px; align-items: center; justify-self: end;
-  }
-  .editbtn{
-    height: 36px; padding: 0 10px; border-radius: 8px;
-    border: 1px solid #e7e7ef; background:#fff; box-shadow: none; cursor: pointer;
-  }
-  .btn-icon{
-    height: 36px; padding: 0 10px; border-radius: 8px;
-    border: 1px solid #e7e7ef; background: #fff; display: grid; place-items: center;
-    box-shadow: none; cursor: pointer;
-  }
-  .icon { width: 18px; height: 18px; display:inline-block; }
+  /* defaults = LIGHT; overridden below for dark/auto-dark */
+  --bg: #f7f7fb;
+  --surface: #ffffff;
+  --text: #111318;
 
-  .below{
-    grid-column: 2 / 4;
-    grid-row: 2;
-    display: grid;
-    grid-template-columns: 48px 1fr;
-    align-items: center;
-    column-gap: 10px;
-  }
-  .below.hidden{ display:none; }
+  --muted: #5f6675;
+  --border: #e5e7eb;
+  --chip: #f2f3f6;
+  --chip-border: #e6e7ef;
 
-  .thumb{
-    width: 44px; height: 44px; border-radius: 10px; object-fit: cover;
-    border: 1px solid #e7e7ef; background: #f3f4f7; display: block; cursor: pointer;
-  }
-  .camBtn{
-    width: 44px; height: 44px; border-radius: 10px; border: 1px dashed #e7e7ef;
-    display:flex; align-items:center; justify-content:center;
-    background:#fff; cursor:pointer; box-shadow: none; padding:0;
-  }
+  --hover: rgba(0,0,0,.04);
+  --press: rgba(0,0,0,.08);
 
-  .line2 { color:#5b5b66; font-size: 14px; line-height: 1.35; white-space: normal; overflow-wrap: anywhere; }
-  .line2:empty { display: none; }
+  --shadow-sm: 0 6px 18px rgba(0,0,0,.06);
+  --shadow-md: 0 12px 36px rgba(0,0,0,.12);
 
-  .catdot { width: 8px; height: 8px; border-radius: 999px; display:inline-block; margin-right: 8px; background:#d0d3da; vertical-align: middle; }
-  .item[data-cat="produce"] .catdot { background: #2fb344; }
-  .item[data-cat="meat-poultry"] .catdot { background: #d7263d; }
-  .item[data-cat="fish-seafood"] .catdot { background: #2a9df4; }
-  .item[data-cat="dairy-eggs"] .catdot { background: #51b3ff; }
-  .item[data-cat="bakery"] .catdot { background: #f08c2f; }
-  .item[data-cat="pantry"] .catdot { background: #a1765c; }
-  .item[data-cat="frozen"] .catdot { background: #27c3d6; }
-  .item[data-cat="beverages"] .catdot { background: #7b61ff; }
-  .item[data-cat="snacks-confectionery"] .catdot { background: #ffd43b; }
-  .item[data-cat="household-cleaning"] .catdot { background: #8795a1; }
-  .item[data-cat="personal-care-health"] .catdot { background: #ff6fa3; }
-  .item[data-cat="other"] .catdot { background: #c0c4cc; }
-
-  .item .editor { display: none; grid-column: 1 / -1; }
-  .item.editing .editor {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0,1fr));
-    gap: 8px;
-    padding-top: 8px;
-  }
-  .qty{ width:100%; }
-    /* Inline qty shown on list rows (non-editing) */
-.qty-inline{
-  width: 74px;
-  padding: 6px 8px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  font: inherit;
+  /* focus */
+  --ring: 0 0 0 3px color-mix(in oklab, var(--primary) 32%, transparent);
 }
 
-  .route, .category, .size, .notes { width: 100%; }
+/* ---------- Auto dark (when you don't force a theme) ---------- */
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme]){
+    --bg: #0f0f12;
+    --surface: #17171c;
+    --text: #e8e9ee;
 
-  @media (max-width: 560px){
-    .item.editing .editor { grid-template-columns: 1fr; }
-    button, input, select { min-height: 44px; }
-  }
+    --muted: #a5adbb;
+    --border: #2a2a33;
+    --chip: #1f1f25;
+    --chip-border: #2a2a33;
 
-  .item.is-pressed { transform: scale(0.995); box-shadow: 0 2px 12px rgba(0,0,0,.08); }
-  .item:has(input[type="checkbox"]:checked) { background: linear-gradient(0deg, rgba(0,0,0,.03), rgba(0,0,0,.03)), #fff; opacity: .92; }
-  .item:has(input[type="checkbox"]:checked) .line1 { text-decoration: line-through; color: #777; }
+    --hover: rgba(255,255,255,.06);
+    --press: rgba(255,255,255,.10);
 
-  .card > .toolbar{
-    position: sticky; top: calc(env(safe-area-inset-top, 0px) + 56px);
-    z-index: 2; background: #fff; border-bottom: 1px solid #e7e7ef;
-    box-shadow: 0 6px 12px -8px rgba(0,0,0,.15);
-    margin-top: 0 !important; padding: 8px 0;
+    --shadow-sm: 0 10px 28px rgba(0,0,0,.35);
+    --shadow-md: 0 18px 48px rgba(0,0,0,.45);
   }
+}
 
-  .toast{
-    position: fixed; left: 50%;
-    bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
-    transform: translateX(-50%) translateY(20px);
-    opacity: 0; transition: transform .18s ease, opacity .18s ease;
-    background: #fff; color: #111; border: 1px solid #e7e7ef; border-radius: 12px;
-    box-shadow: 0 8px 24px rgba(0,0,0,.12); padding: 10px 14px; font-size: 14px; pointer-events: none; z-index: 50;
-  }
-  .toast.show{ opacity: 1; transform: translateX(-50%) translateY(0); }
-  :root { color-scheme: light; }
-      /* === Autocomplete & update mode === */
-  .ac-list{
-    position:absolute; left:0; right:0; top:100%; margin-top:4px;
-    background:#fff; border:1px solid #e7e7ef; border-radius:12px; box-shadow: var(--shadow);
-    max-height: 280px; overflow:auto; z-index: 6;
-  }
-  .ac-item{ display:flex; flex-direction:column; gap:2px; padding:8px 10px; cursor:pointer; border-bottom:1px solid #f0f0f5; }
-  .ac-item:last-child{ border-bottom:none; }
-  .ac-item:hover{ background:#f7f7fb; }
-  .ac-title{ font-weight:600; }
-  .ac-meta{ color:#5b5b66; font-size:12px; }
+/* ---------- Manual overrides ---------- */
+:root[data-theme="light"]{
+  --bg: #f7f7fb;
+  --surface: #ffffff;
+  --text: #111318;
 
-  .updateTag{
-    margin-top:6px; display:inline-flex; align-items:center; gap:8px;
-    background:#fff; border:1px solid #e7e7ef; border-radius:10px; padding:6px 8px;
-  }
-  .updateTag button{ border:none; background:#eee; border-radius:999px; padding:2px 8px; cursor:pointer; }
+  --muted: #5f6675;
+  --border: #e5e7eb;
+  --chip: #f2f3f6;
+  --chip-border: #e6e7ef;
 
+  --hover: rgba(0,0,0,.04);
+  --press: rgba(0,0,0,.08);
 
-  .lightbox{
-    position: fixed; inset: 0; background: rgba(0,0,0,.85);
-    display: none; align-items: center; justify-content: center; z-index: 70;
-  }
-  .lightbox.show{ display: flex; }
-  .lightbox img{ max-width: 92vw; max-height: 88vh; border-radius: 12px; box-shadow: 0 12px 48px rgba(0,0,0,.4); }
-  .lightbox .close{
-    position: absolute; top: 12px; right: 12px; border: none; background: #fff;
-    border-radius: 999px; width: 36px; height: 36px; font-size: 22px; line-height: 1; cursor: pointer;
-    box-shadow: var(--shadow);
-  }
+  --shadow-sm: 0 6px 18px rgba(0,0,0,.06);
+  --shadow-md: 0 12px 36px rgba(0,0,0,.12);
+}
+:root[data-theme="dark"]{
+  --bg: #0f0f12;
+  --surface: #17171c;
+  --text: #e8e9ee;
 
-  /* Popup: take/choose photo */
-  .popup-backdrop{
-    position: fixed; inset: 0; background: rgba(0,0,0,.35);
-    display: none; align-items: center; justify-content: center; z-index: 90;
-  }
-  .popup-backdrop.show{ display:flex; }
-  .popup{
-    background:#fff; border:1px solid #e5e7eb; border-radius:14px; width: 280px; padding: 10px; box-shadow: var(--shadow);
-  }
-  .popup h3{ margin:6px 8px 10px; font-size:15px; }
-  .popup .choices{ display:grid; gap:8px; }
-  .popup .choices button{ width:100%; }
-    /* === Modal primitives (shared) === */
-.modal{ position:fixed; inset:0; background:rgba(0,0,0,.25);
-  display:none; align-items:center; justify-content:center; z-index:60; }
+  --muted: #a5adbb;
+  --border: #2a2a33;
+  --chip: #1f1f25;
+  --chip-border: #2a2a33;
+
+  --hover: rgba(255,255,255,.06);
+  --press: rgba(255,255,255,.10);
+
+  --shadow-sm: 0 10px 28px rgba(0,0,0,.35);
+  --shadow-md: 0 18px 48px rgba(0,0,0,.45);
+}
+
+/* =========================================================
+   Base
+   ========================================================= */
+*{ box-sizing: border-box; }
+:root{ color-scheme: light dark; }
+
+body{
+  margin:0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial, 'Noto Sans';
+}
+
+.wrap{ max-width: 900px; margin: 0 auto; padding: 14px; }
+h1{ font-size: 20px; margin: 6px 0 2px; }
+
+header{
+  position: sticky; top: 0; z-index: 5;
+  background: color-mix(in oklab, var(--surface) 90%, transparent);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border);
+}
+
+.row{ display:flex; gap:10px; flex-wrap:wrap; align-items:end; }
+
+/* =========================================================
+   Controls
+   ========================================================= */
+input[type="text"], input[type="number"], input[type="file"], select{
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  outline: none;
+  transition: border-color .12s ease, box-shadow .12s ease, background .12s ease;
+}
+input[type="text"]:focus, input[type="number"]:focus, select:focus{
+  border-color: color-mix(in oklab, var(--primary) 55%, var(--border));
+  box-shadow: var(--ring);
+}
+input[type="number"]{ width: 110px; }
+
+button{
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: background .12s ease, transform .06s ease, border-color .12s ease, box-shadow .12s ease;
+}
+button:hover{ background: color-mix(in oklab, var(--surface), var(--hover)); }
+button:active{ background: color-mix(in oklab, var(--surface), var(--press)); transform: translateY(1px); }
+
+button.primary{
+  background: var(--primary);
+  color: var(--on-primary);
+  border-color: var(--primary);
+  box-shadow: 0 12px 30px color-mix(in oklab, var(--primary) 30%, transparent);
+}
+
+/* Pills / chips */
+.pill{
+  padding: 6px 12px; border-radius: 999px;
+  background: var(--chip);
+  border: 1px solid var(--chip-border);
+  font-size: 12px;
+  color: var(--text);
+}
+.muted{ color: var(--muted); font-size: 13px; }
+
+/* =========================================================
+   Cards, toolbars, tabs
+   ========================================================= */
+.card{
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--pad);
+  box-shadow: var(--shadow-md);
+}
+
+.toolbar{ display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
+.toolbar .group{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+
+/* Sticky sub-toolbar inside cards */
+.card > .toolbar{
+  position: sticky;
+  top: calc(env(safe-area-inset-top, 0px) + 64px);
+  z-index: 3;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 0;
+}
+
+/* Tabs */
+.tabs{ display:flex; gap:10px; }
+.tab{
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--chip-border);
+  background: var(--chip);
+  color: var(--text);
+  transition: background .12s ease, box-shadow .12s ease, border-color .12s ease, transform .06s ease;
+}
+.tab:hover{ background: color-mix(in oklab, var(--chip), var(--hover)); }
+.tab.active{
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--on-primary);
+  box-shadow: 0 14px 36px color-mix(in oklab, var(--primary) 30%, transparent);
+}
+/* =========================================================
+   Bottom Navigation
+   ========================================================= */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0; right: 0;
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -8px 24px rgba(0,0,0,.12);
+  z-index: 9999;           /* ↑ ensure it sits on top of footer/overlays */
+  pointer-events: auto;
+}
+
+.bottom-nav .tab {
+  flex: 1;
+  text-align: center;
+  padding: 12px 0;
+  border-radius: 0;
+  border: none;
+  background: transparent;
+  font-weight: 600;
+}
+.bottom-nav .tab.active {
+  background: var(--primary);
+  color: var(--on-primary);
+  border-radius: 12px;
+  margin: 0 4px;
+}
+
+/* =========================================================
+   List + groups
+   ========================================================= */
+.list{ margin-top:10px; display:grid; gap:12px; }
+.groupHeader{ display:flex; align-items:center; gap:10px; font-weight:700; padding:4px 2px 0; }
+.groupHeader .dot{ width:8px; height:8px; border-radius:999px; background:#9aa3b2; }
+.groupBox{ display:grid; gap:8px; }
+
+/* =========================================================
+   Item row
+   ========================================================= */
+.item{
+  display:grid;
+  grid-template-columns: 28px 1fr auto;
+  grid-template-rows: auto auto;
+  gap:10px 10px;
+  align-items:center;
+  padding:10px 12px;
+  border:1px solid var(--border);
+  border-radius:14px;
+  background: var(--surface);
+  transition: transform .06s ease, border-color .12s ease, background .12s ease, box-shadow .12s ease;
+}
+.item.is-pressed{ transform: scale(.995); box-shadow: 0 8px 24px rgba(0,0,0,.25); }
+
+.left{ grid-column:1; grid-row:1; display:flex; align-items:center; justify-content:center; }
+.item input[type="checkbox"]{ width:18px; height:18px; accent-color: var(--primary); }
+
+.line1{
+  grid-column:2; grid-row:1;
+  font-size:16px; font-weight:800; line-height:1.25;
+  overflow:hidden; white-space:nowrap; text-overflow:ellipsis; min-width:0;
+}
+.line1 .sep{ opacity:.7; font-weight:600; }
+
+.actions{ grid-column:3; grid-row:1; display:flex; gap:8px; align-items:center; justify-self:end; }
+
+.editbtn, .btn-icon{
+  height:36px; padding:0 12px; border-radius:10px;
+  border:1px solid var(--border);
+  background: var(--surface);
+  display:grid; place-items:center;
+}
+
+.icon{ width:18px; height:18px; display:inline-block; }
+
+/* Below row (photo + notes) */
+.below{
+  grid-column:2 / 4; grid-row:2;
+  display:grid; grid-template-columns:48px 1fr;
+  align-items:center; column-gap:10px;
+}
+.below.hidden{ display:none; }
+
+.thumb{
+  width:44px; height:44px; border-radius:12px; object-fit:cover;
+  border:1px solid var(--border); background:#2a2a33; display:block; cursor:pointer;
+}
+.camBtn{
+  width:44px; height:44px; border-radius:12px;
+  border:1px dashed var(--border);
+  display:flex; align-items:center; justify-content:center;
+  background: var(--surface);
+  cursor:pointer; padding:0;
+}
+
+.line2{ color: var(--muted); font-size:14px; line-height:1.35; white-space:normal; overflow-wrap:anywhere; }
+.line2:empty{ display:none; }
+
+/* Category dots (kept from your schema) */
+.catdot{ width:8px; height:8px; border-radius:999px; display:inline-block; margin-right:8px; background:#7b8497; vertical-align:middle; }
+.item[data-cat="produce"] .catdot{ background:#2fb344; }
+.item[data-cat="meat-poultry"] .catdot{ background:#d7263d; }
+.item[data-cat="fish-seafood"] .catdot{ background:#2a9df4; }
+.item[data-cat="dairy-eggs"] .catdot{ background:#51b3ff; }
+.item[data-cat="bakery"] .catdot{ background:#f08c2f; }
+.item[data-cat="pantry"] .catdot{ background:#a1765c; }
+.item[data-cat="frozen"] .catdot{ background:#27c3d6; }
+.item[data-cat="beverages"] .catdot{ background:#7b61ff; }
+.item[data-cat="snacks-confectionery"] .catdot{ background:#ffd43b; }
+.item[data-cat="household-cleaning"] .catdot{ background:#8795a1; }
+.item[data-cat="personal-care-health"] .catdot{ background:#ff6fa3; }
+.item[data-cat="other"] .catdot{ background:#c0c4cc; }
+
+/* Inline qty box inside title */
+.qty-inline{
+  width:80px; padding:6px 8px;
+  border:1px solid var(--border);
+  border-radius:10px; font:inherit;
+  background: var(--surface);
+  color: var(--text);
+}
+
+/* Editor row (expanded) */
+.item .editor{ display:none; grid-column:1 / -1; }
+.item.editing .editor{
+  display:grid;
+  grid-template-columns: repeat(3, minmax(0,1fr));
+  gap:8px; padding-top:8px;
+}
+.qty, .size, .notes, .route, .category{ width:100%; }
+
+@media (max-width:560px){
+  .item.editing .editor{ grid-template-columns:1fr; }
+  button, input, select{ min-height:44px; }
+}
+
+/* Checked effect */
+.item:has(input[type="checkbox"]:checked){
+  background:
+    linear-gradient(0deg, color-mix(in oklab, var(--surface) 75%, var(--hover)), color-mix(in oklab, var(--surface) 75%, var(--hover))),
+    var(--surface);
+  opacity:.92;
+}
+.item:has(input[type="checkbox"]:checked) .line1{ text-decoration:line-through; color: color-mix(in oklab, var(--text) 60%, #888); }
+
+/* =========================================================
+   Autocomplete / Toast / Popups / Modals / Lightbox
+   (restyled to match neon-dark)
+   ========================================================= */
+.ac-list{
+  position:absolute; left:0; right:0; top:100%; margin-top:6px;
+  background: var(--surface);
+  border:1px solid var(--border);
+  border-radius:14px; box-shadow: var(--shadow-md);
+  max-height:280px; overflow:auto; z-index:6;
+}
+.ac-item{ display:flex; flex-direction:column; gap:2px; padding:10px 12px; cursor:pointer; border-bottom:1px solid var(--border); }
+.ac-item:last-child{ border-bottom:none; }
+.ac-item:hover{ background: color-mix(in oklab, var(--surface), var(--hover)); }
+.ac-title{ font-weight:700; }
+.ac-meta{ color: var(--muted); font-size:12px; }
+
+.toast{
+  position: fixed; left:50%;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
+  transform: translateX(-50%) translateY(20px);
+  opacity:0; transition: transform .18s ease, opacity .18s ease;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius:14px; box-shadow: var(--shadow-md);
+  padding:10px 14px; font-size:14px; pointer-events:none; z-index:50;
+}
+.toast.show{ opacity:1; transform: translateX(-50%) translateY(0); }
+
+.popup-backdrop{ position:fixed; inset:0; background: rgba(0,0,0,.45); display:none; align-items:center; justify-content:center; z-index:90; }
+.popup-backdrop.show{ display:flex; }
+.popup{
+  background: var(--surface);
+  border:1px solid var(--chip-border);
+  border-radius:16px; width:300px; padding:12px; box-shadow: var(--shadow-md);
+}
+.popup h3{ margin:6px 8px 10px; font-size:15px; }
+.popup .choices{ display:grid; gap:8px; }
+.popup .choices button{ width:100%; }
+
+.modal{ position:fixed; inset:0; background: rgba(0,0,0,.4); display:none; align-items:center; justify-content:center; z-index:80; }
 .modal.show{ display:flex; }
-.modal-card{ width:min(740px,95vw); background:#fff; border:1px solid #eee;
-  border-radius:16px; box-shadow:0 8px 30px rgba(0,0,0,.12); }
-.modal-head{ display:flex; align-items:center; justify-content:space-between;
-  padding:14px 16px; border-bottom:1px solid #eee; }
+.modal-card{
+  width:min(740px,95vw);
+  background: var(--surface);
+  border:1px solid var(--border);
+  border-radius:18px; box-shadow: var(--shadow-md);
+}
+.modal-head{ display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid var(--border); }
 .modal-body{ padding:14px 16px; max-height:65vh; overflow:auto; display:grid; gap:10px; }
-.modal-foot{ padding:12px 16px; border-top:1px solid #eee; display:flex; gap:8px; }
+.modal-foot{ padding:12px 16px; border-top:1px solid var(--border); display:flex; gap:8px; }
 
 .input-row{ display:grid; gap:8px; grid-template-columns: 1fr 160px; }
-@media (max-width:560px){ .input-row{ grid-template-columns: 1fr; } }
+@media (max-width:560px){ .input-row{ grid-template-columns:1fr; } }
 
 .tag-row{ display:flex; flex-wrap:wrap; gap:8px; }
-.tagchip{ padding:6px 10px; border:1px solid #e5e7eb; border-radius:999px; cursor:pointer; user-select:none; }
-.tagchip.active{ background:#111; color:#fff; border-color:#111; }
+.tagchip{
+  padding:6px 10px; border:1px solid var(--chip-border); border-radius:999px; cursor:pointer; user-select:none;
+  background: var(--chip); color: var(--text);
+}
+.tagchip.active{ background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
 
 .preset-row{ display:flex; gap:8px; flex-wrap:wrap; }
-.preset{ padding:6px 10px; border:1px solid #e5e7eb; border-radius:999px; cursor:pointer; }
-.preset.active{ background:#111; color:#fff; border-color:#111; }
+.preset{ padding:6px 10px; border:1px solid var(--chip-border); border-radius:999px; background: var(--chip); }
+.preset.active{ background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
 
 .checklist{ display:grid; gap:8px; }
-.checkrow{ display:grid; grid-template-columns: 24px 1fr auto; align-items:center; gap:10px;
-  border:1px solid #eee; border-radius:12px; padding:8px 10px; background:#fff; }
+.checkrow{
+  display:grid; grid-template-columns:24px 1fr auto; align-items:center; gap:10px;
+  border:1px solid var(--border); border-radius:12px; padding:8px 10px; background: var(--surface);
+}
 
-.step-row{ display:grid; grid-template-columns: auto 1fr auto; gap:8px; align-items:start; }
-.step-num{ min-width:36px; height:36px; display:grid; place-items:center; border-radius:10px; background:#f5f6fa; border:1px solid #e7e7ef; font-weight:700; }
-.step-text{ width:100%; min-height:48px; border:1px solid #e5e7eb; border-radius:10px; padding:8px 10px; }
+.step-row{ display:grid; grid-template-columns:auto 1fr auto; gap:8px; align-items:start; }
+.step-num{
+  min-width:36px; height:36px; display:grid; place-items:center;
+  border-radius:10px; background: var(--chip); border:1px solid var(--chip-border); font-weight:800;
+}
+.step-text{
+  width:100%; min-height:48px;
+  border:1px solid var(--chip-border);
+  border-radius:12px; padding:8px 10px;
+  background: var(--surface); color: var(--text);
+}
+  /* Reserve space so content isn't hidden behind the bottom nav */
+body { padding-bottom: calc(70px + env(safe-area-inset-bottom)); }
 
-  </style>
+/* =========================================================
+   Bottom Navigation
+   ========================================================= */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0; right: 0;
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -8px 24px rgba(0,0,0,.12);
+  z-index: 100;
+}
+.bottom-nav .tab {
+  flex: 1;
+  padding: 12px 0;
+  border-radius: 12px;
+  border: 1px solid var(--chip-border);
+  background: var(--chip);
+  font-weight: 700;
+}
+.bottom-nav .tab:hover { background: color-mix(in oklab, var(--chip), var(--hover)); }
+.bottom-nav .tab.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--on-primary);
+  box-shadow: 0 10px 24px color-mix(in oklab, var(--primary) 30%, transparent);
+}
+
+/* =========================================================
+   Floating Theme Toggle (FAB)
+   ========================================================= */
+.theme-fab {
+  position: fixed;
+  right: 16px;
+  bottom: calc(70px + 16px + env(safe-area-inset-bottom)); /* sits above the nav */
+  border-radius: 999px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+  cursor: pointer;
+}
+.theme-fab:hover  { background: color-mix(in oklab, var(--surface), var(--hover)); }
+.theme-fab:active { background: color-mix(in oklab, var(--surface), var(--press)); transform: translateY(1px); }
+
+</style>
+
+
+
 
   <!-- Firebase SDKs from CDN -->
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -253,11 +527,7 @@
         <h1>🛒 Kaufland Route List</h1>
         <div id="householdTag" class="pill" title="Household code helps you both see the same list.">household: <span id="householdView">—</span></div>
       </div>
-    <div class="group tabs" id="tabs">
-  <button id="tabList" class="tab active" type="button">List</button>
-  <button id="tabShopping" class="tab" type="button">Shopping</button>
-  <button id="tabRecipes" class="tab" type="button">Recipes</button>
-</div>
+   
 
 
       <div id="authControls" class="group auth">
@@ -2551,5 +2821,101 @@ if (atlAddBtn) atlAddBtn.onclick = async () => {
       });
     });
   </script>
+  <!-- Bottom navigation (place this just above the theme script) -->
+<nav class="bottom-nav" id="bottomNav">
+  <button id="tabList" class="tab" type="button">List</button>
+  <button id="tabShopping" class="tab" type="button">Shopping</button>
+  <button id="tabRecipes" class="tab" type="button">Recipes</button>
+</nav>
+
+<!-- Floating theme toggle (moved out of the nav) -->
+<button id="themeToggle" class="theme-fab" type="button" aria-label="Toggle theme">🌙 Dark</button>
+
+<script>
+  // One listener to handle clicks on any of the three nav buttons
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('#tabList, #tabShopping, #tabRecipes');
+    if (!btn) return;
+
+    const idToTab = {
+      tabList: 'list',
+      tabShopping: 'shopping',
+      tabRecipes: 'recipes'
+    };
+    const tab = idToTab[btn.id];
+    if (!tab) return;
+
+    // Visual state
+    document.querySelectorAll('.bottom-nav .tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    // Persist + render using your existing function
+    localStorage.setItem('activeTab', tab);
+    if (typeof setActiveTab === 'function') {
+      setActiveTab(tab);
+    }
+  });
+
+  // Sync the active highlight on page load
+  (function syncBottomNav(){
+    const current = localStorage.getItem('activeTab') || 'list';
+    const el = {
+      list: document.getElementById('tabList'),
+      shopping: document.getElementById('tabShopping'),
+      recipes: document.getElementById('tabRecipes')
+    }[current];
+    if (el) el.classList.add('active');
+  })();
+</script>
+
+
+    // Use the app's existing setActiveTab for logic/render,
+    // and update the visual "active" class here.
+    if (typeof setActiveTab === 'function') {
+      if (list) list.addEventListener('click', () => { setActiveClasses('list');     setActiveTab('list'); });
+      if (shop) shop.addEventListener('click', () => { setActiveClasses('shopping'); setActiveTab('shopping'); });
+      if (rec)  rec.addEventListener('click',  () => { setActiveClasses('recipes');  setActiveTab('recipes'); });
+    }
+
+    // Sync the highlight on load (the earlier call to setActiveTab ran before the nav existed)
+    const saved = localStorage.getItem('activeTab') || 'list';
+    setActiveClasses(saved);
+  })();
+</script>
+
+  <script>
+const root = document.documentElement;
+const btn = document.getElementById('themeToggle');
+
+// On load: check saved theme
+const saved = localStorage.getItem('theme');
+if (saved === 'dark') {
+  root.setAttribute('data-theme', 'dark');
+  btn.textContent = '☀️ Light';
+} else {
+  root.setAttribute('data-theme', 'light');
+  btn.textContent = '🌙 Dark';
+}
+
+// Toggle on click
+btn.onclick = () => {
+  const current = root.getAttribute('data-theme');
+  if (current === 'dark') {
+    root.setAttribute('data-theme', 'light');
+    localStorage.setItem('theme', 'light');
+    btn.textContent = '🌙 Dark';
+  } else {
+    root.setAttribute('data-theme', 'dark');
+    localStorage.setItem('theme', 'dark');
+    btn.textContent = '☀️ Light';
+  }
+};
+</script>
+<nav class="bottom-nav">
+  <button id="tabList" class="tab active" type="button">List</button>
+  <button id="tabShopping" class="tab" type="button">Shopping</button>
+  <button id="tabRecipes" class="tab" type="button">Recipes</button>
+</nav>
+
 </body>
 </html>
