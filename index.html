@@ -619,16 +619,7 @@ body { padding-bottom: calc(70px + env(safe-area-inset-bottom)); }
     </section>
 <!-- ==================== Recipes View (shell) ==================== -->
 <section id="recipesView" class="card" style="display:none; margin-top:14px;">
-  <div class="toolbar" style="margin-top:0;">
-    <div class="group">
-      <h2 style="margin:0;">Recipes</h2>
-      <span id="recipesCount" class="pill">0 recipes</span>
-    </div>
-    <div class="group">
-      <input id="recipeSearch" placeholder="Search recipes…" />
-      <button id="btnOpenAddRecipe" class="primary" type="button">Add Recipe</button>
-    </div>
-  </div>
+ 
   <div id="recipeList" class="list" style="margin-top:12px;"></div>
 </section>
 
@@ -784,8 +775,9 @@ body { padding-bottom: calc(70px + env(safe-area-inset-bottom)); }
     const $ = id => document.getElementById(id);
     const listEl = $('list');
     const emptyEl = $('empty');
-    const sortModeEl = $('sortMode');
-    const filterModeEl = $('filterMode');
+  let sortModeEl = null;
+let filterModeEl = null;
+
     const statusEl = $('status');
  // Tabs + filter group
 const tabListBtn = $('tabList');
@@ -800,8 +792,6 @@ let activeTab = 'list';
 
 
     // Preferences
-    const savedSort = localStorage.getItem('sortMode'); if (savedSort) sortModeEl.value = savedSort;
-    const savedFilter = localStorage.getItem('filterMode'); if (savedFilter) filterModeEl.value = savedFilter;
 
     let user = null;
     let household = localStorage.getItem('household') || '';
@@ -1037,21 +1027,16 @@ function render(items){
     // Shopping tab: ONLY unchecked items
     filtered = items.filter(i => !i.checked);
     } else {
-    // List tab: obey the dropdown filter (support both old and bottom-sheet values)
+    // List tab: obey the dropdown filter (only all / checked / unchecked)
     const fm = (filterModeEl && filterModeEl.value) || 'all';
-    if (fm === 'unchecked' || fm === 'need') {
+    if (fm === 'unchecked') {
       filtered = items.filter(i => !i.checked);
-    } else if (fm === 'checked' || fm === 'have') {
+    } else if (fm === 'checked') {
       filtered = items.filter(i => !!i.checked);
-    } else if (fm === 'noroute') {
-      filtered = items.filter(i =>
-        i.routeOrder === undefined ||
-        i.routeOrder === null ||
-        i.routeOrder === '' ||
-        isNaN(parseFloat(i.routeOrder))
-      );
     }
+    // "all" → no filtering needed
   }
+
 
 
   // Render by chosen sort mode
@@ -1734,8 +1719,6 @@ const _clearBtn = $('clearChecked'); if (_clearBtn) _clearBtn.onclick = async ()
 
     
 
-    sortModeEl.onchange = () => { localStorage.setItem('sortMode', sortModeEl.value); render(lastSnapshotItems); };
-    filterModeEl.onchange = () => { localStorage.setItem('filterMode', filterModeEl.value); render(lastSnapshotItems); };
 function setActiveTab(tab){ // 'list' | 'shopping' | 'recipes'
   activeTab = tab;
   const isShopping = tab === 'shopping';
@@ -1775,14 +1758,7 @@ if (recipesView) recipesView.style.display = isRecipes ? '' : 'none';
 }
 
 
-// Wire tab buttons
-if (tabListBtn) tabListBtn.onclick = () => setActiveTab('list');
-if (tabShoppingBtn) tabShoppingBtn.onclick = () => setActiveTab('shopping');
-if (tabRecipesBtn) tabRecipesBtn.onclick = () => setActiveTab('recipes');
 
-
-// Restore last tab (default to 'list')
-setActiveTab(localStorage.getItem('activeTab') || 'list');
     // ==== Recipe ingredient helpers ====
 function nameKey(s){ return (s||'').trim().toLowerCase(); }
 
@@ -2854,11 +2830,12 @@ if (atlAddBtn) atlAddBtn.onclick = async () => {
 
     <div style="margin-top:12px;">
       <label>Filter</label>
-      <select id="filterMode">
-        <option value="all">All</option>
-        <option value="need">Need</option>
-        <option value="have">Have</option>
-      </select>
+     <select id="filterMode">
+  <option value="all">All</option>
+  <option value="unchecked">Unchecked</option>
+  <option value="checked">Checked</option>
+</select>
+
     </div>
 
     <div style="margin-top:20px; text-align:right;">
@@ -2919,7 +2896,16 @@ if (menuBtn) menuBtn.onclick = () => openSheet(menuSheet);
 if (menuClose) menuClose.onclick = () => closeSheet(menuSheet);
 if (menuSheet) menuSheet.addEventListener('click', (e)=>{ if(e.target===menuSheet) closeSheet(menuSheet); });
 
-if (filterBtn) filterBtn.onclick = () => openSheet(filterSheet);
+if (filterBtn) filterBtn.onclick = () => {
+  // hide the filter dropdown if on Shopping tab
+  const filterModeSel = document.getElementById('filterMode');
+  const filterBlock = filterModeSel && filterModeSel.closest('div'); // wrapping <div>
+  if (filterBlock) {
+    filterBlock.style.display = (activeTab === 'shopping') ? 'none' : '';
+  }
+  openSheet(filterSheet);
+};
+
 if (filterClose) filterClose.onclick = () => closeSheet(filterSheet);
 if (filterSheet) filterSheet.addEventListener('click', (e)=>{ if(e.target===filterSheet) closeSheet(filterSheet); });
 
@@ -2950,66 +2936,7 @@ document.addEventListener('click', (e) => {
 </script>
 
 
-<!-- Slide-up Menu Sheet -->
-<div id="menuSheet" class="menu-sheet" aria-hidden="true">
-  <div class="menu-card">
-    <h3>Settings</h3>
-
-    <label style="display:block; margin-top:10px;">
-      <div>Household</div>
-      <input id="household" type="text" placeholder="Household code" style="width:100%; margin-top:4px;">
-    </label>
-    <button id="setHousehold" style="margin-top:6px;">Set</button>
-
-    <div style="margin-top:12px;">
-      <button id="signIn" class="primary">Sign in</button>
-      <button id="signOut" style="display:none">Sign out</button>
-    </div>
-
-    <div style="margin-top:12px;">
-      <button id="themeToggle" type="button">🌙 Dark</button>
-    </div>
-
-    <div style="margin-top:20px; text-align:right;">
-      <button id="menuClose">Close</button>
-    </div>
-  </div>
-</div>
-
-<style>
-/* ====== Menu Sheet (slide-up) ====== */
-.menu-sheet {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,.5);
-  display: none;
-  align-items: flex-end;
-  justify-content: center;
-  z-index: 10000;
-}
-.menu-sheet.show { display: flex; }
-
-.menu-card {
-  width: 100%;
-  max-width: 480px;
-  background: var(--surface);
-  border-top-left-radius: 18px;
-  border-top-right-radius: 18px;
-  box-shadow: var(--shadow-md);
-  padding: 16px;
-  animation: slideUp .2s ease;
-}
-@keyframes slideUp {
-  from { transform: translateY(100%); opacity: 0; }
-  to   { transform: translateY(0); opacity: 1; }
-}
-</style>
-
 <script>
-  // ===== Menu open/close =====
-  const menuBtn   = document.getElementById('menuBtn');
-  const menuSheet = document.getElementById('menuSheet');
-  const menuClose = document.getElementById('menuClose');
 
   if (menuBtn && menuSheet) {
     menuBtn.onclick = () => {
@@ -3123,6 +3050,30 @@ document.addEventListener('click', (e) => {
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+    // === Bind Sort/Filter now that the Filter Sheet is in the DOM ===
+  sortModeEl = document.getElementById('sortMode');
+  filterModeEl = document.getElementById('filterMode');
+
+  if (sortModeEl) {
+    const savedSort = localStorage.getItem('sortMode');
+    if (savedSort) sortModeEl.value = savedSort;
+
+    sortModeEl.onchange = () => {
+      localStorage.setItem('sortMode', sortModeEl.value);
+      render(lastSnapshotItems || []);
+    };
+  }
+
+  if (filterModeEl) {
+    const savedFilter = localStorage.getItem('filterMode');
+    if (savedFilter) filterModeEl.value = savedFilter;
+
+    filterModeEl.onchange = () => {
+      localStorage.setItem('filterMode', filterModeEl.value);
+      render(lastSnapshotItems || []);
+    };
+  }
+
   const setBtn    = document.getElementById('setHousehold');
   const signInBtn = document.getElementById('signIn');
   const signOutBtn= document.getElementById('signOut');
