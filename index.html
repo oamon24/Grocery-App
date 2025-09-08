@@ -619,9 +619,19 @@ body { padding-bottom: calc(70px + env(safe-area-inset-bottom)); }
     </section>
 <!-- ==================== Recipes View (shell) ==================== -->
 <section id="recipesView" class="card" style="display:none; margin-top:14px;">
- 
+  <div class="toolbar">
+    <div class="group">
+      <h2 style="margin:0">Recipes</h2>
+      <span id="recipesCount" class="pill muted">0 recipes</span>
+    </div>
+    <div class="group">
+      <button id="btnOpenAddRecipe" class="primary" type="button">Add Recipe</button>
+    </div>
+  </div>
+
   <div id="recipeList" class="list" style="margin-top:12px;"></div>
 </section>
+
 
     
   </main>
@@ -1106,11 +1116,13 @@ function render(items){
     }
 function renderRecipes(arr){
   const list = $('recipeList');
-  const count = $('recipesCount');
-  if (!list || !count) return;
+  const count = $('recipesCount'); // optional
+  if (!list) return;
   list.innerHTML = '';
 
-  count.textContent = `${arr.length} recipe${arr.length===1?'':'s'}`;
+  if (count) {
+    count.textContent = `${arr.length} recipe${arr.length===1?'':'s'}`;
+  }
 
   if (!arr.length){
     const empty = document.createElement('div');
@@ -1128,17 +1140,17 @@ function renderRecipes(arr){
     row.style.alignItems = 'center';
     row.style.gap = '8px';
 
-   const left = document.createElement('div');
-left.innerHTML = `<strong>${escapeHtml(r.name||'Untitled')}</strong> 
+    const left = document.createElement('div');
+    left.innerHTML = `<strong>${escapeHtml(r.name||'Untitled')}</strong> 
       <span class="muted">(${r.basePortions||1} portions)</span>`;
 
-// optional: steps count hint
-if (typeof r.stepCount === 'number') {
-  const hint = document.createElement('span');
-  hint.className = 'muted';
-  hint.textContent = ` • ${r.stepCount} step${r.stepCount===1?'':'s'}`;
-  left.appendChild(hint);
-}
+    // optional: steps count hint
+    if (typeof r.stepCount === 'number') {
+      const hint = document.createElement('span');
+      hint.className = 'muted';
+      hint.textContent = ` • ${r.stepCount} step${r.stepCount===1?'':'s'}`;
+      left.appendChild(hint);
+    }
 
     if (r.tags && r.tags.length){
       const tags = document.createElement('span');
@@ -1165,6 +1177,7 @@ if (typeof r.stepCount === 'number') {
     list.appendChild(row);
   }
 }
+
 
 
     // ==== PHOTO: shared popup + global inputs ====
