@@ -608,26 +608,7 @@ body { padding-bottom: calc(70px + env(safe-area-inset-bottom)); }
         <div><button id="add" class="primary">Add</button></div>
       </div>
 
-      <div class="toolbar" style="margin-top:12px;">
-        <div class="group">
-          <label>Sort by</label>
-          <select id="sortMode">
-            <option value="route">Route</option>
-            <option value="category">Category</option>
-          </select>
-          <button id="clearChecked">Clear checked</button>
-        </div>
-        <div class="group" id="filterGroup">
-  <label>Filter</label>
-  <select id="filterMode">
-
-            <option value="all">All</option>
-            <option value="unchecked">Only unchecked</option>
-            <option value="checked">Only checked</option>
-            <option value="noroute">No route number</option>
-          </select>
-        </div>
-      </div>
+     
 
       <div id="list" class="list" aria-live="polite"></div>
       <div id="empty" class="empty" style="display:none">
@@ -1055,12 +1036,14 @@ function render(items){
   if (activeTab === 'shopping') {
     // Shopping tab: ONLY unchecked items
     filtered = items.filter(i => !i.checked);
-  } else {
-    // List tab: obey the dropdown filter
-    const filterMode = filterModeEl.value;
-    if (filterMode === 'unchecked') filtered = items.filter(i => !i.checked);
-    else if (filterMode === 'checked') filtered = items.filter(i => !!i.checked);
-    else if (filterMode === 'noroute') {
+    } else {
+    // List tab: obey the dropdown filter (support both old and bottom-sheet values)
+    const fm = (filterModeEl && filterModeEl.value) || 'all';
+    if (fm === 'unchecked' || fm === 'need') {
+      filtered = items.filter(i => !i.checked);
+    } else if (fm === 'checked' || fm === 'have') {
+      filtered = items.filter(i => !!i.checked);
+    } else if (fm === 'noroute') {
       filtered = items.filter(i =>
         i.routeOrder === undefined ||
         i.routeOrder === null ||
@@ -1070,10 +1053,22 @@ function render(items){
     }
   }
 
+
   // Render by chosen sort mode
-  const mode = sortModeEl.value;
-  if (mode === 'category') renderGroupedByCategory(filtered);
-  else renderFlatByRoute(filtered);
+   const mode = (sortModeEl && sortModeEl.value) || 'route';
+  if (mode === 'category') {
+    renderGroupedByCategory(filtered);
+  } else if (mode === 'name') {
+    // Flat list sorted by name (A→Z)
+    const byName = [...filtered].sort((a,b)=> (a.name||'').localeCompare(b.name||''));
+    listEl.innerHTML = '';
+    if (!byName.length){ emptyEl.style.display = 'block'; return; }
+    emptyEl.style.display = 'none';
+    for (const it of byName) listEl.appendChild(renderRow(it));
+  } else {
+    renderFlatByRoute(filtered);
+  }
+
 }
 
 
@@ -1586,7 +1581,7 @@ line1.append(sep);
       await db.collection('lists').doc(household).collection('items').doc(id).delete();
     }
 
-  $('clearChecked').onclick = async () => {
+const _clearBtn = $('clearChecked'); if (_clearBtn) _clearBtn.onclick = async () => {
   if (!auth || !auth.currentUser || !household) return alert('Sign in and set household first.');
 
   // Uncheck all checked items; do NOT delete docs or photos.
@@ -2855,9 +2850,7 @@ if (atlAddBtn) atlAddBtn.onclick = async () => {
       </select>
     </div>
 
-    <div style="margin-top:12px;">
-      <button id="clearChecked">Clear checked</button>
-    </div>
+   
 
     <div style="margin-top:12px;">
       <label>Filter</label>
