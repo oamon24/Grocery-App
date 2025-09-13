@@ -3269,61 +3269,57 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 
-  const setBtn    = document.getElementById('setHousehold');
-  const signInBtn = document.getElementById('signIn');
-  const signOutBtn= document.getElementById('signOut');
+ // Single delegated click handler so duplicates of buttons still work
+  document.addEventListener('click', async (e) => {
+    // Set household
+    if (e.target.closest('#setHousehold')) {
+      household = document.getElementById('household').value.trim();
+      localStorage.setItem('household', household);
+      setHouseholdUI();
+      subscribeList();
+      subscribeRecipes();
+      ensureHouseholdDoc().catch(()=>{});
+      updateStatus();
+      return;
+    }
 
-if (setBtn) {
-  setBtn.onclick = async () => {
-    household = document.getElementById('household').value.trim();
-    localStorage.setItem('household', household);
-    setHouseholdUI();
-
-    // Subscribe immediately (renders from cache fast)
-    subscribeList();
-    subscribeRecipes();
-
-    // Fire-and-forget; don't block UI
-    ensureHouseholdDoc().catch(()=>{});
-
-    updateStatus();
-  };
-}
-
-
-  if (signInBtn) {
-    signInBtn.onclick = async () => {
+    // Sign in
+    if (e.target.closest('#signIn')) {
       try {
         const email = prompt("Enter email:");
         const password = prompt("Enter password:");
         if (!email || !password) return;
-
         await auth.signInWithEmailAndPassword(email, password);
         showToast("Signed in as " + email);
-      } catch (e) {
-        if (e.code === 'auth/user-not-found') {
+      } catch (e2) {
+        if (e2.code === 'auth/user-not-found') {
           alert("No user found. Ask admin to add you in Firebase.");
-        } else if (e.code === 'auth/wrong-password') {
+        } else if (e2.code === 'auth/wrong-password') {
           alert("Wrong password.");
         } else {
-          alert("Sign-in failed: " + (e.message || e));
+          alert("Sign-in failed: " + (e2.message || e2));
         }
       }
-    };
-  }
+      return;
+    }
 
-  if (signOutBtn) {
-    signOutBtn.onclick = async () => {
+    // Sign out
+    if (e.target.closest('#signOut')) {
       try {
         await auth.signOut();
         showToast("Signed out");
-      } catch (e) {
-        alert("Sign-out failed: " + (e.message || e));
+      } catch (e3) {
+        alert("Sign-out failed: " + (e3.message || e3));
       }
-    };
-  }
-   const savedTab = localStorage.getItem('activeTab') || 'list';
-  setActiveTab(savedTab);
+      return;
+    }
+  });
+
+}); // <-- correctly close DOMContentLoaded
+
+const savedTab = localStorage.getItem('activeTab') || 'list';
+setActiveTab(savedTab);
+
 
  try {
   const cachedItems = JSON.parse(localStorage.getItem('cache_items') || '[]');
@@ -3344,7 +3340,7 @@ try {
     renderRecipes(cachedRecipes);
   }
 } catch {}
-
+</script>
 
 
 <style>
