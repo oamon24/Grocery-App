@@ -3,6 +3,24 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
+<link rel="preconnect" href="https://firebaseinstallations.googleapis.com" crossorigin>
+<!-- Extra Firebase endpoints we touch early -->
+<link rel="preconnect" href="https://www.googleapis.com" crossorigin>
+<link rel="preconnect" href="https://identitytoolkit.googleapis.com" crossorigin>
+<link rel="preconnect" href="https://securetoken.googleapis.com" crossorigin>
+<link rel="preconnect" href="https://firebasestorage.googleapis.com" crossorigin>
+
+<!-- Low-cost DNS prefetch fallbacks (in case preconnect is ignored) -->
+<link rel="dns-prefetch" href="https://www.gstatic.com">
+<link rel="dns-prefetch" href="https://firestore.googleapis.com">
+<link rel="dns-prefetch" href="https://firebaseinstallations.googleapis.com">
+<link rel="dns-prefetch" href="https://www.googleapis.com">
+<link rel="dns-prefetch" href="https://identitytoolkit.googleapis.com">
+<link rel="dns-prefetch" href="https://securetoken.googleapis.com">
+<link rel="dns-prefetch" href="https://firebasestorage.googleapis.com">
+
   <title>Kaufland Route List</title>
 <style>
 /* =========================================================
@@ -275,6 +293,17 @@ button.primary{
   font-size:16px; font-weight:800; line-height:1.25;
   overflow:hidden; white-space:nowrap; text-overflow:ellipsis; min-width:0;
 }
+  /* second line under the name (qty + size) */
+.line1 .meta{
+  margin-top:6px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;            /* wrap nicely on small screens */
+  font-weight:600;           /* matches your previous sep weight */
+}
+.line1 .meta .muted{ font-weight:500; }  /* keep size text lighter */
+
 .line1 .sep{ opacity:.7; font-weight:600; }
 
 .actions{ grid-column:3; grid-row:1; display:flex; gap:8px; align-items:center; justify-self:end; }
@@ -528,9 +557,11 @@ body { padding-bottom: calc(70px + env(safe-area-inset-bottom)); }
 
   <!-- Firebase SDKs from CDN -->
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+
+
   <meta name="theme-color" content="#111"/>
   <link rel="manifest" href="manifest.webmanifest"/>
 </head>
@@ -695,12 +726,15 @@ body { padding-bottom: calc(70px + env(safe-area-inset-bottom)); }
         </div>
       </div>
 
-      <!-- Ingredients (just a placeholder list for now; full editor later) -->
-      <div style="display:flex; justify-content:space-between; align-items:center;">
-        <strong>Ingredients</strong>
-        <button id="rmAddIng" type="button">Add Ingredient</button>
-      </div>
-      <div id="rmIngList" class="checklist"></div>
+     <!-- Ingredients (just a placeholder list for now; full editor later) -->
+<div style="display:flex; justify-content:space-between; align-items:center;">
+  <strong>Ingredients</strong>
+</div>
+<div id="rmIngList" class="checklist"></div>
+<div style="margin-top:8px;">
+  <button id="rmAddIng" type="button">Add Ingredient</button>
+</div>
+
 
       <!-- Steps (builder shell; full logic later) -->
       <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -752,7 +786,8 @@ body { padding-bottom: calc(70px + env(safe-area-inset-bottom)); }
 </div>
 
 
-  <script>
+ 
+ <script>
     // Register service worker for PWA installability
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -760,7 +795,6 @@ body { padding-bottom: calc(70px + env(safe-area-inset-bottom)); }
       });
     }
   </script>
-
   <script>
     // === Firebase ===
     const firebaseConfig = {
@@ -785,6 +819,62 @@ body { padding-bottom: calc(70px + env(safe-area-inset-bottom)); }
     const $ = id => document.getElementById(id);
     const listEl = $('list');
     const emptyEl = $('empty');
+    // ——— skeleton placeholders for first paint ———
+let _listHasFirstSnapshot = false;
+let _recipesHasFirstSnapshot = false;
+
+function showListSkeleton(){
+  if (!listEl) return;
+  if (listEl._skeletonMounted) return;
+  listEl._skeletonMounted = true;
+  const frag = document.createDocumentFragment();
+  for (let i=0;i<4;i++){
+    const sk = document.createElement('div');
+    sk.className = 'item skeleton';
+    sk.innerHTML = `
+      <div class="left"><div class="sk-box" style="width:18px;height:18px;border-radius:4px;"></div></div>
+      <div class="line1">
+        <div class="sk-line" style="width:60%;height:14px;"></div>
+        <div class="meta" style="margin-top:8px;">
+          <div class="sk-chip" style="width:72px;height:12px;"></div>
+          <div class="sk-chip" style="width:48px;height:12px;"></div>
+        </div>
+      </div>
+      <div class="actions"><div class="sk-btn" style="width:56px;height:28px;border-radius:8px;"></div></div>
+    `;
+    frag.appendChild(sk);
+  }
+  listEl.innerHTML = '';
+  listEl.appendChild(frag);
+  if (emptyEl) emptyEl.style.display = 'none';
+}
+function hideListSkeleton(){
+  if (!listEl || !listEl._skeletonMounted) return;
+  listEl._skeletonMounted = false;
+  listEl.innerHTML = '';
+}
+
+    // ——— micro-debounced renderers ———
+let _rafItems = 0, _rafRecipes = 0, _pendingItems = null, _pendingRecipes = null;
+function scheduleRenderItems(items){
+  _pendingItems = items;
+  if (_rafItems) return;
+  _rafItems = requestAnimationFrame(() => {
+    _rafItems = 0;
+    const data = _pendingItems; _pendingItems = null;
+    render(data);
+  });
+}
+function scheduleRenderRecipes(arr){
+  _pendingRecipes = arr;
+  if (_rafRecipes) return;
+  _rafRecipes = requestAnimationFrame(() => {
+    _rafRecipes = 0;
+    const data = _pendingRecipes; _pendingRecipes = null;
+    renderRecipes(data);
+  });
+}
+
   let sortModeEl = null;
 let filterModeEl = null;
 
@@ -954,14 +1044,25 @@ let lastSnapshotRecipes = [];
 
 
     auth && auth.onAuthStateChanged(u => {
-      user = u;
-      $('signIn').style.display = u ? 'none' : 'inline-block';
-      $('signOut').style.display = u ? 'inline-block' : 'none';
-      subscribeList(); 
-  subscribeRecipes(); 
-  warmCatalog(); 
+  user = u;
+      
+ const _si = $('signIn');
+  const _so = $('signOut');
+  if (_si) _si.style.display = u ? 'none' : 'inline-block';
+  if (_so) _so.style.display = u ? 'inline-block' : 'none';
+
+  // Subscribe immediately (renders from cache fast)
+  subscribeList();
+  subscribeRecipes();
+
+  // Push non-critical warming to idle so it never blocks initial render
+  (window.requestIdleCallback || function(cb){ return setTimeout(cb, 0); })(() => {
+    try { warmCatalog(); } catch {}
+  });
+
   updateStatus();
-    });
+});
+
 // === ensure parent /lists/{household} exists and is owned by current user ===
 // Ensure /lists/{household} exists and add current user to members
 async function ensureHouseholdDoc() {
@@ -988,33 +1089,48 @@ async function ensureHouseholdDoc() {
    async function subscribeList(){
   if (unsubList) { unsubList(); unsubList = null; }
   if (!auth || !auth.currentUser || !household) { render([]); return; }
-  await ensureHouseholdDoc();  // ← add this line
-  unsubList = db.collection('lists').doc(household).collection('items').onSnapshot(snap => {
-    const items = []; snap.forEach(d => items.push({ id: d.id, ...d.data() }));
-    lastSnapshotItems = items;
-    render(items);
-  }, err => { console.error(err); alert('Cannot read list. Check Firestore rules and that Firestore is enabled.'); });
+
+  // Subscribe immediately so cached data can render right away
+  unsubList = db.collection('lists').doc(household).collection('items')
+    .onSnapshot((snap) => {
+      const items = [];
+      snap.forEach(d => items.push({ id: d.id, ...d.data() }));
+      lastSnapshotItems = items;
+      hideListSkeleton();
+scheduleRenderItems(items);
+
+    }, (err) => {
+      console.error(err);
+      alert('Cannot read list. Check Firestore rules and that Firestore is enabled.');
+    });
+
+  // Fire-and-forget; don't block the snapshot
+  ensureHouseholdDoc().catch(()=>{});
 }
+
 async function subscribeRecipes(){
   if (unsubRecipes) { unsubRecipes(); unsubRecipes = null; }
   if (!auth || !auth.currentUser || !household) { renderRecipes([]); return; }
 
+  // Subscribe immediately so cached data can render right away
   unsubRecipes = db.collection('recipes').doc(household).collection('recipes')
-  .where('deletedAt','==', null)
-  .onSnapshot(snap => {
-
+    .where('deletedAt','==', null)
+    .onSnapshot((snap) => {
       const arr = [];
-snap.forEach(d => arr.push({ id: d.id, ...d.data() }));
-arr.sort((a,b) => (a.name||'').localeCompare(b.name||''));
-lastSnapshotRecipes = arr;
-renderRecipes(arr);
+      snap.forEach(d => arr.push({ id: d.id, ...d.data() }));
+      arr.sort((a,b) => (a.name||'').localeCompare(b.name||''));
+      lastSnapshotRecipes = arr;
+scheduleRenderRecipes(arr);
 
-      
-    }, err => {
+    }, (err) => {
       console.error(err);
       alert('Cannot read recipes. Check Firestore rules.');
     });
+
+  // Fire-and-forget; don't block the snapshot
+  ensureHouseholdDoc().catch(()=>{});
 }
+
 
 
     function warmCatalog(){
@@ -1033,10 +1149,17 @@ function render(items){
   // Start from all items
   let filtered = items;
 
+  // Cache latest full items snapshot for instant startup
+const _ric = window.requestIdleCallback || function(cb){ return setTimeout(cb, 0); };
+_ric(() => {
+  try { localStorage.setItem('cache_items', JSON.stringify(items || [])); } catch {}
+});
+
+
   if (activeTab === 'shopping') {
     // Shopping tab: ONLY unchecked items
     filtered = items.filter(i => !i.checked);
-    } else {
+  } else {
     // List tab: obey the dropdown filter (only all / checked / unchecked)
     const fm = (filterModeEl && filterModeEl.value) || 'all';
     if (fm === 'unchecked') {
@@ -1047,10 +1170,8 @@ function render(items){
     // "all" → no filtering needed
   }
 
-
-
   // Render by chosen sort mode
-   const mode = (sortModeEl && sortModeEl.value) || 'route';
+  const mode = (sortModeEl && sortModeEl.value) || 'route';
   if (mode === 'category') {
     renderGroupedByCategory(filtered);
   } else if (mode === 'name') {
@@ -1063,15 +1184,15 @@ function render(items){
   } else {
     renderFlatByRoute(filtered);
   }
-
 }
+
 
 
 
     function renderFlatByRoute(items){
       const sorted = [...items].sort((a,b)=>{
-        const ra = isNaN(parseFloat(a.routeOrder)) ? 1e9 : parseFloat(a.routeOrder);
-        const rb = isNaN(parseFloat(b.routeOrder)) ? 1e9 : parseFloat(b.routeOrder);
+        const ra = isNaN(parseFloat(a.routeOrder)) ? -1 : parseFloat(a.routeOrder);
+        const rb = isNaN(parseFloat(b.routeOrder)) ? -1 : parseFloat(b.routeOrder);
         if (ra !== rb) return ra - rb;
         return (a.name||'').localeCompare(b.name||'');
       });
@@ -1106,8 +1227,8 @@ function render(items){
         const rows = groups.get(cat).sort((a,b)=>{
           const an = (a.name||''), bn = (b.name||'');
           const cmp = an.localeCompare(bn); if (cmp !== 0) return cmp;
-          const ra = isNaN(parseFloat(a.routeOrder)) ? 1e9 : parseFloat(a.routeOrder);
-          const rb = isNaN(parseFloat(b.routeOrder)) ? 1e9 : parseFloat(b.routeOrder);
+          const ra = isNaN(parseFloat(a.routeOrder)) ? -1 : parseFloat(a.routeOrder);
+          const rb = isNaN(parseFloat(b.routeOrder)) ? -1 : parseFloat(b.routeOrder);
           return ra - rb;
         });
         for (const it of rows) box.appendChild(renderRow(it));
@@ -1119,6 +1240,13 @@ function renderRecipes(arr){
   const count = $('recipesCount'); // optional
   if (!list) return;
   list.innerHTML = '';
+
+  // Cache latest recipes snapshot for instant startup
+  const _ric = window.requestIdleCallback || function(cb){ return setTimeout(cb, 0); };
+_ric(() => {
+  try { localStorage.setItem('cache_recipes', JSON.stringify(arr || [])); } catch {}
+});
+
 
   if (count) {
     count.textContent = `${arr.length} recipe${arr.length===1?'':'s'}`;
@@ -1151,6 +1279,7 @@ function renderRecipes(arr){
       hint.textContent = ` • ${r.stepCount} step${r.stepCount===1?'':'s'}`;
       left.appendChild(hint);
     }
+
 
     if (r.tags && r.tags.length){
       const tags = document.createElement('span');
@@ -1330,10 +1459,9 @@ if (routeMissing) {
 }
 
 line1.append(catdot, nameEl);
-     // Inline editable qty + optional size text
-const sep = document.createElement('span');
-sep.className = 'sep';
-sep.textContent = ' • ';
+   // Second line under the name: Qty input + optional Size text
+const meta = document.createElement('div');
+meta.className = 'meta';
 
 // Qty input
 const qtyInline = document.createElement('input');
@@ -1343,16 +1471,13 @@ qtyInline.placeholder = 'Qty';
 qtyInline.className = 'qty-inline';
 qtyInline.value = it.qty || '';
 
-// When qty changes: save immediately. If item was checked AND old qty was 0/empty and new qty is positive/non-empty,
-// auto-uncheck so it returns to the Shopping list.
+// Save qty changes (same logic as before)
 qtyInline.addEventListener('change', async () => {
   const newQty = (qtyInline.value || '').trim();
 
-  // helper: treat "", "0", "0.0", "0,0" as zero-ish
   const asNum = (s) => (typeof parseNum === 'function' ? parseNum(s) : NaN);
   const wasZeroish = !it.qty || asNum(it.qty) === 0;
 
-  // positive/non-empty if: numeric > 0 OR non-numeric but non-empty string
   const n = asNum(newQty);
   const nowPositive = (Number.isFinite(n) && n > 0) || (!Number.isFinite(n) && newQty !== '');
 
@@ -1367,7 +1492,6 @@ qtyInline.addEventListener('change', async () => {
 
     await updateItem(it.id, patch);
 
-    // reflect local state
     it.qty = newQty;
     if (shouldUncheck) {
       cb.checked = false;
@@ -1380,42 +1504,50 @@ qtyInline.addEventListener('change', async () => {
   }
 });
 
+meta.appendChild(qtyInline);
 
-// Optional size text after qty
-sep.appendChild(qtyInline);
+// Optional size text
 if (it.size) {
   const sizeSpan = document.createElement('span');
   sizeSpan.className = 'muted';
-  sizeSpan.textContent = ' • ' + it.size;
-  sep.appendChild(sizeSpan);
+  sizeSpan.textContent = it.size;
+  meta.appendChild(sizeSpan);
 }
 
-line1.append(sep);
+// attach the second line under the name
+line1.append(meta);
 
 
-      /* 3) Actions */
-      const actions = document.createElement('div');
-      actions.className = 'actions';
 
-      const editBtn = document.createElement('button');
-      editBtn.type = 'button';
-      editBtn.className = 'editbtn';
-      editBtn.textContent = 'Edit';
-      editBtn.onclick = (ev) => {
-        ev.stopPropagation();
-        const editing = row.classList.toggle('editing');
-        editBtn.textContent = editing ? 'Close' : 'Edit';
-        if (editing) qty.focus();
-      };
+     /* 3) Actions */
+let actions = null;
 
-      const delBtn = document.createElement('button');
-      delBtn.type = 'button';
-      delBtn.className = 'btn-icon';
-      delBtn.title = 'Delete item';
-      delBtn.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-trash"></use></svg>';
-      delBtn.onclick = () => removeItem(it.id);
+// Only show Edit/Delete on LIST tab (hide on SHOPPING tab)
+if (activeTab !== 'shopping') {
+  actions = document.createElement('div');
+  actions.className = 'actions';
 
-      actions.append(editBtn, delBtn);
+  const editBtn = document.createElement('button');
+  editBtn.type = 'button';
+  editBtn.className = 'editbtn';
+  editBtn.textContent = 'Edit';
+  editBtn.onclick = (ev) => {
+    ev.stopPropagation();
+    const editing = row.classList.toggle('editing');
+    editBtn.textContent = editing ? 'Close' : 'Edit';
+    if (editing) qty.focus();
+  };
+
+  const delBtn = document.createElement('button');
+  delBtn.type = 'button';
+  delBtn.className = 'btn-icon';
+  delBtn.title = 'Delete item';
+  delBtn.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-trash"></use></svg>';
+  delBtn.onclick = () => removeItem(it.id);
+
+  actions.append(editBtn, delBtn);
+}
+
 
       /* 4) Below row: media + notes */
       const below = document.createElement('div');
@@ -1535,7 +1667,13 @@ line1.append(sep);
       editor.append(qty, size, notes, cat, route, changePhoto, removePhotoBtn);
 
       /* Assemble row */
-      row.append(left, line1, actions, below, editor);
+     // Assemble row (omit actions on Shopping tab)
+if (actions) {
+  row.append(left, line1, actions, below, editor);
+} else {
+  row.append(left, line1, below, editor);
+}
+
 
       // Flash if just added
       if (it.id === lastAddedId) {
@@ -1737,36 +1875,38 @@ function setActiveTab(tab){ // 'list' | 'shopping' | 'recipes'
   const isShopping = tab === 'shopping';
   const isRecipes  = tab === 'recipes';
 
-  // Toggle tab highlight
-  if (tabListBtn)     tabListBtn.classList.toggle('active', tab === 'list');
-  if (tabShoppingBtn) tabShoppingBtn.classList.toggle('active', isShopping);
-  if (tabRecipesBtn)  tabRecipesBtn.classList.toggle('active', isRecipes);
+  // Re-query the buttons NOW (they didn’t exist when the first consts ran)
+  const tList     = document.getElementById('tabList');
+  const tShopping = document.getElementById('tabShopping');
+  const tRecipes  = document.getElementById('tabRecipes');
+
+  // Clear all, then set the active one
+  [tList, tShopping, tRecipes].forEach(b => b && b.classList.remove('active'));
+  if (tList)     tList.classList.toggle('active', tab === 'list');
+  if (tShopping) tShopping.classList.toggle('active', isShopping);
+  if (tRecipes)  tRecipes.classList.toggle('active', isRecipes);
 
   // Sections
   const listSection = $('listSection');
   const recipesView = $('recipesView');
- // Show the shopping list on both List and Shopping tabs; hide only on Recipes
-if (listSection) listSection.style.display = isRecipes ? 'none' : '';
-if (recipesView) recipesView.style.display = isRecipes ? '' : 'none';
+  if (listSection) listSection.style.display = isRecipes ? 'none' : '';
+  if (recipesView) recipesView.style.display = isRecipes ? '' : 'none';
 
-
-  // Show list-only controls on List tab; hide elsewhere
+  // List-only controls
   const addRow   = $('addRow');
   const clearBtn = $('clearChecked');
   if (addRow)   addRow.style.display   = (tab === 'list') ? '' : 'none';
   if (clearBtn) clearBtn.style.display = (tab === 'list') ? '' : 'none';
 
-  // Hide Filter group outside List
-  if (filterGroup) filterGroup.style.display = (tab === 'list') ? '' : 'none';
-
-  // "How it works" only on List; auth controls visible except Shopping
+  // Filters & “how it works”
+  if (filterGroup) {
+    filterGroup.style.display = (tab === 'list') ? '' : 'none';
+  }
   const how = $('howItWorks');
   if (how) how.style.display = (tab === 'list') ? '' : 'none';
 
-
+  // Persist + re-render list view
   localStorage.setItem('activeTab', tab);
-
-    // Always re-render so filtering matches the active tab
   render(lastSnapshotItems || []);
 }
 
@@ -1800,9 +1940,9 @@ function createIngRow(prefill=null){
   const row = document.createElement('div');
   row.className = 'ing-row';
   row.style.display = 'grid';
-  row.style.gridTemplateColumns = '1.2fr 0.7fr 0.8fr 1fr 100px 1fr auto';
-  row.style.gap = '8px';
-  row.style.alignItems = 'center';
+row.style.gridTemplateColumns = '2fr 0.6fr 0.8fr 1.5fr auto';
+row.style.gap = '6px';
+row.style.alignItems = 'center';
 
   row.innerHTML = `
     <input class="ing-name"  placeholder="Name" />
@@ -1964,7 +2104,7 @@ function addIngredientRow(prefill=null){
   const host = $('rmIngList'); if (!host) return;
   const r = createIngRow(prefill);
   host.appendChild(r);
-  r.querySelector('.ing-name').focus();
+  
 }
 
 // Load ingredients into modal when editing
@@ -2042,7 +2182,7 @@ function addStepRow(prefill=null){
   const r = createStepRow(prefill);
   host.appendChild(r);
   renumberStepRows();
-  const ta = r.querySelector('.step-text'); if (ta) ta.focus();
+
 }
 
 function renumberStepRows(){
@@ -2297,7 +2437,13 @@ if (editingRecipeId) {
   // show modal
   recipeModal.classList.add('show');
   recipeModal.setAttribute('aria-hidden','false');
-  $('rmName').focus();
+  // ensure nothing is focused (also blurs whatever was focused on the list)
+setTimeout(() => {
+  const ae = document.activeElement;
+  if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT' || ae.isContentEditable)) {
+    ae.blur();
+  }
+}, 0);
 
 }
 function closeRecipeModal(){
@@ -2495,31 +2641,61 @@ let atlBasePortions = 2;       // base portions (from recipe)
 let atlIngredients = [];       // [{name, nameKey, qty, size, notes}, ...]
 let atlServings = 2;           // current servings in the modal
 
-// --- Qty helpers (numbers only; keep text if not a number)
+// --- Qty helpers (preserve units like "g", "kg", "ml", etc.)
 function parseNum(s){
   const n = parseFloat((s||'').toString().trim().replace(',', '.'));
   return Number.isFinite(n) ? n : null;
 }
 function fmtNum(n){
-  // 2 decimals max, strip trailing zeros
-  const s = (Math.round(n*100)/100).toString();
-  return /.\d$/.test(s) ? s : Number(s).toString();
+  // Always round up to the nearest whole number
+  return Math.ceil(n).toString();
 }
+// Split into numeric part + the exact trailing text (units/spaces kept as typed)
+function parseQtyParts(s){
+  if (s == null) return { num: null, tail: '' };
+  const str = String(s);
+  const m = str.trim().match(/^([+-]?\d+(?:[.,]\d+)?)(.*)$/);
+  if (!m) return { num: null, tail: '' };
+  const num = parseFloat(m[1].replace(',', '.'));
+  return Number.isFinite(num) ? { num, tail: m[2] || '' } : { num: null, tail: m[2] || '' };
+}
+// Scale number and re-attach the original tail (so "150g" -> "300g")
 function scaleQtyStr(qtyStr, factor){
-  const n = parseNum(qtyStr);
-  if (n === null) return qtyStr || '';
-  return fmtNum(n * factor);
+  const { num, tail } = parseQtyParts(qtyStr);
+  if (num === null) return qtyStr || '';
+  return fmtNum(num * factor) + (tail || '');
 }
+// Add two qty strings, but only combine numbers if the unit-tails match
 function addQtyStr(aStr, bStr){
-  const a = parseNum(aStr), b = parseNum(bStr);
-  if (a === null || b === null){
-    // fallback: prefer non-empty, otherwise concatenate
+  const A = parseQtyParts(aStr);
+  const B = parseQtyParts(bStr);
+
+  // NEW: If the old quantity is exactly zero, overwrite with new
+  if ((aStr || '').trim() === '0' || (A.num !== null && A.num === 0)) {
+    return bStr || '';
+  }
+
+  // If either isn't numeric, use the old safe fallback
+  if (A.num === null || B.num === null){
     if (!aStr) return bStr;
     if (!bStr) return aStr;
     return aStr + ' + ' + bStr;
   }
-  return fmtNum(a + b);
+
+  // Compare unit tails case-insensitively (trimmed). If same, sum; else concatenate.
+  const tA = (A.tail || '').trim().toLowerCase();
+  const tB = (B.tail || '').trim().toLowerCase();
+
+  if (tA === tB){
+    // Keep original tail exactly as typed in A (preserve spacing/style)
+    return fmtNum(A.num + B.num) + (A.tail || '');
+  }
+
+  // Different units → don't guess conversions
+  return (aStr || '') + ' + ' + (bStr || '');
 }
+
+
 
 // Find existing list item (case-insensitive name match)
 function findExistingItem(nameKey){
@@ -2884,6 +3060,49 @@ if (atlAddBtn) atlAddBtn.onclick = async () => {
   from { transform: translateY(100%); opacity: 0; }
   to   { transform: translateY(0); opacity: 1; }
 }
+  /* Make each ingredient row stack on small screens */
+@media (max-width: 560px) {
+  .ing-row {
+    grid-template-columns: 1fr; /* stack fields vertically */
+  }
+  /* Optional: tighten inputs a bit on phones */
+  .ing-row input { min-height: 40px; }
+}
+/* Make step rows stack better on small screens */
+@media (max-width: 560px) {
+  .step-row {
+    grid-template-columns: 1fr; /* full-width stack */
+    gap: 6px;
+  }
+  .step-row .step-num {
+    margin-bottom: 4px;
+  }
+  .step-row textarea.step-text {
+    min-height: 60px; /* enough space for typing */
+  }
+}
+/* Ingredient row sizing tweaks */
+.ing-row input.ing-qty,
+.ing-row input.ing-size {
+  max-width: 80px;   /* keep Qty/Size narrow */
+}
+
+.ing-row input.ing-name {
+  max-width: 160px;  /* keep Name reasonable */
+}
+
+.ing-row input.ing-notes {
+  max-width: 200px;  /* Notes moderate */
+}
+@media (max-width: 560px) {
+  .ing-row {
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  }
+  .ing-row input {
+    max-width: 100%;  /* so they wrap instead of overflowing */
+  }
+}
+
 </style>
 
 <script>
@@ -2922,36 +3141,7 @@ if (filterBtn) filterBtn.onclick = () => {
 if (filterClose) filterClose.onclick = () => closeSheet(filterSheet);
 if (filterSheet) filterSheet.addEventListener('click', (e)=>{ if(e.target===filterSheet) closeSheet(filterSheet); });
 
-/* ===== Bottom nav tabs ===== */
-document.addEventListener('click', (e) => {
-  const btn = e.target.closest('#tabList, #tabShopping, #tabRecipes');
-  if (!btn) return;
-  const idToTab = { tabList:'list', tabShopping:'shopping', tabRecipes:'recipes' };
-  const tab = idToTab[btn.id];
-  if (!tab) return;
-
-  document.querySelectorAll('.bottom-nav .tab').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-
-  localStorage.setItem('activeTab', tab);
-  if (typeof setActiveTab === 'function') setActiveTab(tab);
-});
-
-(function syncBottomNav(){
-  const current = localStorage.getItem('activeTab') || 'list';
-  const el = {
-    list: document.getElementById('tabList'),
-    shopping: document.getElementById('tabShopping'),
-    recipes: document.getElementById('tabRecipes')
-  }[current];
-  if (el) el.classList.add('active');
-})();
-</script>
-
-
-<script>
-
-  if (menuBtn && menuSheet) {
+if (menuBtn && menuSheet) {
     menuBtn.onclick = () => {
       menuSheet.classList.add('show');
       menuSheet.setAttribute('aria-hidden','false');
@@ -2973,31 +3163,19 @@ document.addEventListener('click', (e) => {
     });
   }
 
-  // ===== Bottom nav tabs (same as before) =====
-  document.addEventListener('click', (e) => {
-    const btn = e.target.closest('#tabList, #tabShopping, #tabRecipes');
-    if (!btn) return;
+  // ===== Bottom nav tabs (single source of truth) =====
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('#tabList, #tabShopping, #tabRecipes');
+  if (!btn) return;
 
-    const idToTab = { tabList: 'list', tabShopping: 'shopping', tabRecipes: 'recipes' };
-    const tab = idToTab[btn.id];
-    if (!tab) return;
+  const idToTab = { tabList: 'list', tabShopping: 'shopping', tabRecipes: 'recipes' };
+  const tab = idToTab[btn.id];
+  if (!tab) return;
 
-    document.querySelectorAll('.bottom-nav .tab').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
+  // Let setActiveTab() handle both the highlight and the view
+  setActiveTab(tab);
+});
 
-    localStorage.setItem('activeTab', tab);
-    if (typeof setActiveTab === 'function') setActiveTab(tab);
-  });
-
-  (function syncBottomNav(){
-    const current = localStorage.getItem('activeTab') || 'list';
-    const el = {
-      list: document.getElementById('tabList'),
-      shopping: document.getElementById('tabShopping'),
-      recipes: document.getElementById('tabRecipes')
-    }[current];
-    if (el) el.classList.add('active');
-  })();
 
   // ===== THEME TOGGLE (moved into menu) =====
   const root = document.documentElement;
@@ -3025,6 +3203,9 @@ document.addEventListener('click', (e) => {
     }
   };
 </script>
+
+
+
 
 
 
@@ -3073,7 +3254,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     sortModeEl.onchange = () => {
       localStorage.setItem('sortMode', sortModeEl.value);
-      render(lastSnapshotItems || []);
+     scheduleRenderItems(lastSnapshotItems || []);
+
     };
   }
 
@@ -3091,17 +3273,23 @@ document.addEventListener('DOMContentLoaded', () => {
   const signInBtn = document.getElementById('signIn');
   const signOutBtn= document.getElementById('signOut');
 
-  if (setBtn) {
-    setBtn.onclick = async () => {
-      household = document.getElementById('household').value.trim();
-      localStorage.setItem('household', household);
-      setHouseholdUI();
-      await ensureHouseholdDoc();
-      subscribeList();
-      subscribeRecipes();
-      updateStatus();
-    };
-  }
+if (setBtn) {
+  setBtn.onclick = async () => {
+    household = document.getElementById('household').value.trim();
+    localStorage.setItem('household', household);
+    setHouseholdUI();
+
+    // Subscribe immediately (renders from cache fast)
+    subscribeList();
+    subscribeRecipes();
+
+    // Fire-and-forget; don't block UI
+    ensureHouseholdDoc().catch(()=>{});
+
+    updateStatus();
+  };
+}
+
 
   if (signInBtn) {
     signInBtn.onclick = async () => {
@@ -3134,9 +3322,59 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     };
   }
-});
-</script>
+   const savedTab = localStorage.getItem('activeTab') || 'list';
+  setActiveTab(savedTab);
 
+ try {
+  const cachedItems = JSON.parse(localStorage.getItem('cache_items') || '[]');
+  if (Array.isArray(cachedItems) && cachedItems.length) {
+    lastSnapshotItems = cachedItems;
+    render(cachedItems);
+  }
+} catch {}
+// If no cache, show skeleton until Firestore snapshot lands
+if (!lastSnapshotItems || !lastSnapshotItems.length) {
+  showListSkeleton();
+}
+
+try {
+  const cachedRecipes = JSON.parse(localStorage.getItem('cache_recipes') || '[]');
+  if (Array.isArray(cachedRecipes) && cachedRecipes.length) {
+    lastSnapshotRecipes = cachedRecipes;
+    renderRecipes(cachedRecipes);
+  }
+} catch {}
+
+
+
+<style>
+/* ——— skeleton styles (lightweight) ——— */
+.item.skeleton { pointer-events:none; opacity:.85; }
+.item.skeleton .sk-line,
+.item.skeleton .sk-box,
+.item.skeleton .sk-chip,
+.item.skeleton .sk-btn {
+  background: linear-gradient(90deg,
+    color-mix(in oklab, var(--chip) 92%, transparent) 25%,
+    color-mix(in oklab, var(--chip) 80%, transparent) 37%,
+    color-mix(in oklab, var(--chip) 92%, transparent) 63%
+  );
+  background-size: 400% 100%;
+  animation: sk-shimmer 1.2s ease-in-out infinite;
+  border-radius: 8px;
+}
+@keyframes sk-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: 0 0; }
+}
+</style>
+<style>
+/* ——— layout stabilizers ——— */
+.item { min-height: 70px; }                   /* row won’t collapse during first paint */
+.line1 { min-height: 22px; display:block; }   /* title line steady */
+.thumb { width:44px; height:44px; }           /* avoid reflow when images load */
+.qty-inline { min-height: 32px; }             /* consistent control height */
+</style>
 
 </body>
 </html>
