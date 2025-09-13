@@ -356,13 +356,17 @@ button.primary{
 .item[data-cat="other"] .catdot{ background:#c0c4cc; }
 
 /* Inline qty box inside title */
-.qty-inline{
-  width:80px; padding:6px 8px;
-  border:1px solid var(--border);
-  border-radius:10px; font:inherit;
+.qty-inline {
+  min-width: 2ch;              /* at least space for 2 characters */
+  width: auto;                 /* let it grow */
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font: inherit;
   background: var(--surface);
   color: var(--text);
 }
+
 
 /* Editor row (expanded) */
 .item .editor{ display:none; grid-column:1 / -1; }
@@ -1086,50 +1090,62 @@ async function ensureHouseholdDoc() {
 }
 
 
-   async function subscribeList(){
+ async function subscribeList(){
   if (unsubList) { unsubList(); unsubList = null; }
   if (!auth || !auth.currentUser || !household) { render([]); return; }
 
-  // Subscribe immediately so cached data can render right away
-  unsubList = db.collection('lists').doc(household).collection('items')
-    .onSnapshot((snap) => {
-      const items = [];
-      snap.forEach(d => items.push({ id: d.id, ...d.data() }));
-      lastSnapshotItems = items;
-      hideListSkeleton();
-scheduleRenderItems(items);
+  try {
+    // Make sure the household doc exists and includes this user BEFORE any read
+    await ensureHouseholdDoc();
 
-    }, (err) => {
-      console.error(err);
-      alert('Cannot read list. Check Firestore rules and that Firestore is enabled.');
-    });
+    // Now it is safe to subscribe
+    unsubList = db.collection('lists').doc(household).collection('items')
+      .onSnapshot((snap) => {
+        const items = [];
+        snap.forEach(d => items.push({ id: d.id, ...d.data() }));
+        lastSnapshotItems = items;
+        hideListSkeleton();
+        scheduleRenderItems(items);
+      }, (err) => {
+        console.error(err);
+        alert('Cannot read list. Check Firestore rules and that Firestore is enabled.');
+      });
 
-  // Fire-and-forget; don't block the snapshot
-  ensureHouseholdDoc().catch(()=>{});
+  } catch (e) {
+    console.error('subscribeList bootstrap failed', e);
+    alert('Cannot read list. Check Firestore rules and that Firestore is enabled.');
+  }
 }
+
 
 async function subscribeRecipes(){
   if (unsubRecipes) { unsubRecipes(); unsubRecipes = null; }
   if (!auth || !auth.currentUser || !household) { renderRecipes([]); return; }
 
-  // Subscribe immediately so cached data can render right away
-  unsubRecipes = db.collection('recipes').doc(household).collection('recipes')
-    .where('deletedAt','==', null)
-    .onSnapshot((snap) => {
-      const arr = [];
-      snap.forEach(d => arr.push({ id: d.id, ...d.data() }));
-      arr.sort((a,b) => (a.name||'').localeCompare(b.name||''));
-      lastSnapshotRecipes = arr;
-scheduleRenderRecipes(arr);
+  try {
+    // Make sure the household doc exists and includes this user BEFORE any read
+    await ensureHouseholdDoc();
 
-    }, (err) => {
-      console.error(err);
-      alert('Cannot read recipes. Check Firestore rules.');
-    });
+    // Now it is safe to subscribe
+    unsubRecipes = db.collection('recipes').doc(household).collection('recipes')
+      .where('deletedAt','==', null)
+      .onSnapshot((snap) => {
+        const arr = [];
+        snap.forEach(d => arr.push({ id: d.id, ...d.data() }));
+        arr.sort((a,b) => (a.name||'').localeCompare(b.name||''));
+        lastSnapshotRecipes = arr;
+        scheduleRenderRecipes(arr);
+      }, (err) => {
+        console.error(err);
+        alert('Cannot read recipes. Check Firestore rules.');
+      });
 
-  // Fire-and-forget; don't block the snapshot
-  ensureHouseholdDoc().catch(()=>{});
+  } catch (e) {
+    console.error('subscribeRecipes bootstrap failed', e);
+    alert('Cannot read recipes. Check Firestore rules.');
+  }
 }
+
 
 
 
@@ -1470,6 +1486,13 @@ qtyInline.inputMode = 'decimal';
 qtyInline.placeholder = 'Qty';
 qtyInline.className = 'qty-inline';
 qtyInline.value = it.qty || '';
+      // === Auto-size width to content ===
+function autoSizeInput(el) {
+  el.style.width = ((el.value.length || 1) + 1) + 'ch';
+}
+autoSizeInput(qtyInline);
+qtyInline.addEventListener('input', () => autoSizeInput(qtyInline));
+
 
 // Save qty changes (same logic as before)
 qtyInline.addEventListener('change', async () => {
@@ -2666,34 +2689,87 @@ function scaleQtyStr(qtyStr, factor){
   return fmtNum(num * factor) + (tail || '');
 }
 // Add two qty strings, but only combine numbers if the unit-tails match
+// Add/merge two qty strings, consolidating ALL same-unit segments in combos.
+// Examples:
+//   "1 + 150g + 50 g" + "200g" → "1 + 400g"
+//   "2kg + 300 g + note" + "0.2 kg" → "2.2kg + 300 g + note"
+//   "pack + 150g" + "pack" (non-numeric) → "pack + 150g + pack"
+// Add/merge two qty strings, consolidating ALL same-unit segments in combos.
+// Examples:
+//   "1 + 150g + 50 g" + "200g" → "1 + 400g"
+//   "2kg + 300 g + note" + "0.2 kg" → "2.2kg + 300 g + note"
+//   "pack + 150g" + "pack" (non-numeric) → "pack + 150g + pack"
 function addQtyStr(aStr, bStr){
-  const A = parseQtyParts(aStr);
-  const B = parseQtyParts(bStr);
+  const A = (aStr || '').trim();
+  const B = (bStr || '').trim();
 
-  // NEW: If the old quantity is exactly zero, overwrite with new
-  if ((aStr || '').trim() === '0' || (A.num !== null && A.num === 0)) {
-    return bStr || '';
+  // Split A into segments if it's a combo, else treat as single
+  const Aparts = A ? A.split('+').map(s => s.trim()).filter(Boolean) : [];
+
+  // Buckets
+  const nonNumeric = [];                 // keep free text pieces
+  const unitOrder = [];                  // preserve first-seen order of units
+  const unitMap = Object.create(null);   // unitKey -> { sum:number, displayTail:string }
+
+  // Helpers
+  const norm = t => (t || '').trim().toLowerCase();
+
+  // Early rule: if A is explicitly zero, overwrite with B (previous behavior)
+  const Afirst = parseQtyParts(A);
+  if (A === '0' || (Afirst.num !== null && Afirst.num === 0)){
+    return B || '';
   }
 
-  // If either isn't numeric, use the old safe fallback
-  if (A.num === null || B.num === null){
-    if (!aStr) return bStr;
-    if (!bStr) return aStr;
-    return aStr + ' + ' + bStr;
+  // 1) Consume existing A: group numeric segments by unit; keep other text
+  const Asegments = Aparts.length ? Aparts : (A ? [A] : []);
+  for (const seg of Asegments){
+    const p = parseQtyParts(seg);
+    if (p.num === null){
+      nonNumeric.push(seg);
+      continue;
+    }
+    const key = norm(p.tail);
+    if (!(key in unitMap)){
+      unitMap[key] = { sum: 0, displayTail: (p.tail || '') };
+      unitOrder.push(key);
+    }
+    unitMap[key].sum += p.num;
   }
 
-  // Compare unit tails case-insensitively (trimmed). If same, sum; else concatenate.
-  const tA = (A.tail || '').trim().toLowerCase();
-  const tB = (B.tail || '').trim().toLowerCase();
-
-  if (tA === tB){
-    // Keep original tail exactly as typed in A (preserve spacing/style)
-    return fmtNum(A.num + B.num) + (A.tail || '');
+  // 2) Fold in B
+  const Pb = parseQtyParts(B);
+  if (Pb.num === null){
+    if (B) nonNumeric.push(B);     // free text term → append later
+  } else {
+    const key = norm(Pb.tail);
+    if (!(key in unitMap)){
+      unitMap[key] = { sum: 0, displayTail: (Pb.tail || '') };
+      unitOrder.push(key);
+    }
+    unitMap[key].sum += Pb.num;
+    if (!unitMap[key].displayTail) unitMap[key].displayTail = (Pb.tail || '');
   }
 
-  // Different units → don't guess conversions
-  return (aStr || '') + ' + ' + (bStr || '');
+  // If nothing numeric at all, fall back to simple join rules
+  const hasNumeric = unitOrder.length > 0;
+  if (!hasNumeric && nonNumeric.length){
+    if (!A) return B;
+    if (!B) return A;
+    return (A ? A : '') + (A && B ? ' + ' : '') + (B ? B : '');
+  }
+
+  // 3) Rebuild: numeric groups first (preserving unit order), then non-numeric terms
+  const numericOut = [];
+  for (const key of unitOrder){
+    const { sum, displayTail } = unitMap[key];
+    if (sum === 0) continue;                  // drop zero totals
+    numericOut.push(fmtNum(sum) + (displayTail || ''));
+  }
+
+  const out = [...numericOut, ...nonNumeric].join(' + ').trim();
+  return out || '';
 }
+
 
 
 
