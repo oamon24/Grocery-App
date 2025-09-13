@@ -1405,6 +1405,28 @@ _ric(() => {
         photoUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
       }, { merge: true });
     }
+    // Photo upload helper for RECIPE cover
+async function uploadRecipeCover(file, recipeId, prevPath){
+  if (!auth || !auth.currentUser || !household || !recipeId) throw new Error('Not ready');
+  const clean = (file.name || 'cover').replace(/[^a-zA-Z0-9._-]/g,'_');
+  const path = `${household}/recipes/${recipeId}/cover-${Date.now()}-${clean}`;
+  const ref = storage.ref().child(path);
+  const metadata = { contentType: file.type || 'image/jpeg', customMetadata: { uid: auth.currentUser.uid, recipeId } };
+  const snap = await ref.put(file, metadata);
+  const url = await snap.ref.getDownloadURL();
+
+  await db.collection('recipes').doc(household).collection('recipes').doc(recipeId)
+    .set({
+      coverUrl: url,
+      coverPath: path,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      updatedBy: (auth.currentUser.email || auth.currentUser.uid || 'unknown')
+    }, { merge: true });
+
+  if (prevPath && prevPath !== path) { try { await storage.ref().child(prevPath).delete(); } catch(e){} }
+  return { url, path };
+}
+
 
     function renderRow(it){
       const row = document.createElement('div');
@@ -2364,6 +2386,43 @@ window.hardDeleteRecipe = hardDeleteRecipe;
 
 // ==== Recipes: modal wiring (shell only) ====
     let editingRecipeId = null; // null = add mode, otherwise recipeId
+// Cover state + elements
+let rmCoverFile = null;
+let rmRemoveCover = false;
+let rmExistingCoverPath = null;
+
+const rmCoverBtn       = document.getElementById('rmCoverBtn');
+const rmCoverName      = document.getElementById('rmCoverName');
+const rmCoverPreview   = document.getElementById('rmCoverPreview');
+const rmCoverRemoveBtn = document.getElementById('rmCoverRemove');
+
+if (rmCoverBtn) {
+  rmCoverBtn.onclick = () => {
+    openPhotoPicker({
+      onFile: (file) => {
+        rmCoverFile = file;
+        rmRemoveCover = false;
+        if (rmCoverName) rmCoverName.textContent = file.name || '1 image selected';
+        if (rmCoverPreview) {
+          rmCoverPreview.src = URL.createObjectURL(file);
+          rmCoverPreview.style.display = 'block';
+        }
+        if (rmCoverRemoveBtn) rmCoverRemoveBtn.style.display = '';
+        showToast('Cover selected');
+      }
+    });
+  };
+}
+
+if (rmCoverRemoveBtn) {
+  rmCoverRemoveBtn.onclick = () => {
+    rmCoverFile = null;
+    rmRemoveCover = true;
+    if (rmCoverPreview) { rmCoverPreview.removeAttribute('src'); rmCoverPreview.style.display = 'none'; }
+    if (rmCoverName) rmCoverName.textContent = '';
+    showToast('Cover will be removed');
+  };
+}
 
 // Toggle tags on/off inside the modal
 const rmTagsEl = $('rmTags');
@@ -2419,19 +2478,29 @@ if (rmDelete) {
     if (chip) chip.classList.add('active');
   });
 
-  // cover preview (actual upload wired later)
-  const p = $('rmCoverPreview'); 
-  if (p){
-    if (data && data.coverUrl){
-      p.src = data.coverUrl; p.style.display='block';
-      $('rmCoverRemove').style.display = '';
-      $('rmCoverName').textContent = '';
-    } else {
-      p.src=''; p.style.display='none';
-      $('rmCoverRemove').style.display = 'none';
-      $('rmCoverName').textContent = '';
-    }
+// Cover: reset state + preview
+rmCoverFile = null;
+rmRemoveCover = false;
+rmExistingCoverPath = (data && data.coverPath) ? data.coverPath : null;
+
+const p = $('rmCoverPreview');
+const rmRemoveBtn = $('rmCoverRemove');
+const rmNameLbl  = $('rmCoverName');
+
+if (p){
+  if (data && data.coverUrl){
+    p.src = data.coverUrl;
+    p.style.display='block';
+    if (rmRemoveBtn) rmRemoveBtn.style.display = '';
+    if (rmNameLbl)  rmNameLbl.textContent = '';
+  } else {
+    p.src = '';
+    p.style.display='none';
+    if (rmRemoveBtn) rmRemoveBtn.style.display = 'none';
+    if (rmNameLbl)  rmNameLbl.textContent = '';
   }
+}
+
 
   // clear lists (ingredients/steps wired later)
   // Ingredients
@@ -2580,6 +2649,32 @@ if (rmSave) rmSave.onclick = async () => {
 
     // === Save ingredients (replace-all strategy) ===
     const recipeId = editingRecipeId ? editingRecipeId : (await db.collection('recipes').doc(household).collection('recipes').where('nameLower','==', nameLower).limit(1).get()).docs[0].id;
+// === Cover file changes ===
+// Remove existing cover without replacement
+if (rmRemoveCover && !rmCoverFile) {
+  try {
+    await db.collection('recipes').doc(household).collection('recipes').doc(recipeId)
+      .set({
+        coverUrl: null,
+        coverPath: null,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedBy: (auth.currentUser.email || auth.currentUser.uid || 'unknown')
+      }, { merge: true });
+    if (rmExistingCoverPath) { try { await storage.ref().child(rmExistingCoverPath).delete(); } catch(e){} }
+  } catch(e){
+    console.warn('Cover remove failed:', e.message || e);
+  }
+}
+
+// New cover selected (upload + set; deletes old if present)
+if (rmCoverFile) {
+  try {
+    await uploadRecipeCover(rmCoverFile, recipeId, rmExistingCoverPath || null);
+  } catch(e){
+    console.warn('Cover upload failed:', e.message || e);
+    showToast('Cover upload failed');
+  }
+}
 
     const ingCol = db.collection('recipes').doc(household).collection('recipes').doc(recipeId).collection('ingredients');
     // delete existing
