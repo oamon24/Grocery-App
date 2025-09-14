@@ -274,7 +274,7 @@ button.primary{
 .item{
   display:grid;
   grid-template-columns: 28px 1fr auto;
-  grid-template-rows: auto auto;
+  grid-template-rows: auto auto auto;  /* title / qty+size+actions / photo+notes */
   gap:10px 10px;
   align-items:center;
   padding:10px 12px;
@@ -283,6 +283,7 @@ button.primary{
   background: var(--surface);
   transition: transform .06s ease, border-color .12s ease, background .12s ease, box-shadow .12s ease;
 }
+
 .item.is-pressed{ transform: scale(.995); box-shadow: 0 8px 24px rgba(0,0,0,.25); }
 
 .left{ grid-column:1; grid-row:1; display:flex; align-items:center; justify-content:center; }
@@ -306,7 +307,7 @@ button.primary{
 
 .line1 .sep{ opacity:.7; font-weight:600; }
 
-.actions{ grid-column:3; grid-row:1; display:flex; gap:8px; align-items:center; justify-self:end; }
+.actions{ grid-column:3; grid-row:2; display:flex; gap:8px; align-items:center; justify-self:end; }
 
 .editbtn, .btn-icon{
   height:36px; padding:0 12px; border-radius:10px;
@@ -319,7 +320,8 @@ button.primary{
 
 /* Below row (photo + notes) */
 .below{
-  grid-column:2 / 4; grid-row:2;
+  grid-column:2; grid-row:2;
+
   display:grid; grid-template-columns:48px 1fr;
   align-items:center; column-gap:10px;
 }
@@ -357,7 +359,7 @@ button.primary{
 
 /* Inline qty box inside title */
 .qty-inline {
-  min-width: 2ch;              /* at least space for 2 characters */
+  min-width: 7ch;              /* at least space for 10 characters */
   width: auto;                 /* let it grow */
   padding: 6px 8px;
   border: 1px solid var(--border);
@@ -369,13 +371,19 @@ button.primary{
 
 
 /* Editor row (expanded) */
-.item .editor{ display:none; grid-column:1 / -1; }
+.item .editor{ 
+  display:none; 
+  grid-column:1 / -1; 
+  grid-row:4;              /* 🔴 always sits below photo/notes */
+}
 .item.editing .editor{
   display:grid;
   grid-template-columns: repeat(3, minmax(0,1fr));
-  gap:8px; padding-top:8px;
+  gap:8px; 
+  padding-top:8px;
 }
 .qty, .size, .notes, .route, .category{ width:100%; }
+
 
 @media (max-width:560px){
   .item.editing .editor{ grid-template-columns:1fr; }
@@ -444,8 +452,20 @@ button.primary{
 .modal-body{ padding:14px 16px; max-height:65vh; overflow:auto; display:grid; gap:10px; }
 .modal-foot{ padding:12px 16px; border-top:1px solid var(--border); display:flex; gap:8px; }
 
-.input-row{ display:grid; gap:8px; grid-template-columns: 1fr 160px; }
-@media (max-width:560px){ .input-row{ grid-template-columns:1fr; } }
+.input-row{ display:grid; gap:8px; grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
+/* — Prevent any image in the modal from overflowing horizontally — */
+.modal-body img{
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Extra safety: children can shrink within the modal body */
+.modal-body > * { min-width: 0; }
+
+  .input-row > * { min-width: 0; }
+
+  @media (max-width:560px){ .input-row{ grid-template-columns:1fr; } }
 
 .tag-row{ display:flex; flex-wrap:wrap; gap:8px; }
 .tagchip{
@@ -453,10 +473,25 @@ button.primary{
   background: var(--chip); color: var(--text);
 }
 .tagchip.active{ background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
+/* Prevent tag chips from causing horizontal overflow */
+#rmTags { max-width: 100%; }
+.tagchip{
+  display: inline-flex;
+  align-items: center;
+  white-space: normal;         /* allow wrapping */
+  overflow-wrap: anywhere;     /* break long words/strings */
+  word-break: break-word;      /* extra safety for long tokens */
+  max-width: 100%;
+}
 
 .preset-row{ display:flex; gap:8px; flex-wrap:wrap; }
 .preset{ padding:6px 10px; border:1px solid var(--chip-border); border-radius:999px; background: var(--chip); }
 .preset.active{ background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
+/* Recipes search layout helpers */
+.rc-search { display:flex; flex-direction:column; gap:6px; }
+#rcSelected { max-width:100%; }
+#rcTopTags { max-width:100%; }
+#rcTagInput { max-width:100%; }
 
 .checklist{ display:grid; gap:8px; }
 .checkrow{
@@ -464,17 +499,8 @@ button.primary{
   border:1px solid var(--border); border-radius:12px; padding:8px 10px; background: var(--surface);
 }
 
-.step-row{ display:grid; grid-template-columns:auto 1fr auto; gap:8px; align-items:start; }
-.step-num{
-  min-width:36px; height:36px; display:grid; place-items:center;
-  border-radius:10px; background: var(--chip); border:1px solid var(--chip-border); font-weight:800;
-}
-.step-text{
-  width:100%; min-height:48px;
-  border:1px solid var(--chip-border);
-  border-radius:12px; padding:8px 10px;
-  background: var(--surface); color: var(--text);
-}
+
+
   /* Reserve space so content isn't hidden behind the bottom nav */
 body { padding-bottom: calc(70px + env(safe-area-inset-bottom)); }
 
@@ -552,6 +578,15 @@ body { padding-bottom: calc(70px + env(safe-area-inset-bottom)); }
   border: none;
   color: white;
   cursor: pointer;
+}
+/* Recipe list thumbnail */
+.recipeThumb{
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.25);
+  flex-shrink: 0;
 }
 
 </style>
@@ -659,6 +694,31 @@ body { padding-bottom: calc(70px + env(safe-area-inset-bottom)); }
       <h2 style="margin:0">Recipes</h2>
       <span id="recipesCount" class="pill muted">0 recipes</span>
     </div>
+        <div class="group" style="flex:1; min-width:260px;">
+      <div id="rcSearchWrap" class="rc-search">
+        <label for="rcTagInput" class="muted" style="font-size:12px;">Search by tags</label>
+
+        <div class="rc-input-row" style="position:relative;">
+          <input
+            id="rcTagInput"
+            type="text"
+            placeholder="Start typing a tag…"
+            maxlength="24"
+            enterkeyhint="done"
+            style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid var(--chip-border); background:var(--surface); color:var(--text);"
+          />
+          <button id="rcClearBtn" type="button" title="Clear filters" style="margin-left:8px; white-space:nowrap;">Clear</button>
+
+          <div id="rcTagAC" class="ac-list" role="listbox" aria-label="Tag suggestions" style="display:none;"></div>
+        </div>
+
+        <div id="rcSelected" class="tag-row" style="margin-top:6px;"></div>
+
+        <div class="muted" style="margin-top:6px; font-size:12px;">Common tags</div>
+        <div id="rcTopTags" class="preset-row"></div>
+      </div>
+    </div>
+
     <div class="group">
       <button id="btnOpenAddRecipe" class="primary" type="button">Add Recipe</button>
     </div>
@@ -705,19 +765,39 @@ body { padding-bottom: calc(70px + env(safe-area-inset-bottom)); }
         <input id="rmName" placeholder="e.g., Chicken Tikka" />
       </label>
       <div class="input-row">
-        <label>
-          <div>Base portions</div>
-          <input id="rmBasePortions" type="number" min="1" value="2" />
-        </label>
-        <div>
-          <div>Tags</div>
-          <div id="rmTags" class="tag-row">
-            <span class="tagchip" data-tag="vegan">vegan</span>
-            <span class="tagchip" data-tag="quick">quick</span>
-            <span class="tagchip" data-tag="dessert">dessert</span>
-          </div>
+  <label>
+    <div>Base portions</div>
+    <input id="rmBasePortions" type="number" min="1" value="2" />
+  </label>
+
+  <div>
+    <div>Tags</div>
+
+    <!-- Selected tags + Top 10 most-used tags will be rendered here -->
+    <div id="rmTags" class="tag-row"></div>
+
+    <!-- Add Tag control (inline input with autocomplete) -->
+    <div id="rmTagAdderRow" style="margin-top:8px; position:relative;">
+      <button id="rmAddTag" type="button">+ Add tag</button>
+      <div id="rmTagAdderWrap" style="display:none; margin-top:8px; position:relative;">
+     <input
+  id="rmTagInput"
+  type="text"
+  placeholder="Start typing…"
+  maxlength="24"
+  enterkeyhint="done"
+  style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid var(--chip-border); background:var(--surface); color:var(--text);"
+/>
+
+        <div id="rmTagAC" class="ac-list" role="listbox" aria-label="Tag suggestions" style="display:none;"></div>
+        <div class="muted" style="margin-top:6px; font-size:12px;">
+          Press Enter to add. Up to 10 tags. New tags are created if no match.
         </div>
       </div>
+    </div>
+  </div>
+</div>
+
 
       <!-- Cover photo -->
       <div>
@@ -729,23 +809,34 @@ body { padding-bottom: calc(70px + env(safe-area-inset-bottom)); }
           <button id="rmCoverRemove" type="button" style="display:none">Remove</button>
         </div>
       </div>
+<!-- Ingredient list container -->
+<div id="rmIngredients">
+  <!-- Ingredient Row -->
+  <div class="ing-row">
+    <!-- Row 1 -->
+    <div class="ing-name-wrap" style="position:relative;">
+      <textarea class="ing-name" placeholder="Ingredient name"></textarea>
+      <div class="ac-list ing-ac" role="listbox" aria-label="Suggestions" style="display:none"></div>
+    </div>
+    <input class="ing-qty" type="text" placeholder="Qty" />
+    <input class="ing-size" type="text" placeholder="Size" />
 
-     <!-- Ingredients (just a placeholder list for now; full editor later) -->
-<div style="display:flex; justify-content:space-between; align-items:center;">
-  <strong>Ingredients</strong>
+    <!-- Row 2 -->
+    <div></div> <!-- empty space under Name -->
+    <textarea class="ing-notes" placeholder="Notes"></textarea>
+    <button class="ing-del" type="button" title="Remove">✕</button>
+  </div>
 </div>
-<div id="rmIngList" class="checklist"></div>
-<div style="margin-top:8px;">
-  <button id="rmAddIng" type="button">Add Ingredient</button>
+
+
+<!-- Add Ingredient button (now below all rows) -->
+<div style="margin-top:12px;">
+  <button id="rmAddIngredient" type="button">+ Add Ingredient</button>
 </div>
 
 
-      <!-- Steps (builder shell; full logic later) -->
-      <div style="display:flex; justify-content:space-between; align-items:center;">
-        <strong>Steps</strong>
-        <button id="rmAddStep" type="button">Add Step</button>
-      </div>
-      <div id="rmSteps" class="checklist"></div>
+
+
     </div>
     <div class="modal-foot">
       <div style="flex:1"></div>
@@ -906,6 +997,188 @@ let activeTab = 'list';
 let unsubRecipes = null;
 let lastSnapshotRecipes = [];
 
+    // ==== Recipes search state and helpers ====
+let rcQuery = { tagsMode: 'AND', tags: [] };
+    try {
+  const saved = JSON.parse(localStorage.getItem('recipes_query') || '{}');
+  if (saved && Array.isArray(saved.tags)) {
+    rcQuery.tags = saved.tags.map(rcNormTag);
+  }
+} catch {}
+
+function saveRcQuery(){
+  try { localStorage.setItem('recipes_query', JSON.stringify({ tagsMode: rcQuery.tagsMode, tags: rcQuery.tags })); } catch {}
+}
+
+let rcTagIndex = [];
+
+// Normalize tag text
+function rcNormTag(s){
+  return String(s || '').trim().toLowerCase();
+}
+
+// Build {tag,count} list across recipes
+function buildRecipeTagIndex(arr){
+  const counts = {};
+  for (const r of (arr || [])){
+    if (Array.isArray(r.tags)){
+      for (const t of r.tags){
+        const k = rcNormTag(t);
+        if (!k) continue;
+        counts[k] = (counts[k] || 0) + 1;
+      }
+    }
+  }
+  const list = Object.entries(counts).map(([tag, count]) => ({ tag, count }));
+  list.sort((a,b) => (b.count - a.count) || a.tag.localeCompare(b.tag));
+  return list;
+}
+
+// Render the search UI (chips, suggestions) and wire events once
+function renderRecipeSearchUI(){
+  const selectedRow = $('rcSelected');
+  const topRow = $('rcTopTags');
+  const input = $('rcTagInput');
+  const ac = $('rcTagAC');
+  const clear = $('rcClearBtn');
+
+  if (!selectedRow || !topRow || !input || !ac || !clear) return;
+
+  // Selected tag chips
+  selectedRow.innerHTML = '';
+  for (const t of rcQuery.tags){
+    const chip = document.createElement('div');
+    chip.className = 'tagchip active';
+    chip.textContent = t;
+    chip.title = 'Remove';
+    chip.onclick = () => {
+   rcQuery.tags = rcQuery.tags.filter(x => x !== t);
+saveRcQuery();
+renderRecipeSearchUI();
+applyRecipeFilter();
+
+    };
+    selectedRow.appendChild(chip);
+  }
+
+  // Top 10 common tags
+  topRow.innerHTML = '';
+  for (const { tag, count } of rcTagIndex.slice(0, 10)){
+    const chip = document.createElement('div');
+    chip.className = 'preset' + (rcQuery.tags.includes(tag) ? ' active' : '');
+    chip.textContent = `${tag} (${count})`;
+    chip.title = 'Add filter';
+    chip.onclick = () => {
+      if (!rcQuery.tags.includes(tag)){
+     rcQuery.tags.push(tag);
+saveRcQuery();
+renderRecipeSearchUI();
+applyRecipeFilter();
+
+      }
+    };
+    topRow.appendChild(chip);
+  }
+
+  // Wire input and AC once
+  if (!input._wired){
+    input._wired = true;
+
+    input.addEventListener('input', () => {
+      const q = rcNormTag(input.value);
+      const suggestions = q
+        ? rcTagIndex.map(x => x.tag).filter(t => t.startsWith(q) && !rcQuery.tags.includes(t)).slice(0, 8)
+        : [];
+      ac.innerHTML = suggestions.map(s => `<div class="ac-item" role="option" data-tag="${s}"><div>${s}</div></div>`).join('');
+      ac.style.display = suggestions.length ? 'block' : 'none';
+    });
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter'){
+        e.preventDefault();
+        const v = rcNormTag(input.value);
+        if (v){
+          if (!rcQuery.tags.includes(v)) rcQuery.tags.push(v);
+saveRcQuery();
+input.value = '';
+ac.style.display = 'none';
+
+          ac.innerHTML = '';
+          renderRecipeSearchUI();
+          applyRecipeFilter();
+        }
+      }
+      if (e.key === 'Escape'){
+        input.value = '';
+        ac.style.display = 'none';
+        ac.innerHTML = '';
+      }
+    });
+
+    ac.addEventListener('click', (e) => {
+      const el = e.target.closest('.ac-item');
+      if (!el) return;
+      const t = el.getAttribute('data-tag');
+      if (t && !rcQuery.tags.includes(t)){
+       rcQuery.tags.push(t);
+saveRcQuery();
+input.value = '';
+ac.style.display = 'none';
+
+        ac.innerHTML = '';
+        renderRecipeSearchUI();
+        applyRecipeFilter();
+      }
+    });
+
+    clear.addEventListener('click', () => {
+    rcQuery.tags = [];
+saveRcQuery();
+input.value = '';
+const acList = $('rcTagAC');
+
+      if (acList){
+        acList.style.display = 'none';
+        acList.innerHTML = '';
+      }
+      renderRecipeSearchUI();
+      applyRecipeFilter();
+    });
+  }
+}
+
+// Apply filters to recipes and call the existing renderer
+function applyRecipeFilter(){
+  const source = Array.isArray(lastSnapshotRecipes) ? lastSnapshotRecipes : [];
+  const tags = rcQuery.tags || [];
+
+  let filtered = source;
+
+  if (tags.length){
+    if (rcQuery.tagsMode === 'AND'){
+      filtered = source.filter(r => {
+        const rt = Array.isArray(r.tags) ? r.tags.map(rcNormTag) : [];
+        return tags.every(t => rt.includes(t));
+      });
+    } else {
+      filtered = source.filter(r => {
+        const rt = Array.isArray(r.tags) ? r.tags.map(rcNormTag) : [];
+        return tags.some(t => rt.includes(t));
+      });
+    }
+  }
+
+  renderRecipes(filtered);
+}
+
+// Entry point used by subscribeRecipes and by guards
+function setRecipesAndRepaint(arr){
+  lastSnapshotRecipes = Array.isArray(arr) ? arr : [];
+  rcTagIndex = buildRecipeTagIndex(lastSnapshotRecipes);
+  renderRecipeSearchUI();
+  applyRecipeFilter();
+}
+
 
     // New-item pending photo
     let newItemPhotoFile = null;
@@ -956,6 +1229,95 @@ let lastSnapshotRecipes = [];
       }
       autoList.style.display = 'block';
     }
+    
+// ===== Recipe Modal Ingredient Name Autocomplete =====
+// Uses the already-available lastSnapshotItems[] as the suggestion source.
+
+function buildIngMatches(q){
+  q = (q||'').trim().toLowerCase();
+  if (!q) return [];
+  // same matching rules as list tab: starts-with first, then includes
+  const matches = lastSnapshotItems
+    .filter(it => (it.name||'').toLowerCase().includes(q))
+    .sort((a,b)=>{
+      const an=(a.name||'').toLowerCase(), bn=(b.name||'').toLowerCase();
+      const as = an.startsWith(q) ? 0 : 1;
+      const bs = bn.startsWith(q) ? 0 : 1;
+      if (as !== bs) return as - bs;
+      return an.localeCompare(bn);
+    })
+    .slice(0,8);
+  return matches;
+}
+
+function renderIngAC(listEl, matches){
+  listEl.innerHTML = '';
+  if (!matches || !matches.length){
+    listEl.style.display = 'none';
+    return;
+  }
+  for (const it of matches){
+    const row = document.createElement('div');
+    row.className = 'ac-item';
+    row.setAttribute('role','option');
+    row._item = it;
+    row.innerHTML =
+      '<div class="ac-title">'+escapeHtml(it.name||'')+'</div>' +
+      '<div class="ac-meta">'+escapeHtml(suggestionMeta(it))+'</div>';
+    listEl.appendChild(row);
+  }
+  listEl.style.display = 'block';
+}
+
+function applyIngSuggestion(row, it){
+  // Fill this ingredient row with the selected item's known data
+  const name  = row.querySelector('.ing-name');
+  const size  = row.querySelector('.ing-size');
+  // Leave qty/notes alone; user-specific
+  if (name) name.value = it.name || '';
+  if (size && !size.value) size.value = it.size || '';
+}
+
+function bindIngredientAC(row){
+  const wrap   = row.querySelector('.ing-name-wrap');
+  const input  = row.querySelector('.ing-name');
+  const acList = row.querySelector('.ing-ac');
+  if (!input || !acList || !wrap) return;
+
+  const closeAC = () => { acList.style.display = 'none'; acList.innerHTML = ''; };
+
+  input.addEventListener('input', () => {
+    const q = input.value;
+    const matches = buildIngMatches(q);
+    renderIngAC(acList, matches);
+  });
+
+  // Click on a suggestion → apply to this row
+  acList.addEventListener('mousedown', (e) => {
+    const el = e.target.closest('.ac-item');
+    if (!el || !el._item) return;
+    applyIngSuggestion(row, el._item);
+    closeAC();
+    e.preventDefault(); // keep focus in the textarea
+  });
+
+  // Close when clicking outside this wrapper
+  document.addEventListener('click', (e) => {
+    if (!wrap.contains(e.target)) closeAC();
+  });
+
+  // Esc to close
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape'){ closeAC(); }
+  });
+}
+
+// Bind AC to the initial static row present in HTML (inside #rmIngredients)
+(function bindInitialIngredientRows(){
+  const container = document.getElementById('rmIngredients');
+  if (!container) return;
+  container.querySelectorAll('.ing-row').forEach(row => bindIngredientAC(row));
+})();
 
     function clearUpdateMode(){
       selectedItemId = null;
@@ -1120,7 +1482,7 @@ async function ensureHouseholdDoc() {
 
 async function subscribeRecipes(){
   if (unsubRecipes) { unsubRecipes(); unsubRecipes = null; }
-  if (!auth || !auth.currentUser || !household) { renderRecipes([]); return; }
+  if (!auth || !auth.currentUser || !household) { setRecipesAndRepaint([]); return; }
 
   try {
     // Make sure the household doc exists and includes this user BEFORE any read
@@ -1133,6 +1495,8 @@ async function subscribeRecipes(){
         const arr = [];
         snap.forEach(d => arr.push({ id: d.id, ...d.data() }));
         arr.sort((a,b) => (a.name||'').localeCompare(b.name||''));
+        setRecipesAndRepaint(arr);
+
         lastSnapshotRecipes = arr;
         scheduleRenderRecipes(arr);
       }, (err) => {
@@ -1288,20 +1652,33 @@ _ric(() => {
     left.innerHTML = `<strong>${escapeHtml(r.name||'Untitled')}</strong> 
       <span class="muted">(${r.basePortions||1} portions)</span>`;
 
-    // optional: steps count hint
-    if (typeof r.stepCount === 'number') {
-      const hint = document.createElement('span');
-      hint.className = 'muted';
-      hint.textContent = ` • ${r.stepCount} step${r.stepCount===1?'':'s'}`;
-      left.appendChild(hint);
-    }
-
+   
 
     if (r.tags && r.tags.length){
       const tags = document.createElement('span');
       tags.className = 'muted';
       tags.textContent = ' ' + r.tags.join(', ');
       left.appendChild(tags);
+    }
+    // If the recipe has a cover image, prepend a thumbnail
+    if (r.coverUrl){
+      left.style.display = 'flex';
+      left.style.alignItems = 'center';
+      left.style.gap = '10px';
+
+      const img = document.createElement('img');
+      img.className = 'recipeThumb';
+      img.loading = 'lazy';
+      img.decoding = 'async';
+      img.src = r.coverUrl;
+      img.alt = (r.name || 'Recipe') + ' cover';
+      img.style.cursor = 'pointer';
+      img.onclick = () => openLightbox(r.coverUrl);
+
+      // Move existing text nodes into a wrapper so image sits to the left
+      const textBox = document.createElement('div');
+      while (left.firstChild) textBox.appendChild(left.firstChild);
+      left.append(img, textBox);
     }
 
     const right = document.createElement('div');
@@ -1510,8 +1887,12 @@ qtyInline.className = 'qty-inline';
 qtyInline.value = it.qty || '';
       // === Auto-size width to content ===
 function autoSizeInput(el) {
-  el.style.width = ((el.value.length || 1) + 1) + 'ch';
+  // Minimum width = 4ch; grows with content
+  const len = (el.value && el.value.length) ? el.value.length : 1;
+  const ch = Math.max(len + 1, 4); // 4ch floor
+  el.style.width = ch + 'ch';
 }
+
 autoSizeInput(qtyInline);
 qtyInline.addEventListener('input', () => autoSizeInput(qtyInline));
 
@@ -1580,17 +1961,28 @@ if (activeTab !== 'shopping') {
     ev.stopPropagation();
     const editing = row.classList.toggle('editing');
     editBtn.textContent = editing ? 'Close' : 'Edit';
-    if (editing) qty.focus();
+    
   };
 
-  const delBtn = document.createElement('button');
-  delBtn.type = 'button';
-  delBtn.className = 'btn-icon';
-  delBtn.title = 'Delete item';
-  delBtn.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-trash"></use></svg>';
-  delBtn.onclick = () => removeItem(it.id);
+const delBtn = document.createElement('button');
+delBtn.type = 'button';
+delBtn.className = 'btn-icon';
+delBtn.title = 'Delete item';
+delBtn.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-trash"></use></svg>';
+delBtn.style.display = 'none';   // 🔴 hide by default
+delBtn.onclick = () => removeItem(it.id);
 
-  actions.append(editBtn, delBtn);
+actions.append(editBtn, delBtn);
+
+// Toggle editing: show/hide trash button
+editBtn.onclick = (ev) => {
+  ev.stopPropagation();
+  const editing = row.classList.toggle('editing');
+  editBtn.textContent = editing ? 'Close' : 'Edit';
+  delBtn.style.display = editing ? '' : 'none';   // 🔴 only show in editing mode
+  
+};
+
 }
 
 
@@ -1957,433 +2349,8 @@ function setActiveTab(tab){ // 'list' | 'shopping' | 'recipes'
 
 
 
-    // ==== Recipe ingredient helpers ====
-function nameKey(s){ return (s||'').trim().toLowerCase(); }
-
-// Build one ingredient row object from current DOM row
-function readIngRow(row){
-  return {
-    name: (row.querySelector('.ing-name')?.value || '').trim(),
-    nameKey: nameKey(row.querySelector('.ing-name')?.value || ''),
-    qty: (row.querySelector('.ing-qty')?.value || '').trim(),
-    size: (row.querySelector('.ing-size')?.value || '').trim(),
-   
-    
-    notes: (row.querySelector('.ing-notes')?.value || '').trim()
-  };
-}
-
-// Gather all ingredient rows from the modal
-function readAllIngredients(){
-  const rows = Array.from(document.querySelectorAll('#rmIngList .ing-row'));
-  const list = rows.map(readIngRow).filter(x => x.name); // keep only rows with a name
-  return list;
-}
-
-// Create an ingredient row DOM (with autocomplete for name)
-function createIngRow(prefill=null){
-  const row = document.createElement('div');
-  row.className = 'ing-row';
-  row.style.display = 'grid';
-row.style.gridTemplateColumns = '2fr 0.6fr 0.8fr 1.5fr auto';
-row.style.gap = '6px';
-row.style.alignItems = 'center';
-
-  row.innerHTML = `
-    <input class="ing-name"  placeholder="Name" />
-    <input class="ing-qty"   placeholder="Qty (recipe)" />
-    <input class="ing-size"  placeholder="Size (kept as text)" />
-  <input class="ing-notes" placeholder="Notes" />
-<span class="ing-updateTag muted" style="display:none;"></span>
-<button class="ing-del" type="button" title="Remove">✕</button>
-`;
-// Ensure no update tag initially
-const tagEl = row.querySelector('.ing-updateTag');
-if (tagEl){ tagEl.style.display='none'; tagEl.innerHTML=''; }
-
-
-
-  // Prefill if provided
-  if (prefill){
-    row.querySelector('.ing-name').value  = prefill.name || '';
-    row.querySelector('.ing-qty').value   = prefill.qty || '';
-    row.querySelector('.ing-size').value  = prefill.size || '';
-   
-    row.querySelector('.ing-notes').value = prefill.notes || '';
-  }
-
-  // Delete row
-  row.querySelector('.ing-del').onclick = () => row.remove();
-
-  // ENTER on the last field adds a new row
-  row.querySelector('.ing-notes').addEventListener('keydown', (e)=>{
-    if (e.key === 'Enter' && !e.isComposing){
-      e.preventDefault();
-      addIngredientRow(); // defined below
-    }
-  });
-
-  // === Inline autocomplete for name (reusing your catalog + lastSnapshotItems) ===
-  const nameInput = row.querySelector('.ing-name');
-  const ac = document.createElement('div');
-  ac.className = 'ac-list';
-  ac.style.position = 'absolute';
-  ac.style.display = 'none';
-  ac.style.zIndex = '70';
-  ac.style.maxHeight = '240px';
-  ac.style.overflow = 'auto';
-  ac.style.left = '0'; ac.style.right = '0';
-  // wrap name input to position ac-list
-  const wrap = document.createElement('div');
-  wrap.style.position = 'relative';
-  nameInput.replaceWith(wrap);
-  wrap.appendChild(nameInput);
-  wrap.appendChild(ac);
-
-  function buildSuggestionMeta(it){
-    const parts = [];
-    if (it.category) parts.push(it.category);
-    if (it.size) parts.push(it.size);
-    if (it.routeOrder !== '' && !isNaN(parseFloat(it.routeOrder))) parts.push('Route ' + it.routeOrder);
-    return parts.join(' • ');
-  }
-
-  function openAC(q){
-    q = (q||'').trim().toLowerCase();
-    if (!q){ ac.style.display='none'; ac.innerHTML=''; return; }
-
-    // source: lastSnapshotItems (live list) + catalogCache
-    const pool = [];
-
-// Live list items (often have richer data incl. notes)
-lastSnapshotItems.forEach(d => pool.push({
-  name: d.name || '',
-  category: d.category || '',
-  size: d.size || '',
-  routeOrder: (d.routeOrder ?? ''),
-  notes: d.notes || ''
-}));
-
-// Catalog fallback (category/route remembered; no notes/size usually)
-catalogCache.forEach((v, k) => {
-  pool.push({
-    name: k, // k is lowercased, but fine for prefilling
-    category: v.category || '',
-    size: '',
-    routeOrder: (v.routeOrder ?? ''),
-    notes: ''
-  });
-});
-
-
-    const seen = new Set();
-    const matches = pool.filter(it => {
-      const n = (it.name||'').toLowerCase();
-      if (seen.has(n)) return false;
-      if (n.includes(q)){ seen.add(n); return true; }
-      return false;
-    }).sort((a,b)=>{
-      const an=(a.name||'').toLowerCase(), bn=(b.name||'').toLowerCase();
-      const as = an.startsWith(q) ? 0 : 1;
-      const bs = bn.startsWith(q) ? 0 : 1;
-      if (as !== bs) return as - bs;
-      return an.localeCompare(bn);
-    }).slice(0,8);
-
-    if (!matches.length){ ac.style.display='none'; ac.innerHTML=''; return; }
-
- ac.innerHTML = '';
-matches.forEach(it => {
-  const opt = document.createElement('div');
-  opt.className = 'ac-item';
-  opt.innerHTML =
-    '<div class="ac-title">' + escapeHtml(it.name) + '</div>' +
-    '<div class="ac-meta">' + escapeHtml(buildSuggestionMeta(it)) + '</div>';
-
-  // When a suggestion is picked
-  opt.onmousedown = (e) => {
-    e.preventDefault();
-    nameInput.value = it.name;
-
-    const hostRow = wrap.closest('.ing-row') || opt;
-
-    // Prefill size/notes only if empty
-    const sizeEl  = hostRow.querySelector('.ing-size');
-    if (sizeEl && it.size && !sizeEl.value) sizeEl.value = it.size;
-
-    const notesEl = hostRow.querySelector('.ing-notes');
-    if (notesEl && it.notes && !notesEl.value) notesEl.value = it.notes;
-
-    // “Updating: … ×” tag (no backticks)
-    const tag = hostRow.querySelector('.ing-updateTag');
-    if (tag) {
-      tag.innerHTML = 'Updating: <strong>' + escapeHtml(it.name) + '</strong> <button type="button" class="cancelUpdate">×</button>';
-      tag.style.display = 'inline';
-      const cancelBtn = tag.querySelector('.cancelUpdate');
-      cancelBtn.onclick = () => {
-        tag.style.display = 'none';
-        tag.innerHTML = '';
-        nameInput.value = '';
-        nameInput.focus();
-      };
-    }
-
-    ac.style.display = 'none';
-  };
-
-  ac.appendChild(opt);
-});
-ac.style.display = 'block';
-
-  }
-
-  nameInput.addEventListener('input', ()=>openAC(nameInput.value));
-  document.addEventListener('click', (e)=>{
-    if (!ac.contains(e.target) && e.target !== nameInput) ac.style.display='none';
-  });
-
-  return row;
-}
-
-function addIngredientRow(prefill=null){
-  const host = $('rmIngList'); if (!host) return;
-  const r = createIngRow(prefill);
-  host.appendChild(r);
   
-}
-
-// Load ingredients into modal when editing
-async function loadRecipeIngredients(recipeId){
-  try{
-    const snap = await db.collection('recipes').doc(household)
-      .collection('recipes').doc(recipeId).collection('ingredients').get();
-    $('rmIngList').innerHTML = '';
-    if (snap.empty){ addIngredientRow(); return; }
-    snap.forEach(doc => addIngredientRow(doc.data()));
-  } catch(e){
-    console.warn('Failed to load ingredients:', e.message || e);
-    $('rmIngList').innerHTML = '';
-    addIngredientRow();
-  }
-}
-    // ===== Recipe Steps helpers =====
-
-// Create one step row
-function createStepRow(prefill=null){
-  const row = document.createElement('div');
-  row.className = 'step-row';
-
-  row.innerHTML = `
-    <div class="step-num">1</div>
-    <textarea class="step-text" placeholder="Describe this step…"></textarea>
-    <div style="display:flex; gap:6px;">
-      <button class="step-up"   type="button" title="Move up">↑</button>
-      <button class="step-down" type="button" title="Move down">↓</button>
-      <button class="step-del"  type="button" title="Remove">✕</button>
-    </div>
-  `;
-
-  // Prefill
-  if (prefill && prefill.text) {
-    row.querySelector('.step-text').value = prefill.text;
-  }
-
-  // Handlers
-  const up   = row.querySelector('.step-up');
-  const down = row.querySelector('.step-down');
-  const del  = row.querySelector('.step-del');
-
-  up.onclick = () => {
-    const host = $('rmSteps'); if (!host) return;
-    const prev = row.previousElementSibling;
-    if (prev && prev.classList.contains('step-row')) {
-      host.insertBefore(row, prev);
-      renumberStepRows();
-    }
-  };
-  down.onclick = () => {
-    const host = $('rmSteps'); if (!host) return;
-    const next = row.nextElementSibling;
-    if (next && next.classList.contains('step-row')) {
-      host.insertBefore(next, row);
-      renumberStepRows();
-    }
-  };
-  del.onclick = () => {
-    row.remove();
-    renumberStepRows();
-  };
-
-  // Renumber on input (so empty/filled doesn’t matter; purely cosmetic while editing)
-  row.querySelector('.step-text').addEventListener('input', () => {
-    // no-op for now; kept for future validation hooks
-  });
-
-  return row;
-}
-
-function addStepRow(prefill=null){
-  const host = $('rmSteps'); if (!host) return;
-  const r = createStepRow(prefill);
-  host.appendChild(r);
-  renumberStepRows();
-
-}
-
-function renumberStepRows(){
-  const rows = Array.from(document.querySelectorAll('#rmSteps .step-row'));
-  rows.forEach((r, i) => {
-    const badge = r.querySelector('.step-num'); if (badge) badge.textContent = (i+1);
-  });
-}
-    // Basic drag & drop for step rows (pointer events)
-function enableStepDragDrop(){
-  const host = $('rmSteps'); if (!host) return;
-
-  let dragging = null;
-  let placeholder = null;
-  let startY = 0;
-
-  function onPointerMove(e){
-    if (!dragging) return;
-    e.preventDefault();
-    const y = e.clientY;
-    const dy = y - startY;
-    dragging.style.transform = `translateY(${dy}px)`;
-
-    // Find the step-row we're hovering over to place placeholder
-    const rows = Array.from(host.querySelectorAll('.step-row')).filter(r => r !== dragging);
-    const midY = dragging.getBoundingClientRect().top + dragging.offsetHeight/2 + dy;
-
-    let insertBefore = null;
-    for (const r of rows){
-      const rect = r.getBoundingClientRect();
-      if (midY < rect.top + rect.height/2){ insertBefore = r; break; }
-    }
-    if (insertBefore) host.insertBefore(placeholder, insertBefore);
-    else host.appendChild(placeholder);
-  }
-
-  function onPointerUp(){
-    if (!dragging) return;
-    dragging.style.transform = '';
-    dragging.classList.remove('is-pressed');
-    // Insert dragged row at placeholder
-    host.insertBefore(dragging, placeholder);
-    placeholder.remove(); placeholder = null;
-
-    document.removeEventListener('pointermove', onPointerMove);
-    document.removeEventListener('pointerup', onPointerUp);
-    dragging.releasePointerCapture && dragging.releasePointerCapture(dragging._pointerId);
-    dragging = null;
-    renumberStepRows();
-  }
-
-  host.addEventListener('pointerdown', (e) => {
-    const row = e.target.closest('.step-row'); if (!row) return;
-    // Allow grabbing via number badge or left area
-    if (!e.target.closest('.step-num') && !e.target.closest('.step-text')) return;
-    // if text area drag is annoying, change the line above to only .step-num
-
-    dragging = row;
-    dragging._pointerId = e.pointerId;
-    dragging.setPointerCapture && dragging.setPointerCapture(e.pointerId);
-    startY = e.clientY;
-
-    // Placeholder
-    placeholder = document.createElement('div');
-    placeholder.style.height = `${row.offsetHeight}px`;
-    placeholder.style.border = '1px dashed #e5e7eb';
-    placeholder.style.borderRadius = '10px';
-    host.insertBefore(placeholder, row.nextElementSibling);
-
-    dragging.classList.add('is-pressed');
-    document.addEventListener('pointermove', onPointerMove);
-    document.addEventListener('pointerup', onPointerUp);
-  });
-}
-
-
-function readAllSteps(){
-  const rows = Array.from(document.querySelectorAll('#rmSteps .step-row'));
-  const list = [];
-  rows.forEach((r, i) => {
-    const text = (r.querySelector('.step-text')?.value || '').trim();
-    if (text) list.push({ order: i, text, done: false });
-  });
-  return list;
-}
-
-// Load steps (edit mode) ordered by 'order'
-async function loadRecipeSteps(recipeId){
-  try{
-    const host = $('rmSteps'); if (!host) return;
-    host.innerHTML = '';
-    const qs = await db.collection('recipes').doc(household)
-      .collection('recipes').doc(recipeId).collection('steps')
-      .orderBy('order', 'asc').get();
-
-    if (qs.empty){
-      addStepRow(); // start with one blank
-      return;
-    }
-    qs.forEach(d => {
-      const x = d.data() || {};
-      addStepRow({ text: x.text || '' });
-    });
-    renumberStepRows();
-  } catch(e){
-    console.warn('Failed to load steps:', e.message || e);
-    const host = $('rmSteps'); if (host){ host.innerHTML=''; addStepRow(); }
-  }
-}
-// === Hard-delete a recipe (danger!) ===
-// Removes cover file, subcollections (ingredients, steps), then the recipe doc.
-// Exposed as window.hardDeleteRecipe(recipeId) and also via Alt+Click on Delete.
-async function hardDeleteRecipe(recipeId){
-  if (!auth || !auth.currentUser || !household || !recipeId) throw new Error('Not ready');
-
-  // Load recipe meta first (for coverPath)
-  const ref = db.collection('recipes').doc(household).collection('recipes').doc(recipeId);
-  const snap = await ref.get();
-  if (!snap.exists) return;
-
-  const data = snap.data() || {};
-  const who = (auth.currentUser.email || auth.currentUser.uid || 'unknown');
-  console.log('[HardDelete] Starting for', recipeId);
-
-  // 1) Delete cover file if any
-  if (data.coverPath) {
-    try { await storage.ref().child(data.coverPath).delete(); } catch(e){ console.warn('cover delete failed:', e.message||e); }
-  }
-
-  // 2) Delete subcollections
-  const ingCol = ref.collection('ingredients');
-  const stepCol = ref.collection('steps');
-
-  // Helper to batch-delete a small collection
-  async function deleteAll(colRef){
-    const qs = await colRef.get();
-    if (qs.empty) return;
-    const batch = db.batch();
-    qs.forEach(d => batch.delete(d.ref));
-    await batch.commit();
-  }
-
-  await deleteAll(ingCol);
-  await deleteAll(stepCol);
-
-  // 3) Finally delete the recipe doc
-  await ref.delete();
-
-  showToast('Recipe hard-deleted');
-  console.log('[HardDelete] Done for', recipeId, 'by', who);
-}
-
-// Expose for console use
-window.hardDeleteRecipe = hardDeleteRecipe;
-
-
+  
 // ==== Recipes: modal wiring (shell only) ====
     let editingRecipeId = null; // null = add mode, otherwise recipeId
 // Cover state + elements
@@ -2395,6 +2362,61 @@ const rmCoverBtn       = document.getElementById('rmCoverBtn');
 const rmCoverName      = document.getElementById('rmCoverName');
 const rmCoverPreview   = document.getElementById('rmCoverPreview');
 const rmCoverRemoveBtn = document.getElementById('rmCoverRemove');
+// === INGREDIENTS: Add Ingredient button ===
+const rmAddIngredientBtn = document.getElementById('rmAddIngredient');
+const rmIngredients = document.getElementById('rmIngredients');
+
+// Factory: build one ingredient row
+function createIngRow(prefill=null){
+  const row = document.createElement('div');
+  row.className = 'ing-row';
+
+  row.innerHTML = `
+    <!-- Row 1 -->
+    <div class="ing-name-wrap" style="position:relative;">
+      <textarea class="ing-name" placeholder="Ingredient name"></textarea>
+      <div class="ac-list ing-ac" role="listbox" aria-label="Suggestions" style="display:none"></div>
+    </div>
+    <input class="ing-qty" type="text" placeholder="Qty" />
+    <input class="ing-size" type="text" placeholder="Size" />
+
+    <!-- Row 2 -->
+    <div></div> <!-- empty space under Name -->
+    <textarea class="ing-notes" placeholder="Notes"></textarea>
+    <button class="ing-del" type="button" title="Remove">✕</button>
+  `;
+
+  // Prefill if provided
+  if (prefill){
+    if (typeof prefill.name  === 'string') row.querySelector('.ing-name').value  = prefill.name;
+    if (typeof prefill.qty   === 'string') row.querySelector('.ing-qty').value   = prefill.qty;
+    if (typeof prefill.size  === 'string') row.querySelector('.ing-size').value  = prefill.size;
+    if (typeof prefill.notes === 'string') row.querySelector('.ing-notes').value = prefill.notes;
+  }
+
+  // Wire delete button
+  row.querySelector('.ing-del').onclick = () => row.remove();
+
+  // Bind autocomplete to this row
+  bindIngredientAC(row);
+
+  return row;
+}
+
+if (rmAddIngredientBtn) {
+  rmAddIngredientBtn.onclick = () => {
+    if (!rmIngredients){
+      alert('Missing #rmIngredients container in the modal.');
+      return;
+    }
+    const row = createIngRow();
+    rmIngredients.appendChild(row);
+    const name = row.querySelector('.ing-name');
+    if (name) name.focus();
+  };
+}
+
+
 
 if (rmCoverBtn) {
   rmCoverBtn.onclick = () => {
@@ -2424,15 +2446,134 @@ if (rmCoverRemoveBtn) {
   };
 }
 
-// Toggle tags on/off inside the modal
-const rmTagsEl = $('rmTags');
-if (rmTagsEl) {
-  rmTagsEl.addEventListener('click', (e) => {
-    const chip = e.target.closest('.tagchip');
-    if (!chip) return;
-    chip.classList.toggle('active');
+// ===== TAGS: Top-10 + Add with autocomplete =====
+const rmTagsEl        = $('rmTags');
+const rmAddTagBtn     = $('rmAddTag');
+const rmTagAdderWrap  = $('rmTagAdderWrap');
+const rmTagInput      = $('rmTagInput');
+const rmTagAC         = $('rmTagAC');
+
+const MAX_TAGS_PER_RECIPE = 10;
+const TAG_MAXLEN = 24;
+// allowed chars: letters, numbers, space, dash, ampersand
+const TAG_OK = /^[A-Za-z0-9 \-&]{1,24}$/;
+
+// Fallback suggestions if you have <10 tags in your data
+const DEFAULT_TAGS = [
+  'vegan', 'vegetarian', 'gluten-free', 'dairy-free', 'quick',
+  'dessert', 'breakfast', 'dinner', 'spicy', 'kid-friendly'
+];
+
+// Small helper (self-contained so we don’t depend on global one)
+function escapeHtml(str){
+  return String(str)
+    .replaceAll('&','&amp;')
+    .replaceAll('<','&lt;')
+    .replaceAll('>','&gt;')
+    .replaceAll('"','&quot;')
+    .replaceAll("'","&#39;");
+}
+
+// Build a map of all tags across loaded recipes
+function getAllTagStats(){
+  const map = new Map(); // key = lower, val = {nameSample, count}
+  (lastSnapshotRecipes || []).forEach(r => {
+    const arr = Array.isArray(r.tags) ? r.tags : [];
+    arr.forEach(t => {
+      if (!t) return;
+      const lower = t.toLowerCase();
+      const prev = map.get(lower) || { nameSample: t, count: 0 };
+      prev.count += 1;
+      if (!map.has(lower)) prev.nameSample = t;
+      map.set(lower, prev);
+    });
+  });
+  return map;
+}
+
+function computeTopTags(limit=10){
+  const stats = getAllTagStats();
+
+  // Start with real usage, sorted by count desc then alpha
+  const used = Array.from(stats.entries())
+    .map(([lower, obj]) => ({ lower, label: obj.nameSample, count: obj.count }))
+    .sort((a,b) => b.count - a.count || a.label.localeCompare(b.label));
+
+  // If fewer than 'limit', pad with DEFAULT_TAGS (no duplicates)
+  const haveLow = new Set(used.map(t => t.lower));
+  for (const d of DEFAULT_TAGS){
+    if (used.length >= limit) break;
+    const low = d.toLowerCase();
+    if (!haveLow.has(low)){
+      used.push({ lower: low, label: d, count: 0 });
+      haveLow.add(low);
+    }
+  }
+
+  return used.slice(0, limit);
+}
+
+// Render the chip row: selected first, then top tags (non-duplicates)
+function renderTagsUI(selectedTags){
+  if (!rmTagsEl) return;
+  rmTagsEl.innerHTML = '';
+
+  const sel = Array.isArray(selectedTags) ? selectedTags.slice(0, MAX_TAGS_PER_RECIPE) : [];
+  const selLow = new Set(sel.map(s => s.toLowerCase()));
+
+  // Header badge
+  const hdr = document.createElement('span');
+  hdr.className = 'tag-badge';
+  hdr.textContent = 'Top tags';
+  rmTagsEl.appendChild(hdr);
+
+  // Selected chips first (active)
+  sel.forEach(t => rmTagsEl.appendChild(makeTagChip(t, true)));
+
+  // Then top tags (skip those already selected)
+  const top = computeTopTags(10);
+  top.forEach(t => {
+    if (!selLow.has(t.lower)) rmTagsEl.appendChild(makeTagChip(t.label, false));
   });
 }
+
+function makeTagChip(label, active){
+  const chip = document.createElement('span');
+  chip.className = 'tagchip' + (active ? ' active' : '');
+  chip.dataset.tag = label;
+  chip.textContent = label;
+
+  // small “x” to remove if active
+  if (active){
+    const x = document.createElement('span');
+    x.className = 'x';
+    x.textContent = '×';
+    x.title = 'Remove';
+    chip.appendChild(x);
+  }
+
+  chip.onclick = (e) => {
+    const isClose = e.target.classList.contains('x');
+    if (isClose){
+      chip.remove();
+      return;
+    }
+    // toggle selection
+    chip.classList.toggle('active');
+    enforceTagLimit();
+  };
+
+  return chip;
+}
+
+function enforceTagLimit(){
+  // if more than MAX_TAGS_PER_RECIPE active, turn off extras (keep earliest)
+  const act = Array.from(document.querySelectorAll('#rmTags .tagchip.active'));
+  if (act.length <= MAX_TAGS_PER_RECIPE) return;
+  act.slice(MAX_TAGS_PER_RECIPE).forEach(el => el.classList.remove('active'));
+}
+
+// Public helpers used by Save
 function getActiveTags(){
   const chips = document.querySelectorAll('#rmTags .tagchip.active');
   return Array.from(chips).map(el => el.dataset.tag).filter(Boolean);
@@ -2441,6 +2582,104 @@ function clearActiveTags(){
   document.querySelectorAll('#rmTags .tagchip.active').forEach(el => el.classList.remove('active'));
 }
 
+// ——— Add Tag input / autocomplete ———
+if (rmAddTagBtn){
+  rmAddTagBtn.onclick = () => {
+    rmTagAdderWrap.style.display = '';
+    rmTagInput.value = '';
+    rmTagAC.style.display = 'none';
+    rmTagAC.innerHTML = '';
+    rmTagInput.focus();
+  };
+}
+
+if (rmTagInput){
+  const closeAC = () => { rmTagAC.style.display = 'none'; rmTagAC.innerHTML = ''; };
+
+  rmTagInput.addEventListener('input', () => {
+    const q = (rmTagInput.value || '').trim().toLowerCase();
+    const stats = getAllTagStats();
+    const all = Array.from(stats.values()).map(v => v.nameSample);
+
+    // filter not already active
+    const selectedLow = new Set(getActiveTags().map(t => t.toLowerCase()));
+    const matches = all
+      .filter(t => t.toLowerCase().includes(q))
+      .filter(t => !selectedLow.has(t.toLowerCase()))
+      .sort((a,b) => a.localeCompare(b))
+      .slice(0, 8);
+
+    if (!q && !matches.length){ closeAC(); return; }
+
+    rmTagAC.innerHTML = '';
+    matches.forEach(m => {
+      const row = document.createElement('div');
+      row.className = 'ac-item';
+      row.textContent = m;
+      row.onclick = () => { addTagToSelection(m); closeAC(); };
+      rmTagAC.appendChild(row);
+    });
+
+    // Offer to create a new tag if no exact match
+    if (q && !all.some(t => t.toLowerCase() === q) && TAG_OK.test(rmTagInput.value)){
+      const createRow = document.createElement('div');
+      createRow.className = 'ac-item';
+      createRow.innerHTML = `Create “${escapeHtml(rmTagInput.value.trim())}”`;
+      createRow.onclick = () => { addTagToSelection(rmTagInput.value.trim()); closeAC(); };
+      rmTagAC.appendChild(createRow);
+    }
+
+    rmTagAC.style.display = rmTagAC.childElementCount ? 'block' : 'none';
+  });
+
+rmTagInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === 'Done' || e.keyCode === 13){
+    e.preventDefault();
+    const txt = (rmTagInput.value || '').trim();
+    if (!txt) return;
+    addTagToSelection(txt);
+    rmTagInput.value = '';
+    rmTagAC.style.display = 'none';
+    rmTagAC.innerHTML = '';
+    return;
+  }
+  if (e.key === 'Escape'){
+    rmTagAdderWrap.style.display = 'none';
+    rmTagAC.style.display = 'none';
+  }
+});
+
+
+  document.addEventListener('click', (e) => {
+    if (!rmTagAdderWrap.contains(e.target) && e.target !== rmAddTagBtn){
+      rmTagAC.style.display = 'none';
+    }
+  });
+}
+
+function addTagToSelection(raw){
+  let label = (raw || '').trim().toLowerCase();
+  if (!label) return;
+  if (!TAG_OK.test(label)){
+    alert('Tag can only use lowercase letters, numbers, spaces, “-”, “&” and up to 24 characters.');
+    return;
+  }
+
+  // de-duplicate (case-insensitive)
+  const current = getActiveTags();
+  const lowSet = new Set(current.map(t => t.toLowerCase()));
+  if (lowSet.has(label)) return;
+
+  // create chip as active (selected)
+  rmTagsEl.insertBefore(
+    makeTagChip(label, true),
+    rmTagsEl.firstChild ? rmTagsEl.firstChild.nextSibling : null /* after badge */
+  );
+  enforceTagLimit();
+}
+
+
+
 const recipesView = $('recipesView');
 const btnOpenAddRecipe = $('btnOpenAddRecipe');
 
@@ -2448,9 +2687,7 @@ const recipeModal = $('recipeModal');
 const rmClose = $('rmClose');
 const rmSave = $('rmSave');
 const rmDelete = $('rmDelete');
-    // Add-ingredient button (wire once at top-level)
-const rmAddIngBtn = $('rmAddIng');
-if (rmAddIngBtn) rmAddIngBtn.onclick = () => addIngredientRow();
+  
     // Add-step button
 const rmAddStepBtn = $('rmAddStep');
 if (rmAddStepBtn) rmAddStepBtn.onclick = () => addStepRow();
@@ -2470,13 +2707,9 @@ if (rmDelete) {
   $('rmName').value = (data && data.name) || '';
   $('rmBasePortions').value = (data && data.basePortions) || 2;
 
-  // tags
-  clearActiveTags();
-  const preset = (data && Array.isArray(data.tags)) ? data.tags : [];
-  preset.forEach(t => {
-    const chip = document.querySelector(`#rmTags .tagchip[data-tag="${t}"]`);
-    if (chip) chip.classList.add('active');
-  });
+// tags (render top + preselect from recipe)
+const preset = (data && Array.isArray(data.tags)) ? data.tags : [];
+renderTagsUI(preset);
 
 // Cover: reset state + preview
 rmCoverFile = null;
@@ -2502,27 +2735,8 @@ if (p){
 }
 
 
-  // clear lists (ingredients/steps wired later)
-  // Ingredients
-$('rmIngList').innerHTML = '';
-if (editingRecipeId) {
-  // load existing ingredients for edit
-  loadRecipeIngredients(editingRecipeId);
-} else {
-  addIngredientRow(); // start with one empty row
-}
-// Steps
-$('rmSteps').innerHTML = '';
-if (editingRecipeId) {
-  // load existing steps for edit
-  loadRecipeSteps(editingRecipeId);
-  enableStepDragDrop();
+  
 
-} else {
-  addStepRow(); // start with one empty row
-  enableStepDragDrop();
-
-}
 
 
 
@@ -2607,13 +2821,18 @@ if (rmSave) rmSave.onclick = async () => {
       const isSame = editingRecipeId && d.id === editingRecipeId;
       return !isDeleted && !isSame;
     });
-    if (dup) {
+       if (dup) {
       alert('A recipe with that name already exists.');
       return;
     }
 
+    // Close the modal *immediately* and yield to let Android paint
+    closeRecipeModal();
+    await new Promise(r => setTimeout(r, 0));
+
     const now = firebase.firestore.FieldValue.serverTimestamp();
     const who = (auth.currentUser.email || auth.currentUser.uid || 'unknown');
+
 
     if (!editingRecipeId) {
       // ADD
@@ -2649,10 +2868,13 @@ if (rmSave) rmSave.onclick = async () => {
 
     // === Save ingredients (replace-all strategy) ===
     const recipeId = editingRecipeId ? editingRecipeId : (await db.collection('recipes').doc(household).collection('recipes').where('nameLower','==', nameLower).limit(1).get()).docs[0].id;
-// === Cover file changes ===
-// Remove existing cover without replacement
-if (rmRemoveCover && !rmCoverFile) {
-  try {
+// === Cover file changes (background, non-blocking) ===
+try {
+  // Inform the user immediately; we won't await the upload/remove
+  showToast('Saving… cover will upload in background');
+
+  // Define tasks (but do NOT await here)
+  const removeTask = (rmRemoveCover && !rmCoverFile) ? (async () => {
     await db.collection('recipes').doc(household).collection('recipes').doc(recipeId)
       .set({
         coverUrl: null,
@@ -2660,77 +2882,34 @@ if (rmRemoveCover && !rmCoverFile) {
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
         updatedBy: (auth.currentUser.email || auth.currentUser.uid || 'unknown')
       }, { merge: true });
+
     if (rmExistingCoverPath) { try { await storage.ref().child(rmExistingCoverPath).delete(); } catch(e){} }
-  } catch(e){
-    console.warn('Cover remove failed:', e.message || e);
-  }
-}
+  }) : null;
 
-// New cover selected (upload + set; deletes old if present)
-if (rmCoverFile) {
-  try {
+  const uploadTask = rmCoverFile ? (async () => {
     await uploadRecipeCover(rmCoverFile, recipeId, rmExistingCoverPath || null);
-  } catch(e){
-    console.warn('Cover upload failed:', e.message || e);
-    showToast('Cover upload failed');
-  }
+  }) : null;
+
+  // Kick off tasks in a microtask after this click handler finishes,
+  // so the modal can close right away.
+  Promise.resolve().then(async () => {
+    try {
+      if (removeTask) await removeTask();
+      if (uploadTask) await uploadTask();
+      showToast('Cover updated');
+    } catch (e) {
+      console.warn('Background cover update failed:', e);
+      showToast('Cover update failed');
+    }
+  });
+} catch (e) {
+  console.warn('Failed to schedule background cover update:', e);
 }
 
-    const ingCol = db.collection('recipes').doc(household).collection('recipes').doc(recipeId).collection('ingredients');
-    // delete existing
-    const existing = await ingCol.get();
-    const batch = db.batch();
-    existing.forEach(doc => batch.delete(doc.ref));
 
-    // add current rows
-    const ings = readAllIngredients();
-    ings.forEach(it => {
-      const ref = ingCol.doc();
-      batch.set(ref, {
-        name: it.name,
-        nameKey: it.nameKey,
-        qty: it.qty,           // scaling happens later, not here
-        size: it.size,         // never scaled (your requirement)
-        
-        
-        notes: it.notes
-      });
-    });
+   
 
-      await batch.commit();
 
-    // === Save steps (replace-all strategy) ===
-    try{
-      const stepsCol = db.collection('recipes').doc(household)
-        .collection('recipes').doc(recipeId).collection('steps');
-
-      // delete existing
-      const existingSteps = await stepsCol.get();
-      const sBatch = db.batch();
-      existingSteps.forEach(doc => sBatch.delete(doc.ref));
-
-      // add current rows
-      const steps = readAllSteps(); // [{order, text, done:false}, ...]
-      steps.forEach(s => {
-        const ref = stepsCol.doc();
-        sBatch.set(ref, {
-          order: Number(s.order) || 0,
-          text: s.text || '',
-          done: !!s.done
-        });
-      });
-
-      await sBatch.commit();
-      // also update stepCount in recipe meta
-const stepCount = (steps && steps.length) ? steps.length : 0;
-await db.collection('recipes').doc(household)
-  .collection('recipes').doc(recipeId)
-  .set({ stepCount }, { merge: true });
-
-    } catch(e){
-      console.warn('Failed to save steps:', e.message || e);
-      // We don’t abort the whole save; ingredients/meta are already saved.
-    }
 
     closeRecipeModal();
 
@@ -2753,10 +2932,11 @@ const atlDec         = $('atlDec');
 const atlPresets     = document.querySelectorAll('.preset-row .preset');
 const atlSelectAll   = $('atlSelectAll');
 const atlAddBtn      = $('atlAdd');
+let atlIngredients = [];
 
 let atlRecipe = null;          // recipe meta being added
 let atlBasePortions = 2;       // base portions (from recipe)
-let atlIngredients = [];       // [{name, nameKey, qty, size, notes}, ...]
+
 let atlServings = 2;           // current servings in the modal
 
 // --- Qty helpers (preserve units like "g", "kg", "ml", etc.)
@@ -2919,41 +3099,62 @@ function renderAtlList(){
     atlListEl.appendChild(row);
   }
 }
+// Read the current ingredient rows from the recipe editor modal
+function readIngredientsFromEditor(){
+  const rows = Array.from(document.querySelectorAll('#rmIngredients .ing-row'));
+  return rows.map(row=>{
+    const name  = (row.querySelector('.ing-name')?.value || '').trim();
+    const qty   = (row.querySelector('.ing-qty')?.value || '').trim();
+    const size  = (row.querySelector('.ing-size')?.value || '').trim();
+    const notes = (row.querySelector('.ing-notes')?.value || '').trim();
+    if (!name) return null;
+    return {
+      name,
+      nameKey: name.toLowerCase(),
+      qty,
+      size,
+      notes
+    };
+  }).filter(Boolean);
+}
 
 // Open modal for a recipe
 async function openAddToListModal(recipe){
+  // Store recipe & servings info
   atlRecipe = recipe || null;
   atlBasePortions = (recipe && recipe.basePortions) ? Number(recipe.basePortions) : 2;
-  atlServings = recipe && recipe.lastUsedServings ? Number(recipe.lastUsedServings) : atlBasePortions;
+  atlServings = atlBasePortions;   // Always start at base portions (1×)
 
-  // Load ingredients from the recipe subcollection fresh (authoritative)
-  atlIngredients = [];
-  try{
-    const qs = await db.collection('recipes').doc(household)
-      .collection('recipes').doc(recipe.id).collection('ingredients').get();
-    qs.forEach(d => {
-      const x = d.data() || {};
-      atlIngredients.push({
-        name: x.name || '',
-        nameKey: (x.nameKey || (x.name||'')).toLowerCase(),
-        qty: x.qty || '',
-        size: x.size || '',
-        notes: x.notes || ''
-      });
-    });
-  } catch(e){
-    console.warn('Failed to load recipe ingredients:', e.message||e);
+  // Build the ingredient list for the ATL modal:
+  // 1) Prefer recipe.ingredients if provided,
+  // 2) else read the current editor rows (so it still works while editing).
+  if (recipe && Array.isArray(recipe.ingredients) && recipe.ingredients.length){
+    atlIngredients = recipe.ingredients.map(ing => ({
+      name:  (ing.name  || '').trim(),
+      nameKey: (ing.name || '').toLowerCase(),
+      qty:   (ing.qty   || '').trim(),
+      size:  (ing.size  || '').trim(),
+      notes: (ing.notes || '').trim()
+    })).filter(x => x.name);
+  } else {
+    atlIngredients = readIngredientsFromEditor();
   }
 
   // Reset UI
   atlServingsEl.value = atlServings;
   if (atlSelectAll) atlSelectAll.checked = true;
+
+  // Render the checklist based on atlIngredients
   renderAtlList();
 
+  // Show modal
   addToListModal.classList.add('show');
   addToListModal.setAttribute('aria-hidden','false');
+
+  // Focus servings input for quick scaling
   atlServingsEl.focus();
 }
+
 
 function closeAddToListModal(){
   addToListModal.classList.remove('show');
@@ -3239,32 +3440,101 @@ if (atlAddBtn) atlAddBtn.onclick = async () => {
   /* Optional: tighten inputs a bit on phones */
   .ing-row input { min-height: 40px; }
 }
-/* Make step rows stack better on small screens */
-@media (max-width: 560px) {
-  .step-row {
-    grid-template-columns: 1fr; /* full-width stack */
-    gap: 6px;
-  }
-  .step-row .step-num {
-    margin-bottom: 4px;
-  }
-  .step-row textarea.step-text {
-    min-height: 60px; /* enough space for typing */
-  }
+
+
+  /* ==== INGREDIENT ROW: 2×2 grid (no sideways scroll) ==== */
+.ing-row{
+  display: grid;                /* JS also sets this; CSS here is the source of truth */
+  grid-template-columns: minmax(0,.8fr) minmax(0,1fr);
+  grid-template-rows: auto auto;
+  grid-template-areas:
+    "name rightTop"
+    "name rightBottom";
+  gap: 8px 10px;
+  align-items: center;
+  max-width: 100%;
 }
-/* Ingredient row sizing tweaks */
-.ing-row input.ing-qty,
-.ing-row input.ing-size {
-  max-width: 80px;   /* keep Qty/Size narrow */
+  /* Allow all grid children to actually shrink in their tracks */
+.ing-row > * { min-width: 0; }
+
+/* Belt-and-suspenders for the name wrapper/input */
+.ing-name-wrap,
+.ing-name-wrap input { min-width: 0; width: 100%; }
+
+/* Allow everything inside the grid to shrink when needed */
+.ing-row, .ing-row * { min-width: 0; max-width: 100%; }
+
+/* Explicitly uncap both left and right wrappers */
+.ing-name-wrap,
+.ing-right,
+.ing-rightTop,
+.ing-rightBottom { min-width: 0; }
+
+
+.ing-row, .ing-row * {
+  min-width: 0;                 /* allow children to shrink inside grid cells */
+  max-width: 100%;              /* nothing may exceed the row width */
 }
 
-.ing-row input.ing-name {
-  max-width: 160px;  /* keep Name reasonable */
+/* Left column (spans two rows) */
+.ing-name-wrap{ grid-area: name; }
+/* Allow the name column to actually shrink */
+.ing-name-wrap { min-width: 0; }
+
+/* Right column, row 1: Qty + Size (wraps nicely on small widths) */
+.ing-right-top{
+  grid-area: rightTop;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ing-right-top > input{
+  flex: 1 1 140px;              /* grow/shrink; start around 140px */
+  width: 100%;
 }
 
-.ing-row input.ing-notes {
-  max-width: 200px;  /* Notes moderate */
+/* Right column, row 2: Notes + × aligned right */
+.ing-right-bottom{
+  grid-area: rightBottom;
+  display: grid;
+  grid-template-columns: 1fr auto;   /* notes | delete */
+  gap: 8px;
+  align-items: center;
 }
+.ing-right-bottom .ing-notes{
+  width: 100%;
+}
+
+
+
+/* Let any long text/tokens wrap rather than push layout wider */
+.ing-row .ing-updateTag{
+  grid-column: 1 / -1;          /* show below notes+× when visible */
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* Mobile: single-column stack — Name → Qty/Size → Notes + × */
+@media (max-width:560px){
+  .ing-row{
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto auto;
+    grid-template-areas:
+      "name"
+      "rightTop"
+      "rightBottom";
+  }
+
+  .ing-right-top{
+    gap: 8px;
+  }
+
+  .ing-right-top > input{
+    flex: 1 1 180px;           /* a bit more space on phones */
+  }
+}
+
 @media (max-width: 560px) {
   .ing-row {
     grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
@@ -3273,6 +3543,102 @@ if (atlAddBtn) atlAddBtn.onclick = async () => {
     max-width: 100%;  /* so they wrap instead of overflowing */
   }
 }
+/* Prevent qty inputs from collapsing on short values */
+input.qtyInline{
+  min-width: 4ch; /* matches JS floor */
+}
+/* === Tags UI helpers === */
+.tagchip { user-select: none; }
+.tagchip .x {
+  margin-left: 6px;
+  opacity: .7;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.tag-badge {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 2px 8px;
+  border: 1px solid var(--chip-border);
+  border-radius: 999px;
+  font-size: 11px;
+  opacity: .8;
+  background: var(--chip);
+}
+
+/* === Recipe Editor: Ingredient Row (2 rows, fixed % columns) === */
+/* Row 1: [ Name 35% | Qty 32.5% | Size 32.5% ]
+   Row 2: [ (empty) | Notes 55% | Delete 10% ] */
+.ing-row {
+  display: grid;
+  grid-template-columns: 35% 32.5% 32.5%;
+  grid-template-rows: auto auto;
+  gap: 3px;
+  align-items: start;
+  width: 100%;
+}
+
+/* Row 1 mapping */
+.ing-name { grid-column: 1; grid-row: 1; min-width: 0; }
+.ing-qty  { grid-column: 2; grid-row: 1; }
+.ing-size { grid-column: 3; grid-row: 1; }
+
+/* Row 2 mapping */
+.ing-notes {
+  grid-column: 2 / 4;  /* span columns 2 and 3 */
+  grid-row: 2;
+  min-width: 0;
+}
+
+.ing-del   { grid-column: 1; grid-row: 2; justify-self: end; }
+/* Make the fields fill their grid columns */
+.ing-name,
+.ing-qty,
+.ing-size,
+.ing-notes {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+}
+
+/* Inputs/textarea reset INSIDE the ingredient row */
+.ing-row textarea,
+.ing-row input {
+  width: 100%;
+  max-width: 100%;
+  padding: 8px;
+  border: 1px solid var(--chip-border);
+  border-radius: 12px;
+  font: inherit;
+  box-sizing: border-box;
+}
+
+/* Tall, wrapping fields */
+.ing-name,
+.ing-notes {
+  resize: none;
+  height: 3.6em;      /* ~2 lines */
+  line-height: 1.4;
+}
+
+/* Delete button appearance */
+.ing-del {
+  background: var(--surface);
+  border: 1px solid var(--chip-border);
+  border-radius: 12px;
+  padding: 8px 12px;
+  cursor: pointer;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+/* Optional: keep tiny mobile screens from forcing horizontal scroll */
+.ing-row > * { min-width: 0; }
+
 
 </style>
 
@@ -3344,7 +3710,7 @@ document.addEventListener('click', (e) => {
   if (!tab) return;
 
   // Let setActiveTab() handle both the highlight and the view
-  setActiveTab(tab);
+  if (typeof setActiveTab === 'function') setActiveTab(tab);
 });
 
 
@@ -3489,7 +3855,7 @@ document.addEventListener('DOMContentLoaded', () => {
 }); // <-- correctly close DOMContentLoaded
 
 const savedTab = localStorage.getItem('activeTab') || 'list';
-setActiveTab(savedTab);
+if (typeof setActiveTab === 'function') setActiveTab(savedTab);
 
 
  try {
