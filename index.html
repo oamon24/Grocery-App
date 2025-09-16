@@ -200,15 +200,15 @@ button.primary{
 .toolbar{ display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
 .toolbar .group{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
 
-/* Sticky sub-toolbar inside cards */
 .card > .toolbar{
-  position: sticky;
-  top: calc(env(safe-area-inset-top, 0px) + 64px);
-  z-index: 3;
+  position: static;          /* was: sticky */
+  top: auto;                 /* no offset */
+  z-index: auto;             /* no stacking above content */
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   padding: 8px 0;
 }
+
 
 /* Tabs */
 .tabs{ display:flex; gap:10px; }
