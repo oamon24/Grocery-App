@@ -425,7 +425,7 @@ button.primary{
   color: var(--text);
   border: 1px solid var(--border);
   border-radius:14px; box-shadow: var(--shadow-md);
-  padding:10px 14px; font-size:14px; pointer-events:none; z-index:50;
+  padding:10px 14px; font-size:14px; pointer-events:none; z-index:20000;
 }
 .toast.show{ opacity:1; transform: translateX(-50%) translateY(0); }
 
@@ -3448,10 +3448,10 @@ if (atlAddBtn) atlAddBtn.onclick = async () => {
     <div style="margin-top:12px;">
       <button id="themeToggle" type="button">🌙 Dark</button>
     </div>
-<!-- 🔥 Temporary toast test button -->
 <div style="margin-top:12px;">
-  <button onclick="showToast('Test toast')">Test Toast</button>
+  <button type="button" onclick="showToast('Test toast')">Test Toast</button>
 </div>
+
     <div style="margin-top:20px; text-align:right;">
       <button id="menuClose">Close</button>
     </div>
