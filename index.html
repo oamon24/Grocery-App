@@ -2741,6 +2741,20 @@ if (p){
     if (rmNameLbl)  rmNameLbl.textContent = '';
   }
 }
+// Rebuild the ingredient rows in the editor
+if (rmIngredients) {
+  rmIngredients.innerHTML = '';
+
+  // If editing and there are saved ingredients, render those; otherwise render one empty row
+  const list = (data && Array.isArray(data.ingredients) && data.ingredients.length)
+    ? data.ingredients
+    : [ { name:'', qty:'', size:'', notes:'' } ];
+
+  for (const ing of list) {
+    // createIngRow(prefill) already wires delete + autocomplete
+    rmIngredients.appendChild(createIngRow(ing));
+  }
+}
 
 
   
