@@ -588,15 +588,27 @@ body { padding-bottom: calc(70px + env(safe-area-inset-bottom)); }
   box-shadow: 0 1px 3px rgba(0,0,0,.25);
   flex-shrink: 0;
 }
-:root {
-  /* smooth out theme changes */
-  transition: 
-    background-color 3s ease,
-    color 3s ease,
-    border-color 3s ease,
-    box-shadow 3s ease,
-    background 3s ease;
+/* Smooth light/dark theme transitions across the whole app */
+html[data-theme],
+html[data-theme] * {
+  transition:
+    background-color 0.28s ease,
+    background 0.28s ease,
+    color 0.28s ease,
+    border-color 0.28s ease,
+    box-shadow 0.28s ease,
+    fill 0.28s ease,
+    stroke 0.28s ease;
 }
+
+/* Respect users who prefer less motion */
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme],
+  html[data-theme] * {
+    transition: none !important;
+  }
+}
+
 
 </style>
 
