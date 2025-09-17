@@ -2876,7 +2876,21 @@ if (rmSave) rmSave.onclick = async () => {
 
     // === Save ingredients (replace-all strategy) ===
     const recipeId = editingRecipeId ? editingRecipeId : (await db.collection('recipes').doc(household).collection('recipes').where('nameLower','==', nameLower).limit(1).get()).docs[0].id;
-// === Cover file changes (background, non-blocking) ===
+// Read current editor rows and persist them to the recipe document
+const ingredients = readIngredientsFromEditor();
+
+// Save/replace the ingredients array on the recipe
+await db.collection('recipes').doc(household).collection('recipes').doc(recipeId)
+  .set({
+    ingredients,
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    updatedBy: (auth.currentUser.email || auth.currentUser.uid || 'unknown')
+  }, { merge: true });
+
+showToast('Ingredients saved');
+
+    
+    // === Cover file changes (background, non-blocking) ===
 try {
   // Inform the user immediately; we won't await the upload/remove
   showToast('Saving… cover will upload in background');
