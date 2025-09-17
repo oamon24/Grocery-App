@@ -2365,6 +2365,14 @@ const rmCoverRemoveBtn = document.getElementById('rmCoverRemove');
 // === INGREDIENTS: Add Ingredient button ===
 const rmAddIngredientBtn = document.getElementById('rmAddIngredient');
 const rmIngredients = document.getElementById('rmIngredients');
+if (rmIngredients) {
+  rmIngredients.addEventListener('click', (e) => {
+    const delBtn = e.target.closest('.ing-del');
+    if (!delBtn) return;
+    const row = delBtn.closest('.ing-row');
+    if (row) row.remove();
+  });
+}
 
 // Factory: build one ingredient row
 function createIngRow(prefill=null){
