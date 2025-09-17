@@ -2703,6 +2703,9 @@ if (rmAddStepBtn) rmAddStepBtn.onclick = () => addStepRow();
 
 
 function openRecipeModal(mode='add', data=null){
+    // defensive: deep-clone so we never mutate the original recipe object used elsewhere
+  data = data ? JSON.parse(JSON.stringify(data)) : null;
+
   $('rmTitle').textContent = mode === 'edit' ? 'Edit Recipe' : 'Add Recipe';
   editingRecipeId = (mode === 'edit' && data && data.id) ? data.id : null;
   // Show Delete only in edit mode
@@ -2848,48 +2851,70 @@ if (rmSave) rmSave.onclick = async () => {
       return;
     }
 
-    // Close the modal *immediately* and yield to let Android paint
-    closeRecipeModal();
-    await new Promise(r => setTimeout(r, 0));
+   // Close the modal immediately (keeps UI snappy)
+closeRecipeModal();
+await new Promise(r => setTimeout(r, 0));
 
-    const now = firebase.firestore.FieldValue.serverTimestamp();
-    const who = (auth.currentUser.email || auth.currentUser.uid || 'unknown');
+const now = firebase.firestore.FieldValue.serverTimestamp();
+const who = (auth.currentUser.email || auth.currentUser.uid || 'unknown');
 
+let recipeDocRef;
 
-    if (!editingRecipeId) {
-      // ADD
-      const ref = col.doc();
-      await ref.set({
-        name,
-        nameLower,
-        basePortions,
-        tags,
-        coverUrl: null,
-        coverPath: null,
-        lastUsedServings: basePortions,
-        createdAt: now,
-        createdBy: who,
-        updatedAt: now,
-        updatedBy: who,
-        deletedAt: null
-      });
-      showToast('Recipe created');
-        } else {
-      // UPDATE meta
-      const ref = col.doc(editingRecipeId);
-      await ref.set({
-        name,
-        nameLower,
-        basePortions,
-        tags,
-        updatedAt: now,
-        updatedBy: who
-      }, { merge: true });
-      showToast('Recipe updated');
-    }
+// CREATE
+if (!editingRecipeId) {
+  recipeDocRef = col.doc(); // pre-generate id
+
+  await recipeDocRef.set({
+    id: recipeDocRef.id,
+    name,
+    nameLower,
+    basePortions,
+    tags,
+    coverUrl: null,
+    coverPath: null,
+    lastUsedServings: basePortions,
+    createdAt: now,
+    createdBy: who,
+    updatedAt: now,
+    updatedBy: who,
+    deletedAt: null
+  });
+
+  showToast('Recipe created');
+}
+// UPDATE
+else {
+  recipeDocRef = col.doc(editingRecipeId);
+
+  await recipeDocRef.set({
+    name,
+    nameLower,
+    basePortions,
+    tags,
+    updatedAt: now,
+    updatedBy: who
+  }, { merge: true });
+
+  showToast('Recipe updated');
+}
+
 
     // === Save ingredients (replace-all strategy) ===
-    const recipeId = editingRecipeId ? editingRecipeId : (await db.collection('recipes').doc(household).collection('recipes').where('nameLower','==', nameLower).limit(1).get()).docs[0].id;
+// === Save ingredients (replace-all strategy) ===
+try {
+  const ingredients = readIngredientsFromEditor();
+  await recipeDocRef.set({
+    ingredients,
+    updatedAt: now,
+    updatedBy: who
+  }, { merge: true });
+} catch (e) {
+  console.error(e);
+  alert('Saving ingredients failed: ' + (e.message || e));
+}
+
+// We’ll reuse this for the cover background tasks
+const recipeId = recipeDocRef.id;
 // Read current editor rows and persist them to the recipe document
 const ingredients = readIngredientsFromEditor();
 
