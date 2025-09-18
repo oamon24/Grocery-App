@@ -263,6 +263,38 @@ button.primary{
 /* =========================================================
    List + groups
    ========================================================= */
+/* Animated show/hide for List tab content (scoped to #listSection ONLY) */
+#listSection #list,
+#listSection #empty{
+  /* Transitionable properties */
+  transition:
+    max-height 220ms ease,
+    opacity 180ms ease,
+    transform 220ms ease;
+  /* Expanded defaults */
+  max-height: 2000px;       /* large enough to fit typical lists */
+  opacity: 1;
+  transform: translateY(0);
+  overflow: hidden;         /* enables height animation without layout spill */
+}
+
+/* Collapsed state (driven by data-list-collapsed on #listSection) */
+#listSection[data-list-collapsed="true"] #list,
+#listSection[data-list-collapsed="true"] #empty{
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-6px);
+  pointer-events: none;     /* make content non-interactive while hidden */
+}
+
+/* Respect reduced-motion preferences */
+@media (prefers-reduced-motion: reduce){
+  #listSection #list,
+  #listSection #empty{
+    transition: none !important;
+  }
+}
+
 .list{ margin-top:10px; display:grid; gap:12px; }
 .groupHeader{ display:flex; align-items:center; gap:10px; font-weight:700; padding:4px 2px 0; }
 .groupHeader .dot{ width:8px; height:8px; border-radius:999px; background:#9aa3b2; }
@@ -417,17 +449,30 @@ button.primary{
 .ac-meta{ color: var(--muted); font-size:12px; }
 
 .toast{
-  position: fixed; left:50%;
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
-  transform: translateX(-50%) translateY(20px);
-  opacity:0; transition: transform .18s ease, opacity .18s ease;
+  position: fixed;
+  left: 50%;
+  bottom: calc(70px + env(safe-area-inset-bottom, 0px) + 18px);
+  transform: translateX(-50%) translateY(14px);
+  opacity: 0;
+  transition:
+    transform 240ms cubic-bezier(.22,1,.36,1),
+    opacity 240ms cubic-bezier(.22,1,.36,1);
   background: var(--surface);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius:14px; box-shadow: var(--shadow-md);
-  padding:10px 14px; font-size:14px; pointer-events:none; z-index:20000;
+  border-radius: 14px;
+  box-shadow: var(--shadow-md);
+  padding: 10px 14px;
+  font-size: 14px;
+  pointer-events: auto;   /* tap to dismiss */
+  z-index: 20000;
 }
-.toast.show{ opacity:1; transform: translateX(-50%) translateY(0); }
+.toast.show{
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+
 
 .popup-backdrop{ position:fixed; inset:0; background: rgba(0,0,0,.45); display:none; align-items:center; justify-content:center; z-index:90; }
 .popup-backdrop.show{ display:flex; }
@@ -590,7 +635,7 @@ body { padding-bottom: calc(70px + env(safe-area-inset-bottom)); }
 }
 /* Smooth light/dark theme transitions across the whole app */
 html[data-theme],
-html[data-theme] * {
+html[data-theme] *:not(.toast) {
   transition:
     background-color 0.28s ease,
     background 0.28s ease,
@@ -600,6 +645,7 @@ html[data-theme] * {
     fill 0.28s ease,
     stroke 0.28s ease;
 }
+
 
 /* Respect users who prefer less motion */
 @media (prefers-reduced-motion: reduce) {
@@ -646,7 +692,7 @@ html[data-theme] * {
   <main class="wrap">
     <div id="status" class="status"></div>
 
-    <section id="listSection" class="card">
+    <section id="listSection" class="card" data-list-collapsed="true">
 
       <div id="addRow" class="row">
 
@@ -658,6 +704,7 @@ html[data-theme] * {
           <div id="updateTag" class="updateTag" style="display:none"></div>
 
         </div>
+        
         <div>
           <label>Qty</label>
           <input id="itemQty" class="qty" type="text" placeholder="e.g., 2, 500g" />
@@ -699,7 +746,10 @@ html[data-theme] * {
         <div><button id="add" class="primary">Add</button></div>
       </div>
 
-     
+     <div id="toggleListItemsRow" class="row" style="justify-content: flex-end; margin-top: 6px;">
+  <button id="toggleListItemsButton" class="pill" type="button" aria-pressed="false">🔽 Show items</button>
+</div>
+
 
       <div id="list" class="list" aria-live="polite"></div>
       <div id="empty" class="empty" style="display:none">
@@ -2355,11 +2405,32 @@ function setActiveTab(tab){ // 'list' | 'shopping' | 'recipes'
   const clearBtn = $('clearChecked');
   if (addRow)   addRow.style.display   = (tab === 'list') ? '' : 'none';
   if (clearBtn) clearBtn.style.display = (tab === 'list') ? '' : 'none';
+  // Ensure the "hide items" state only applies on the List tab
+
+if (listSection){
+  if (tab === 'list'){
+    // Re-apply the saved preference when entering the List tab
+    const saved = localStorage.getItem('listCollapsed'); // "true" | "false" | null
+    if (saved === 'false') {
+      listSection.removeAttribute('data-list-collapsed');
+    } else {
+      // default hidden if missing or "true"
+      listSection.setAttribute('data-list-collapsed', 'true');
+    }
+  } else {
+    // Leaving the List tab: clear the attribute so Shopping/Recipes are never affected
+    listSection.removeAttribute('data-list-collapsed');
+  }
+}
+
+const toggleRow = $('toggleListItemsRow');
+if (toggleRow) toggleRow.style.display = (tab === 'list') ? '' : 'none';
 
   // Filters & “how it works”
-  if (filterGroup) {
-    filterGroup.style.display = (tab === 'list') ? '' : 'none';
-  }
+ if (filterGroup) {
+  filterGroup.style.display = (tab === 'list' || tab === 'shopping') ? '' : 'none';
+}
+
   const how = $('howItWorks');
   if (how) how.style.display = (tab === 'list') ? '' : 'none';
 
@@ -2460,6 +2531,7 @@ if (rmCoverBtn) {
         }
         if (rmCoverRemoveBtn) rmCoverRemoveBtn.style.display = '';
         showToast('Cover selected');
+        markRecipeDirty();
       }
     });
   };
@@ -2472,6 +2544,7 @@ if (rmCoverRemoveBtn) {
     if (rmCoverPreview) { rmCoverPreview.removeAttribute('src'); rmCoverPreview.style.display = 'none'; }
     if (rmCoverName) rmCoverName.textContent = '';
     showToast('Cover will be removed');
+    markRecipeDirty();
   };
 }
 
@@ -2585,11 +2658,13 @@ function makeTagChip(label, active){
     const isClose = e.target.classList.contains('x');
     if (isClose){
       chip.remove();
+      markRecipeDirty(); 
       return;
     }
     // toggle selection
     chip.classList.toggle('active');
     enforceTagLimit();
+    markRecipeDirty();  
   };
 
   return chip;
@@ -2705,6 +2780,7 @@ function addTagToSelection(raw){
     rmTagsEl.firstChild ? rmTagsEl.firstChild.nextSibling : null /* after badge */
   );
   enforceTagLimit();
+  markRecipeDirty();
 }
 
 
@@ -2716,7 +2792,35 @@ const recipeModal = $('recipeModal');
 const rmClose = $('rmClose');
 const rmSave = $('rmSave');
 const rmDelete = $('rmDelete');
-  
+  // === Dirty state for Recipe Modal ===
+let recipeDirty = false;
+
+function updateRecipeSaveButton(){
+  if (!rmSave) return;
+  if (recipeDirty){
+    rmSave.textContent = 'Save';
+    rmSave.classList.add('btn-pink');
+   } else {
+    rmSave.textContent = 'Close';
+    rmSave.classList.remove('btn-pink');
+  }
+
+}
+
+
+function markRecipeDirty(){
+  if (!recipeDirty){
+    recipeDirty = true;
+    updateRecipeSaveButton();
+  }
+}
+
+// Any user edits inside the recipe modal will mark it dirty
+if (recipeModal){
+  recipeModal.addEventListener('input', markRecipeDirty, true);
+  recipeModal.addEventListener('change', markRecipeDirty, true);
+}
+
     // Add-step button
 const rmAddStepBtn = $('rmAddStep');
 if (rmAddStepBtn) rmAddStepBtn.onclick = () => addStepRow();
@@ -2732,6 +2836,16 @@ function openRecipeModal(mode='add', data=null){
   // Show Delete only in edit mode
 if (rmDelete) {
   rmDelete.style.display = editingRecipeId ? '' : 'none';
+    // Reset dirty state after initial field population
+  recipeDirty = false;
+  // Ensure modal buttons are pink-styled
+const rmSaveBtn  = document.getElementById('rmSaveBtn')  || recipeModal.querySelector('.rm-save')  || recipeModal.querySelector('.modal-footer button:last-child');
+const rmCloseBtn = document.getElementById('rmCloseBtn') || recipeModal.querySelector('.rm-close') || recipeModal.querySelector('.modal-footer button:first-child');
+
+[rmSaveBtn, rmCloseBtn].forEach(b => b && b.classList.add('btn-pink'));
+
+  updateRecipeSaveButton();
+
 }
 
 
@@ -2845,6 +2959,9 @@ if (rmDelete) rmDelete.onclick = async (ev) => {
 
 
 if (rmSave) rmSave.onclick = async () => {
+    // If nothing changed, behave like a Close button
+  if (!recipeDirty) { closeRecipeModal(); return; }
+
   if (!auth || !auth.currentUser || !household) { alert('Sign in and set the household first.'); return; }
   
 
@@ -2947,13 +3064,13 @@ await db.collection('recipes').doc(household).collection('recipes').doc(recipeId
     updatedBy: (auth.currentUser.email || auth.currentUser.uid || 'unknown')
   }, { merge: true });
 
-showToast('Ingredients saved');
+
 
     
     // === Cover file changes (background, non-blocking) ===
 try {
   // Inform the user immediately; we won't await the upload/remove
-  showToast('Saving… cover will upload in background');
+  
 
   // Define tasks (but do NOT await here)
   const removeTask = (rmRemoveCover && !rmCoverFile) ? (async () => {
@@ -2974,16 +3091,18 @@ try {
 
   // Kick off tasks in a microtask after this click handler finishes,
   // so the modal can close right away.
-  Promise.resolve().then(async () => {
-    try {
-      if (removeTask) await removeTask();
-      if (uploadTask) await uploadTask();
-      showToast('Cover updated');
-    } catch (e) {
-      console.warn('Background cover update failed:', e);
-      showToast('Cover update failed');
-    }
-  });
+ Promise.resolve().then(async () => {
+  const coverChanged = Boolean(removeTask || uploadTask);
+  try {
+    if (removeTask) await removeTask();
+    if (uploadTask) await uploadTask();
+    if (coverChanged) showToast('Cover updated');
+  } catch (e) {
+    console.warn('Background cover update failed:', e);
+    if (coverChanged) showToast('Cover update failed');
+  }
+});
+
 } catch (e) {
   console.warn('Failed to schedule background cover update:', e);
 }
@@ -3381,18 +3500,37 @@ if (atlAddBtn) atlAddBtn.onclick = async () => {
     document.addEventListener('pointerup', clearPress);
     document.addEventListener('pointercancel', clearPress);
   </script>
-  <script>
-    // Minimal toast helper
-    (function(){
-      const t = document.createElement('div');
-      t.id = 'toast'; t.className = 'toast';
-      document.body.appendChild(t);
-      window.showToast = (msg) => {
-        t.textContent = msg; t.classList.add('show');
-        clearTimeout(t._hide); t._hide = setTimeout(() => t.classList.remove('show'), 1600);
-      };
-    })();
-  </script>
+<script>
+  // Minimal toast helper (smooth + tap-to-dismiss + restartable)
+  (function(){
+    const t = document.createElement('div');
+    t.id = 'toast';
+    t.className = 'toast';
+    t.setAttribute('role','status');
+    t.setAttribute('aria-live','polite');
+    document.body.appendChild(t);
+
+    let hideTimer = null;
+
+    window.showToast = function(msg, {timeout = 4000} = {}){
+      t.textContent = String(msg || '');
+      t.classList.add('show');
+      if (hideTimer) clearTimeout(hideTimer);
+      hideTimer = setTimeout(() => {
+        t.classList.remove('show');
+        hideTimer = null;
+      }, timeout);
+    };
+
+    t.addEventListener('click', () => {
+      if (hideTimer) clearTimeout(hideTimer);
+      t.classList.remove('show');
+      hideTimer = null;
+    });
+  })();
+</script>
+
+
   <script>
     // Lightbox
     (function(){
@@ -3448,9 +3586,7 @@ if (atlAddBtn) atlAddBtn.onclick = async () => {
     <div style="margin-top:12px;">
       <button id="themeToggle" type="button">🌙 Dark</button>
     </div>
-<div style="margin-top:12px;">
-  <button type="button" onclick="showToast('Test toast')">Test Toast</button>
-</div>
+
 
     <div style="margin-top:20px; text-align:right;">
       <button id="menuClose">Close</button>
@@ -3688,7 +3824,6 @@ input.qtyInline{
   box-sizing: border-box;
 }
 
-}
 
 /* Inputs/textarea reset INSIDE the ingredient row */
 .ing-row textarea,
@@ -3723,7 +3858,22 @@ input.qtyInline{
 
 /* Optional: keep tiny mobile screens from forcing horizontal scroll */
 .ing-row > * { min-width: 0; }
-
+/* --- Pink buttons for the recipe modal --- */
+.btn-pink {
+  background: #ff2f7d;           /* solid pink */
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-weight: 600;
+  transition: transform .08s ease, opacity .2s ease, background-color .2s ease;
+}
+.btn-pink:hover { transform: translateY(-1px); }
+.btn-pink:active { transform: translateY(0); }
+.btn-pink[disabled] {
+  opacity: .55;
+  pointer-events: none;
+}
 
 </style>
 
@@ -3751,14 +3901,23 @@ if (menuClose) menuClose.onclick = () => closeSheet(menuSheet);
 if (menuSheet) menuSheet.addEventListener('click', (e)=>{ if(e.target===menuSheet) closeSheet(menuSheet); });
 
 if (filterBtn) filterBtn.onclick = () => {
-  // hide the filter dropdown if on Shopping tab
   const filterModeSel = document.getElementById('filterMode');
-  const filterBlock = filterModeSel && filterModeSel.closest('div'); // wrapping <div>
+  const filterBlock = filterModeSel && filterModeSel.closest('div');
   if (filterBlock) {
-    filterBlock.style.display = (activeTab === 'shopping') ? 'none' : '';
+    // Show Filter only on List tab
+    filterBlock.style.display = (activeTab === 'list') ? '' : 'none';
   }
+
+  const sortModeSel = document.getElementById('sortMode');
+  const sortBlock = sortModeSel && sortModeSel.closest('div');
+  if (sortBlock) {
+    // Show Sort on List + Shopping, hide on Recipes
+    sortBlock.style.display = (activeTab === 'list' || activeTab === 'shopping') ? '' : 'none';
+  }
+
   openSheet(filterSheet);
 };
+
 
 if (filterClose) filterClose.onclick = () => closeSheet(filterSheet);
 if (filterSheet) filterSheet.addEventListener('click', (e)=>{ if(e.target===filterSheet) closeSheet(filterSheet); });
@@ -3874,11 +4033,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const savedSort = localStorage.getItem('sortMode');
     if (savedSort) sortModeEl.value = savedSort;
 
-    sortModeEl.onchange = () => {
-      localStorage.setItem('sortMode', sortModeEl.value);
-     scheduleRenderItems(lastSnapshotItems || []);
-
-    };
+filterModeEl.onchange = () => {
+  localStorage.setItem('filterMode', filterModeEl.value);
+  scheduleRenderItems(lastSnapshotItems || []);
+};
   }
 
   if (filterModeEl) {
@@ -3905,14 +4063,23 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    // Sign in
-    if (e.target.closest('#signIn')) {
-      try {
-        const email = prompt("Enter email:");
-        const password = prompt("Enter password:");
-        if (!email || !password) return;
-        await auth.signInWithEmailAndPassword(email, password);
-        showToast("Signed in as " + email);
+   // Sign in
+if (e.target.closest('#signIn')) {
+  try {
+    const email = prompt("Enter email:");
+    const password = prompt("Enter password:");
+    if (!email || !password) return;
+    await auth.signInWithEmailAndPassword(email, password);
+if (typeof closeSheet === 'function') { const ms = document.getElementById('menuSheet'); if (ms) closeSheet(ms); }
+
+    // Always show the generic toast
+    showToast("Signed in as " + email);
+
+    // 🔴 Custom toast for Ines
+    if (email.toLowerCase() === "ines@ines.com") {
+      showToast("Logged in as Schnucki.  Ich liebe dich!!! 💖");
+    }
+
       } catch (e2) {
         if (e2.code === 'auth/user-not-found') {
           alert("No user found. Ask admin to add you in Firebase.");
@@ -3993,6 +4160,68 @@ try {
 .thumb { width:44px; height:44px; }           /* avoid reflow when images load */
 .qty-inline { min-height: 32px; }             /* consistent control height */
 </style>
+<script>
+// ===================== List Show/Hide toggle (with persistence) =====================
+(function(){
+  // Elements
+  var listSection = document.getElementById('listSection');
+  var toggleBtn   = document.getElementById('toggleListItemsButton');
 
+  // Safety: if the button isn't present yet, do nothing
+  if (!listSection || !toggleBtn) return;
+
+  // LocalStorage key
+  var LS_KEY = 'listCollapsed'; // "true" or "false" as strings
+
+  // Helper: apply a given collapsed boolean to DOM + button label
+  function applyCollapsed(collapsed){
+    // 1) Attribute on section (drives CSS hide rule)
+    if (collapsed) {
+      listSection.setAttribute('data-list-collapsed', 'true');
+    } else {
+      listSection.removeAttribute('data-list-collapsed');
+    }
+
+    // 2) Button label + aria state
+    if (collapsed) {
+      toggleBtn.textContent = '🔽 Show items';
+      toggleBtn.setAttribute('aria-pressed', 'false');
+    } else {
+      toggleBtn.textContent = '🔼 Hide items';
+      toggleBtn.setAttribute('aria-pressed', 'true');
+    }
+  }
+
+  // Read saved preference
+  var saved = localStorage.getItem(LS_KEY);
+
+  // Starting state logic:
+  // - If saved is "true" or "false", use it.
+  // - If nothing saved, default to collapsed (hidden).
+  var startCollapsed;
+  if (saved === 'true') {
+    startCollapsed = true;
+  } else if (saved === 'false') {
+    startCollapsed = false;
+  } else {
+    startCollapsed = true; // default hidden
+  }
+
+  // Apply starting state (this also corrects the button text)
+  applyCollapsed(startCollapsed);
+
+  // Click to toggle
+  toggleBtn.addEventListener('click', function(){
+    var currentlyCollapsed = listSection.hasAttribute('data-list-collapsed');
+    var nextCollapsed = !currentlyCollapsed;
+
+    applyCollapsed(nextCollapsed);
+    localStorage.setItem(LS_KEY, String(nextCollapsed));
+  });
+})();
+</script>
+
+  
 </body>
 </html>
+ 
