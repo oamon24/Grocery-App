@@ -1097,9 +1097,13 @@
   <div id="addToListModal" class="modal" aria-hidden="true">
     <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="atlTitle">
       <div class="modal-head">
-        <h3 id="atlTitle" style="margin:0;">Add Recipe to List</h3>
-        <button id="atlClose" type="button">✕</button>
-      </div>
+  <h3 id="atlTitle" style="margin:0;">Add Recipe to List</h3>
+  <div style="display:flex; gap:8px; align-items:center;">
+    <button id="atlAdd" class="primary" type="button" title="Add all selected to shopping list">Add to Shopping List</button>
+    <button id="atlClose" type="button">✕</button>
+  </div>
+</div>
+
       <div class="modal-body">
         <div>
           <div>Portions</div>
@@ -1121,10 +1125,8 @@
 
         <div id="atlList" class="checklist"></div>
       </div>
-      <div class="modal-foot">
-        <div style="flex:1"></div>
-        <button id="atlAdd" class="primary" type="button">Add to Shopping List</button>
-      </div>
+  <div class="modal-foot" style="display:none"></div>
+
     </div>
   </div>
 
@@ -4129,7 +4131,7 @@ row.querySelector('.step-down').onclick = () => {
     This avoids overriding the version that renders the bold “Step N” title and the ≡ drag handle. */
 
 
-  // Open modal for a recipe
+   // Open modal for a recipe
   async function openAddToListModal(recipe){
     // Store recipe & servings info
     atlRecipe = recipe || null;
@@ -4163,7 +4165,7 @@ row.querySelector('.step-down').onclick = () => {
     addToListModal.setAttribute('aria-hidden','false');
 
     // Focus servings input for quick scaling
-    atlServingsEl.focus();
+   
   }
 
 
@@ -5591,8 +5593,10 @@ row.querySelector('.step-down').onclick = () => {
 
     function next(){
       if (!state.recipe) return;
-      if (state.index < state.recipe.steps.length - 1) setIndex(state.index + 1);
+      const steps = state.recipe.steps || [];
+      if (state.index < steps.length) setIndex(state.index + 1); // +1 to allow "prep" at index 0
     }
+
 
     function prev(){
       if (!state.recipe) return;
@@ -5610,13 +5614,98 @@ row.querySelector('.step-down').onclick = () => {
     }
 
     function render(){
-      const steps = state.recipe.steps || [];
-      const step = steps[state.index] || { text:"", photoUrl:null };
-      const total = steps.length;
-      const n = state.index + 1;
+     const steps = state.recipe.steps || [];
+      const isPrep = state.index === 0;
+      const step = isPrep ? null : (steps[state.index - 1] || { text:"", photoUrl:null });
+      const total = (steps.length || 0) + 1; // include prep page
+      const n = isPrep ? 0 : state.index;
+
+
+      // If on prep page (index 0): render ingredients checklist + progress and skip normal step rendering
+      if (isPrep) {
+        if (elPhoto) { elPhoto.removeAttribute('src'); elPhoto.style.display = 'none'; elPhoto.alt = ''; }
+        const timerCard = modal.querySelector('#cookTimerCard');
+        if (timerCard) timerCard.style.display = 'none';
+
+        elCount.textContent = 'Ingredients';
+
+        const ings = Array.isArray(state.recipe.ingredients) ? state.recipe.ingredients : [];
+        const total = ings.length;
+
+        if (!total) {
+          elBody.innerHTML = '<p>No ingredients.</p>';
+          return;
+        }
+
+        // Header with counter, progress bar, and Start Again button
+        const headerHTML = `
+          <div id="prepHeader" style="display:flex; align-items:center; gap:10px; justify-content:space-between; margin-bottom:8px;">
+            <div id="prepCounter" style="font-weight:600;">0 / ${total} prepped</div>
+            <div style="flex:1; height:6px; background:#161616; border:1px solid rgba(255,255,255,.12); border-radius:6px; overflow:hidden; margin:0 10px;">
+              <div id="prepProg" style="height:100%; width:0%; background:#3a86ff;"></div>
+            </div>
+            <button id="prepReset" class="tbtn" type="button">Start Again</button>
+          </div>
+        `;
+
+        const listHTML = '<ul style="margin:0; padding-left:18px;">' + ings.map((ing,i) => {
+          const text = [ing.qty, ing.size, ing.name, ing.notes].filter(Boolean).join(' ').replace(/\s+/g,' ').trim();
+          return `<li style="margin:6px 0;"><label><input type="checkbox" class="md-task" data-task-index="${i}"> ${text}</label></li>`;
+        }).join('') + '</ul>';
+
+        const hintHTML = `
+          <div style="margin-top:12px; text-align:center; font-size:0.9em; opacity:0.8;">
+            Swipe to See Step&nbsp;1 →
+          </div>
+        `;
+
+        elBody.innerHTML = headerHTML + listHTML + hintHTML;
+
+        const recipeId = state.recipe.id || 'temp';
+        const contextKey = `recipe:${recipeId}:step:prep`;
+        if (window.cookSession && typeof window.cookSession.attachTaskCheckboxBinding === 'function') {
+          state.cleanupTasksBinding = window.cookSession.attachTaskCheckboxBinding(elBody, contextKey);
+        }
+
+        // Progress updater
+        const counterEl = elBody.querySelector('#prepCounter');
+        const progEl    = elBody.querySelector('#prepProg');
+        const inputs    = Array.from(elBody.querySelectorAll('input.md-task'));
+
+        const updatePrepProgress = () => {
+          const done = inputs.filter(i => i.checked).length;
+          if (counterEl) counterEl.textContent = `${done} / ${total} prepped`;
+          if (progEl)    progEl.style.width = total ? Math.round((done/total)*100) + '%' : '0%';
+        };
+
+        // Update on any change
+        elBody.addEventListener('change', (e) => {
+          if (e.target && e.target.classList && e.target.classList.contains('md-task')) {
+            updatePrepProgress();
+          }
+        });
+
+        // "Start Again" — clear saved context + uncheck all
+        const resetBtn = elBody.querySelector('#prepReset');
+        if (resetBtn) {
+          resetBtn.addEventListener('click', () => {
+            if (window.cookSession && typeof window.cookSession.clearContext === 'function') {
+              window.cookSession.clearContext(contextKey);
+            }
+            inputs.forEach(i => { i.checked = false; });
+            updatePrepProgress();
+          });
+        }
+
+        // Initial paint reflects persisted checks
+        updatePrepProgress();
+        return; // do not run the normal step path
+      }
+
 
       // Photo
       if (step.photoUrl) {
+
         elPhoto.src = step.photoUrl;
         elPhoto.style.display = '';
         elPhoto.alt = state.recipe.name ? `${state.recipe.name} – Step ${n}` : `Step ${n}`;
@@ -5627,12 +5716,12 @@ row.querySelector('.step-down').onclick = () => {
       }
 
       // Count
-      elCount.textContent = (total > 0) ? `Step ${n} of ${total}` : 'No steps';
+      elCount.textContent = (steps.length > 0) ? `Step ${n} of ${steps.length}` : 'No steps';
 
       // Body (Markdown → safe HTML with clickable checkboxes)
       elBody.innerHTML = (window.renderMarkdownSafe ? window.renderMarkdownSafe(step.text || '') : (step.text || ''));
       const recipeId = state.recipe.id || 'temp';
-      const stepId = step.id || String(state.index);
+      const stepId = step.id || String(state.index - 1);
       const contextKey = `recipe:${recipeId}:step:${stepId}`;
       if (window.cookSession && typeof window.cookSession.attachTaskCheckboxBinding === 'function') {
         state.cleanupTasksBinding = window.cookSession.attachTaskCheckboxBinding(elBody, contextKey);
