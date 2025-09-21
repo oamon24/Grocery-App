@@ -5697,10 +5697,17 @@ row.querySelector('.step-down').onclick = () => {
           });
         }
 
-        // Initial paint reflects persisted checks
+              // Initial paint reflects persisted checks
         updatePrepProgress();
         return; // do not run the normal step path
       }
+
+      // ← ensure timer is visible on real step pages
+      const timerCard = modal.querySelector('#cookTimerCard');
+      if (timerCard) timerCard.style.display = '';
+
+      // Photo
+
 
 
       // Photo
@@ -5732,22 +5739,25 @@ row.querySelector('.step-down').onclick = () => {
       updateTimerUI();
     }
 
-    // ----- Timer UI + actions -----
-    function currentStepContext(){
-      const steps = state.recipe.steps || [];
-      const step = steps[state.index] || {};
-      return {
-        recipeId: state.recipe.id || 'temp',
-        stepId: step.id || String(state.index),
-        stepIndex: state.index,
-        // Optional hook for drawer "Open Step"
-        goTo: () => { window.cookMode && window.cookMode.setIndex && window.cookMode.setIndex(state.index); }
-      };
-    }
+   function currentStepContext(){
+  const steps = state.recipe.steps || [];
+  const idx = Math.max(0, state.index - 1);         // adjust for prep at index 0
+  const step = steps[idx] || {};
+  return {
+    recipeId: state.recipe.id || 'temp',
+    stepId: step.id || String(idx),
+    stepIndex: idx,
+    // Optional hook for drawer "Open Step"
+    goTo: () => { window.cookMode && window.cookMode.setIndex && window.cookMode.setIndex(state.index); }
+  };
+}
 
-      function updateTimerUI(){
-      const steps = state.recipe?.steps || [];
-      const step = steps[state.index] || {};
+
+    function updateTimerUI(){
+  const steps = state.recipe?.steps || [];
+  const idx = Math.max(0, state.index - 1);
+  const step = steps[idx] || {};
+
       const ctx = currentStepContext();
       const timer = findTimerForStep(ctx.recipeId, ctx.stepId, ctx.stepIndex);
 
@@ -5795,21 +5805,25 @@ row.querySelector('.step-down').onclick = () => {
 
 
     function createStepTimer(){
-      const steps = state.recipe.steps || [];
-      const step = steps[state.index] || {};
-      const ctx = currentStepContext();
-      const label = (state.recipe.name ? state.recipe.name + ' – ' : '') + `Step ${state.index+1}`;
-      const durationMs = (Number.isFinite(step.timerSec) ? step.timerSec*1000 : 60_000);
+  const steps = state.recipe.steps || [];
+  const idx = Math.max(0, state.index - 1);
+  const step = steps[idx] || {};
+  const ctx = currentStepContext();
+  const label = (state.recipe.name ? state.recipe.name + ' – ' : '') + `Step ${state.index}`;
+  const durationMs = (Number.isFinite(step.timerSec) ? step.timerSec*1000 : 60_000);
+
       // Include recipe snapshot for optional “Open Step” from the drawer
       const context = { ...ctx, recipe: { id: state.recipe.id, name: state.recipe.name, steps: state.recipe.steps } };
       const id = window.timers.create({ label, durationMs, context });
       return id;
     }
 
-    function resetStepTimer(){
-      const steps = state.recipe.steps || [];
-      const step = steps[state.index] || {};
-      const ctx = currentStepContext();
+ function resetStepTimer(){
+  const steps = state.recipe.steps || [];
+  const idx = Math.max(0, state.index - 1);
+  const step = steps[idx] || {};
+  const ctx = currentStepContext();
+
       const timer = findTimerForStep(ctx.recipeId, ctx.stepId, ctx.stepIndex);
       if (timer) window.timers.stop(timer.id);
       createStepTimer();
