@@ -317,7 +317,16 @@
   .item.is-pressed{ transform: scale(.995); box-shadow: 0 8px 24px rgba(0,0,0,.25); }
 
   .left{ grid-column:1; grid-row:1; display:flex; align-items:center; justify-content:center; }
-  .item input[type="checkbox"]{ width:18px; height:18px; accent-color: var(--primary); }
+.item input[type="checkbox"] {
+  margin-right: 8px;
+  width: 18px;
+  height: 18px;
+}
+
+.md-task {
+  vertical-align: middle;
+  margin-right: 6px;
+}
 
   .line1{
     grid-column:2; grid-row:1;
@@ -3826,6 +3835,14 @@ if (rmAddStepBtn) rmAddStepBtn.onclick = () => { addStepRow(); markRecipeDirty()
           </div>
         </div>
 
+                 <!-- Toolbar -->
+        <div class="step-toolbar" style="display:flex; flex-wrap:wrap; gap:6px;">
+          <button type="button" class="step-tool" data-act="task" title="Insert checkbox">Checkbox</button>
+          <button type="button" class="step-tool" data-act="bullet" title="Insert bullet">• Bullet</button>
+          <button type="button" class="step-tool" data-act="bold" title="Bold">Bold</button>
+          <button type="button" class="step-tool" data-act="italic" title="Italic">Italic</button>
+        </div>
+
         <!-- Textarea -->
   <textarea class="step-text" placeholder="Step instructions (Markdown supported with [ ] checkboxes)" rows="7" style="width:100%; resize:vertical; box-sizing:border-box;"></textarea>
 
@@ -3915,10 +3932,76 @@ row.querySelector('.step-down').onclick = () => {
   }
 }
 
+// Step toolbar bindings
+{
+  const ta = row.querySelector('.step-text');
+  const tools = Array.from(row.querySelectorAll('.step-tool'));
+
+  const insert = (before = '', after = '') => {
+    if (!ta) return;
+    const s = ta.selectionStart ?? ta.value.length;
+    const e = ta.selectionEnd ?? s;
+    const val = ta.value;
+    const sel = val.slice(s, e);
+    const next = val.slice(0, s) + before + sel + after + val.slice(e);
+    ta.value = next;
+
+    // Caret logic:
+    // - If no selection: place caret immediately after the *opening* token (inside the pair)
+    // - If there was a selection: place caret after the whole inserted block
+    const hadSelection = e > s;
+    const pos = hadSelection ? (s + before.length + sel.length + after.length)
+                             : (s + before.length);
+
+    ta.focus({ preventScroll: true });
+    try { ta.setSelectionRange(pos, pos); } catch(e) {}
+
+    if (typeof markRecipeDirty === 'function') markRecipeDirty();
+  };
+
+  const insertLinePrefix = (prefix) => {
+    if (!ta) return;
+    const s = ta.selectionStart ?? 0;
+    const e = ta.selectionEnd ?? 0;
+    const val = ta.value;
+
+    const lineStart = val.lastIndexOf('\n', s - 1) + 1;
+    const lineEnd   = val.indexOf('\n', e);
+    const end = lineEnd === -1 ? val.length : lineEnd;
+
+    const selected = val.slice(lineStart, end);
+    const replaced = selected.split('\n').map(l => (l ? prefix + l : prefix)).join('\n');
+
+    const next = val.slice(0, lineStart) + replaced + val.slice(end);
+    ta.value = next;
+
+    // Place caret immediately after the *inserted prefix* on the FIRST affected line
+    const pos = lineStart + prefix.length;
+
+    ta.focus({ preventScroll: true });
+    try { ta.setSelectionRange(pos, pos); } catch(e) {}
+
+    if (typeof markRecipeDirty === 'function') markRecipeDirty();
+  };
+
+  tools.forEach(b => {
+    b.addEventListener('click', () => {
+      const act = b.dataset.act;
+      if (act === 'task')   return insertLinePrefix('[ ] ');
+      if (act === 'bullet') return insertLinePrefix('• ');
+      if (act === 'bold')   return insert('**','**');
+      if (act === 'italic') return insert('*','*');
+    });
+  });
+}
+
+
+
 
 
     return row;
   }
+
 
 
 
