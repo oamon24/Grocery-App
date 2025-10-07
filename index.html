@@ -241,6 +241,13 @@
     z-index: 9999;           /* ↑ ensure it sits on top of footer/overlays */
     pointer-events: auto;
   }
+  /* ===== Modal-open UI lock (prevent background interaction) ===== */
+  body.modal-open { overflow: hidden; }
+  /* Disable nav while modal is open, but keep the Weekly Items FAB clickable */
+  body.modal-open .bottom-nav {
+    pointer-events: none !important;
+  }
+
 
   .bottom-nav .tab {
     flex: 1;
@@ -334,14 +341,15 @@
     overflow:hidden; white-space:nowrap; text-overflow:ellipsis; min-width:0;
   }
     /* second line under the name (qty + size) */
-  .line1 .meta{
+ .line1 .meta{
     margin-top:6px;
     display:flex;
     align-items:center;
-    gap:8px;
-    flex-wrap:wrap;            /* wrap nicely on small screens */
-    font-weight:600;           /* matches your previous sep weight */
-  }
+    gap:30px;                  /* ↑ increased gap for easier tapping */
+    flex-wrap:wrap;
+    font-weight:600;
+}
+
   .line1 .meta .muted{ font-weight:500; }  /* keep size text lighter */
 
   .line1 .sep{ opacity:.7; font-weight:600; }
@@ -454,6 +462,10 @@
   .ac-item:hover{ background: color-mix(in oklab, var(--surface), var(--hover)); }
   .ac-title{ font-weight:700; }
   .ac-meta{ color: var(--muted); font-size:12px; }
+/* Keyboard highlight for active suggestion */
+.ac-item.active{
+  background: color-mix(in oklab, var(--surface), var(--hover));
+}
 
   .toast{
     position: fixed;
@@ -493,15 +505,21 @@
   .popup .choices button{ width:100%; }
 
   /* Full-screen modal overlay */
+  /* Full-screen modal overlay */
   .modal{
     position:fixed; inset:0;
     background: rgba(0,0,0,.4);
     display:none;
     /* Stretch child to full viewport instead of centering a box */
     align-items:stretch; justify-content:stretch;
-    z-index:80;
+    z-index:80; /* ↑ above bottom nav (9999) and other overlays */
   }
   .modal.show{ display:flex; }
+/* Extra bottom padding so last item never hides behind device safe area or nav height */
+#addToListModal .modal-body{
+  padding-bottom: calc(90px + env(safe-area-inset-bottom));
+}
+
 
   /* Card fills the viewport; column layout for head/body/foot */
   .modal-card{
@@ -628,7 +646,7 @@
   /* =========================================================
     Floating Theme Toggle (FAB)
     ========================================================= */
-  .theme-fab {
+ .theme-fab {
     position: fixed;
     right: 16px;
     bottom: calc(70px + 16px + env(safe-area-inset-bottom)); /* sits above the nav */
@@ -638,7 +656,19 @@
     background: var(--surface);
     box-shadow: var(--shadow-md);
     cursor: pointer;
-  }
+}
+
+/* Let .btn-pink control the color; only add stack/weight here */
+#weeklyItemsFab {
+  z-index: 15000;     /* on top of the bottom nav */
+  border: none;       /* keep the pill clean */
+  font-weight: 600;
+}
+
+
+
+
+
   .theme-fab:hover  { background: color-mix(in oklab, var(--surface), var(--hover)); }
   .theme-fab:active { background: color-mix(in oklab, var(--surface), var(--press)); transform: translateY(1px); }
   .lightbox {
@@ -669,36 +699,111 @@
     color: white;
     cursor: pointer;
   }
-  /* Recipe list thumbnail */
-  .recipeThumb{
-    width: 64px;
-    height: 64px;
-    object-fit: cover;
-    border-radius: 12px;
-    box-shadow: 0 1px 3px rgba(0,0,0,.25);
-    flex-shrink: 0;
-  }
-  /* Smooth light/dark theme transitions across the whole app */
-  html[data-theme],
-  html[data-theme] *:not(.toast) {
-    transition:
-      background-color 0.28s ease,
-      background 0.28s ease,
-      color 0.28s ease,
-      border-color 0.28s ease,
-      box-shadow 0.28s ease,
-      fill 0.28s ease,
-      stroke 0.28s ease;
-  }
+ /* Weekly Items modal */
+#weeklyItemsModal {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: stretch;   /* let the sheet span full width */
+  justify-content: flex-start; /* stick to the top */
+  z-index: 2000;
+}
 
+#weeklyItemsModal.show {
+  display: flex;
+}
+#weeklyItemsModal .backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+}
+#weeklyItemsModal .sheet {
+  position: relative;
+  width: 100%;
+  height: calc(100vh - (var(--bottom-nav-height, 64px) + env(safe-area-inset-bottom)));
+  background: var(--surface, #fff);
+  color: inherit;
+  border-radius: 0;           /* full-bleed */
+  box-shadow: none;           /* no floating shadow for full-screen sheet */
+  display: flex;
+  flex-direction: column;
+}
 
-  /* Respect users who prefer less motion */
-  @media (prefers-reduced-motion: reduce) {
-    html[data-theme],
-    html[data-theme] * {
-      transition: none !important;
-    }
-  }
+#weeklyItemsModal .header {
+  padding: 12px;
+  border-bottom: 1px solid var(--border, #ccc);
+  font-size: 1.2em;
+  font-weight: bold;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+#weeklyItemsModal .body {
+  flex: 1;
+  overflow: auto;
+  padding: 16px;
+  position: relative; /* anchor for full-width suggestions */
+}
+
+#weeklyItemsModal .close {
+  background: transparent;
+  border: none;
+  font-size: 1.5em;
+  cursor: pointer;
+}
+/* Weekly Items modal: do not cross out checked items */
+#weeklyItemsModal .item:has(input[type="checkbox"]:checked) .line1 {
+  text-decoration: none !important;
+  /* If you also want to keep the original text color, uncomment the next line */
+  /* color: inherit !important; */
+}
+
+/* Floating action button for Weekly Items */
+/* Floating action button for Weekly Items */
+.fab {
+  position: fixed;
+  right: 16px;
+  bottom: calc(var(--bottom-nav-height, 64px) + 16px);
+  z-index: 20010;
+
+  /* was: width:56px; height:56px; padding:0; line-height:56px; */
+  height: 48px;
+  padding: 0 16px;
+  width: auto;
+  border-radius: 999px;
+
+  display: none;           /* JS controls visibility */
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;     /* keep "Weekly Items" on one line */
+
+  font-weight: 600;
+  box-shadow: 0 10px 24px rgba(0,0,0,.25);
+}
+
+.fab.btn {
+  line-height: normal;     /* don't force 56px line-height */
+}
+/* Full-width overlay suggestions in Weekly Items modal */
+/* Full-width overlay suggestions in Weekly Items modal */
+#wiAutoList {
+  position: absolute;                 /* anchor to .body (which is position:relative) */
+  left: 16px;                         /* match #weeklyItemsModal .body padding */
+  right: 16px;                        /* match #weeklyItemsModal .body padding */
+  top: 0;                             /* JS sets exact offset under the input */
+  z-index: 20050;
+
+  background: var(--modal-bg, #1a1a1a);
+  border: 1px solid var(--border-color, #444);
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  max-height: 240px;
+  overflow-y: auto;
+}
+#wiAutoList .ac-item { padding: 8px 12px; cursor: pointer; }
+#wiAutoList .ac-item:hover,
+#wiAutoList .ac-item.active { background: var(--accent-bg, #ff0077); color: #fff; }
+
 
 
   </style>
@@ -715,6 +820,37 @@
 
     <meta name="theme-color" content="#111"/>
     <link rel="manifest" href="manifest.webmanifest"/>
+    <style id="step-autocomplete-css">
+  .stepAutoList {
+    position: absolute;
+    z-index: 9999;
+    max-height: 220px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color, #444);
+    background: var(--panel-bg, #111);
+    color: var(--fg, #eee);
+    border-radius: 10px;
+    box-shadow: 0 10px 28px rgba(0,0,0,.35);
+    width: 100%;
+    padding: 6px 0;
+    display: none;
+  }
+  .stepAutoItem {
+    padding: 8px 12px;
+    cursor: pointer;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.95rem;
+  }
+  .stepAutoItem[aria-selected="true"] {
+    background: rgba(255, 105, 180, .18); /* matches your neon/pink vibe */
+    outline: 1px solid rgba(255, 105, 180, .35);
+  }
+</style>
+</head>
+
   </head>
   <body>
     <!-- SVG sprite -->
@@ -844,7 +980,7 @@
   </section>
 
 
-      
+
     </main>
 
     
@@ -1244,8 +1380,13 @@
       let household = localStorage.getItem('household') || '';
       let unsubList = null;
       let lastSnapshotItems = [];
-      let liveListQuery = ''; // live filter typed in the Item box
-      let catalogCache = new Map();
+let liveListQuery = ''; // live filter typed in the Item box
+let catalogCache = new Map();
+
+// ===== List row edit session tracking (persists through re-renders) =====
+window.currentEditingId = window.currentEditingId || null;   // id of the row in edit mode
+window.editDirty       = window.editDirty       || new Set(); // set of ids that have unsaved edits (UI label shows “Save”)
+
       let lastAddedId = null;
   let unsubRecipes = null;
   let lastSnapshotRecipes = [];
@@ -1506,7 +1647,10 @@
       let selectedItemPhotoPath = null;
 
       const nameInput = $('itemName');
-      const autoList = $('autoList');
+const autoList = $('autoList');
+// Keyboard highlight index for Lists AC
+let listAcActiveIndex = -1;
+
 
       function escapeHtml(s){ 
         return (s||'').replace(/[&<>\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]));
@@ -1537,15 +1681,39 @@
         if (!matches.length){ autoList.style.display='none'; autoList.innerHTML=''; return; }
         autoList.innerHTML = '';
         for (const it of matches){
-          const row = document.createElement('div');
-          row.className = 'ac-item';
-          row.setAttribute('role','option');
-          row.dataset.id = it.id;
-          row.innerHTML = '<div class="ac-title">'+escapeHtml(it.name||'')+'</div>' +
-                          '<div class="ac-meta">'+escapeHtml(suggestionMeta(it))+'</div>';
-          autoList.appendChild(row);
-        }
-        autoList.style.display = 'block';
+  const row = document.createElement('div');
+  row.className = 'ac-item';
+  row.setAttribute('role','option');
+  row.dataset.id = it.id;
+  row._item = it;
+
+  const safe = (s) => (s||'').replace(/[&<>\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[c]));
+
+  // Build inner layout to visually resemble list items
+  const photoHtml = it.photoUrl ? `<img src="${safe(it.photoUrl)}" alt="" class="thumb" style="width:38px;height:38px;border-radius:6px;object-fit:cover;margin-right:8px;">` : '';
+  const qtyTxt = safe(it.qty || '');
+  const sizeTxt = safe(it.size || '');
+  const notesTxt = safe(it.notes || '');
+  const metaTxt = [qtyTxt, sizeTxt].filter(Boolean).join(' • ');
+  const catTxt = safe(it.category || '');
+
+  row.innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;">
+      ${photoHtml}
+      <div style="flex:1;overflow:hidden;">
+        <div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${safe(it.name||'')}</div>
+        <div class="muted" style="font-size:0.85em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+          ${metaTxt ? metaTxt + (catTxt ? ' • '+catTxt : '') : (catTxt || '')}
+        </div>
+        ${notesTxt ? `<div class="muted" style="font-size:0.8em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${notesTxt}</div>` : ''}
+      </div>
+    </div>
+  `;
+
+  autoList.appendChild(row);
+}
+autoList.style.display = 'block';
+
       }
       
   // ===== Recipe Modal Ingredient Name Autocomplete =====
@@ -1568,24 +1736,26 @@
     return matches;
   }
 
-  function renderIngAC(listEl, matches){
-    listEl.innerHTML = '';
-    if (!matches || !matches.length){
-      listEl.style.display = 'none';
-      return;
-    }
-    for (const it of matches){
-      const row = document.createElement('div');
-      row.className = 'ac-item';
-      row.setAttribute('role','option');
-      row._item = it;
-      row.innerHTML =
-        '<div class="ac-title">'+escapeHtml(it.name||'')+'</div>' +
-        '<div class="ac-meta">'+escapeHtml(suggestionMeta(it))+'</div>';
-      listEl.appendChild(row);
-    }
-    listEl.style.display = 'block';
+  function renderIngAC(listEl, matches, activeIndex = -1){
+  listEl.innerHTML = '';
+  if (!matches || !matches.length){
+    listEl.style.display = 'none';
+    return;
   }
+  matches.forEach((it, i) => {
+    const row = document.createElement('div');
+    row.className = 'ac-item' + (i === activeIndex ? ' active' : '');
+    row.setAttribute('role','option');
+    row.setAttribute('aria-selected', i === activeIndex ? 'true' : 'false');
+    row._item = it;
+    row.innerHTML =
+      '<div class="ac-title">'+escapeHtml(it.name||'')+'</div>' +
+      '<div class="ac-meta">'+escapeHtml(suggestionMeta(it))+'</div>';
+    listEl.appendChild(row);
+  });
+  listEl.style.display = 'block';
+}
+
 
   function applyIngSuggestion(row, it){
     // Fill this ingredient row with the selected item's known data
@@ -1597,37 +1767,75 @@
   }
 
   function bindIngredientAC(row){
-    const wrap   = row.querySelector('.ing-name-wrap');
-    const input  = row.querySelector('.ing-name');
-    const acList = row.querySelector('.ing-ac');
-    if (!input || !acList || !wrap) return;
+  const wrap   = row.querySelector('.ing-name-wrap');
+  const input  = row.querySelector('.ing-name');
+  const acList = row.querySelector('.ing-ac');
+  if (!input || !acList || !wrap) return;
 
-    const closeAC = () => { acList.style.display = 'none'; acList.innerHTML = ''; };
+  let activeIndex = -1;
+  let activeMatches = [];
 
-    input.addEventListener('input', () => {
-      const q = input.value;
-      const matches = buildIngMatches(q);
-      renderIngAC(acList, matches);
-    });
+  const closeAC = () => { acList.style.display = 'none'; acList.innerHTML = ''; activeIndex = -1; activeMatches = []; };
+
+  const ensureVisible = () => {
+    const items = acList.querySelectorAll('.ac-item');
+    if (activeIndex < 0 || activeIndex >= items.length) return;
+    const el = items[activeIndex];
+    el?.scrollIntoView({ block: 'nearest' });
+  };
+
+  input.addEventListener('input', () => {
+    const q = input.value;
+    activeMatches = buildIngMatches(q);
+    // Default to first item highlighted when there are results
+    activeIndex = activeMatches.length ? 0 : -1;
+    renderIngAC(acList, activeMatches, activeIndex);
+    ensureVisible();
+  });
+
 
     // Click on a suggestion → apply to this row
-    acList.addEventListener('mousedown', (e) => {
-      const el = e.target.closest('.ac-item');
-      if (!el || !el._item) return;
-      applyIngSuggestion(row, el._item);
+  acList.addEventListener('mousedown', (e) => {
+    const el = e.target.closest('.ac-item');
+    if (!el || !el._item) return;
+    applyIngSuggestion(row, el._item);
+    closeAC();
+    e.preventDefault(); // keep focus in the textarea
+  });
+
+  // Close when clicking outside this wrapper
+  document.addEventListener('click', (e) => {
+    if (!wrap.contains(e.target)) closeAC();
+  });
+
+  // Keyboard controls: Esc / ArrowUp / ArrowDown / Enter
+  input.addEventListener('keydown', (e) => {
+    const open = acList.style.display === 'block';
+    if (e.key === 'Escape'){
       closeAC();
-      e.preventDefault(); // keep focus in the textarea
-    });
+      return;
+    }
+    if (!open || !activeMatches.length) return;
 
-    // Close when clicking outside this wrapper
-    document.addEventListener('click', (e) => {
-      if (!wrap.contains(e.target)) closeAC();
-    });
+    if (e.key === 'ArrowDown'){
+      e.preventDefault();
+      activeIndex = (activeIndex + 1) % activeMatches.length;
+      renderIngAC(acList, activeMatches, activeIndex);
+      ensureVisible();
+    } else if (e.key === 'ArrowUp'){
+      e.preventDefault();
+      activeIndex = (activeIndex - 1 + activeMatches.length) % activeMatches.length;
+      renderIngAC(acList, activeMatches, activeIndex);
+      ensureVisible();
+    } else if (e.key === 'Enter'){
+      if (activeIndex >= 0){
+        e.preventDefault();
+        applyIngSuggestion(row, activeMatches[activeIndex]);
+        closeAC();
+      }
+    }
+  });
 
-    // Esc to close
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape'){ closeAC(); }
-    });
   }
 
   // Bind AC to the initial static row present in HTML (inside #rmIngredients)
@@ -1671,30 +1879,91 @@
         const qtyField = $('itemQty'); if (qtyField) qtyField.focus();
       }
 
-          // Wire events
+     // Wire events
       if (nameInput){
         nameInput.addEventListener('input', () => {
           const v = nameInput.value || '';
           showSuggestions(v);                     // existing autocomplete
           liveListQuery = v;                      // update live filter
           scheduleRenderItems(lastSnapshotItems || []); // re-render list with live filter
+          // reset keyboard highlight whenever the list refreshes
+          listAcActiveIndex = -1;
+          const items = autoList ? autoList.querySelectorAll('.ac-item') : [];
+          items.forEach((it) => it.classList.remove('active'));
         });
+
+        // Click outside → hide
         document.addEventListener('click', (e) => {
           if (!autoList) return;
           if (e.target === nameInput || (e.target.closest && e.target.closest('#autoList'))) return;
           autoList.style.display='none';
+          autoList.innerHTML='';
+          listAcActiveIndex = -1;
+        });
+// // Click/press on a suggestion → apply
+// if (autoList){
+//   autoList.addEventListener('mousedown', (e) => {
+//     const row = e.target.closest('.ac-item');
+//     if (!row || !row._item) return;
+//     e.preventDefault();
+//     applySuggestion(row._item);
+//     listAcActiveIndex = -1;
+//   });
+// }
+// ✅ Fixed version – waits for DOM before wiring
+document.addEventListener('DOMContentLoaded', () => {
+  const autoList = document.getElementById('autoList');
+  if (autoList){
+    autoList.addEventListener('mousedown', (e) => {
+      const row = e.target.closest('.ac-item');
+      if (!row || !row._item) return;
+      e.preventDefault();
+      applySuggestion(row._item);
+      listAcActiveIndex = -1;
+    });
+  }
+});
+
+
+        // Keyboard: ArrowUp/Down to move, Enter to pick
+        nameInput.addEventListener('keydown', (e) => {
+          if (!autoList || autoList.style.display !== 'block') return;
+          const items = autoList.querySelectorAll('.ac-item');
+          if (!items.length) return;
+
+          if (e.key === 'ArrowDown'){
+            e.preventDefault();
+            listAcActiveIndex = (listAcActiveIndex + 1) % items.length;
+          } else if (e.key === 'ArrowUp'){
+            e.preventDefault();
+            listAcActiveIndex = (listAcActiveIndex - 1 + items.length) % items.length;
+          } else if (e.key === 'Enter'){
+            if (listAcActiveIndex >= 0){
+              e.preventDefault();
+              const chosen = items[listAcActiveIndex];
+              if (chosen && chosen._item){
+                applySuggestion(chosen._item);
+                listAcActiveIndex = -1;
+              }
+            }
+            return;
+          } else {
+            return; // ignore other keys
+          }
+
+          // update visual focus
+          items.forEach((it, i) => it.classList.toggle('active', i === listAcActiveIndex));
+          items[listAcActiveIndex]?.scrollIntoView({ block: 'nearest' });
         });
       }
 
-      if (autoList){
-        autoList.addEventListener('mousedown', (e) => {
-          const el = e.target.closest('.ac-item'); if (!el) return;
-          const id = el.dataset.id;
-          const item = lastSnapshotItems.find(x => x.id === id);
-          if (item) applySuggestion(item);
-          e.preventDefault();
-        });
-      }
+     
+
+
+
+
+
+
 
 
     function setHouseholdUI() {
@@ -1755,25 +2024,26 @@
 
   // === ensure parent /lists/{household} exists and is owned by current user ===
   // Ensure /lists/{household} exists and add current user to members
-  async function ensureHouseholdDoc() {
-    if (!auth || !auth.currentUser || !household) return;
+  async function ensureHouseholdDoc(hId) {
+  const hid = String(hId || household || '').trim();
+  if (!auth || !auth.currentUser || !hid) return;
 
-    try {
-      const uid = auth.currentUser.uid;
+  try {
+    const uid = auth.currentUser.uid;
 
-      // Data structure: members is a map of uid:true
-      const data = {
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-        members: {}
-      };
-      data.members[uid] = true;
+    // Data structure: members is a map of uid:true
+    const data = {
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      members: {}
+    };
+    data.members[uid] = true;
 
-      // Merge so it adds the user without overwriting existing members
-      await db.collection('lists').doc(household).set(data, { merge: true });
-    } catch (e) {
-      console.error('ensureHouseholdDoc failed', e);
-    }
+    // Merge so it adds the user without overwriting existing members
+    await db.collection('lists').doc(hid).set(data, { merge: true });
+  } catch (e) {
+    console.error('ensureHouseholdDoc failed', e);
   }
+}
 
 
   async function subscribeList(){
@@ -1880,7 +2150,9 @@
 
 
     // Render by chosen sort mode
-    const mode = (sortModeEl && sortModeEl.value) || 'route';
+const mode = (activeTab === 'shopping')
+  ? (localStorage.getItem('sortMode_shopping') || 'route')
+  : (localStorage.getItem('sortMode_list')     || 'route');
     if (mode === 'category') {
       renderGroupedByCategory(filtered);
     } else if (mode === 'name') {
@@ -1994,80 +2266,68 @@
       // Helper to inject the full-overlay pink "Cook Mode" button into a tap target (true 2-tap flow; no auto-hide)
         // Helper to inject the full-overlay pink "Cook Mode" button into a tap target (true 2-tap flow; stays visible)
     function attachCookOverlay(hoverTarget){
-    hoverTarget.style.position = hoverTarget.style.position || 'relative';
+  hoverTarget.style.position = hoverTarget.style.position || 'relative';
 
-    const cookBtn = document.createElement('button');
-    cookBtn.type = 'button';
-    cookBtn.textContent = 'Cook Mode';
-    cookBtn.setAttribute('aria-label', 'Open Cook Mode for ' + (r.name||'Recipe'));
-    cookBtn.className = 'btn-pink';
-    cookBtn.style.position = 'absolute';
-    cookBtn.style.inset = '0';
-    cookBtn.style.width = '100%';
-    cookBtn.style.height = '100%';
-    cookBtn.style.display = 'none';            // initially hidden
-    cookBtn.style.opacity = '0';               // for fade
-    cookBtn.style.transition = 'opacity 200ms ease';
-    cookBtn.style.borderRadius = '10px';
-    cookBtn.style.fontSize = '14px';
-    cookBtn.style.fontWeight = '600';
-    cookBtn.style.zIndex = '2';
-    cookBtn.style.alignItems = 'center';
-    cookBtn.style.justifyContent = 'center';
-    cookBtn.style.textAlign = 'center';
-    cookBtn.style.cursor = 'pointer';
+  const isCoarse = window.matchMedia && window.matchMedia('(pointer:coarse)').matches;
 
-    let ignoreNextClick = false;
-    let hideTimer = null;
-    let fadeTimer = null;
+  // Create the overlay button (kept for desktop hover use)
+  const cookBtn = document.createElement('button');
+  cookBtn.type = 'button';
+  cookBtn.textContent = 'Cook Mode';
+  cookBtn.setAttribute('aria-label', 'Open Cook Mode for ' + (r.name||'Recipe'));
+  cookBtn.className = 'btn-pink';
+  Object.assign(cookBtn.style, {
+    position:'absolute', inset:'0', width:'100%', height:'100%',
+    display:'none', opacity:'0', transition:'opacity 200ms ease',
+    borderRadius:'10px', fontSize:'14px', fontWeight:'600', zIndex:'2',
+    alignItems:'center', justifyContent:'center', textAlign:'center', cursor:'pointer'
+  });
+  hoverTarget.appendChild(cookBtn);
 
-    const showBtn = () => {
-      ignoreNextClick = true;
-
-      // cancel any pending hides
-      if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
-      if (fadeTimer) { clearTimeout(fadeTimer); fadeTimer = null; }
-
-      // show + fade in
-      cookBtn.style.display = 'flex';
-      // force next frame, then raise opacity
-      requestAnimationFrame(() => { cookBtn.style.opacity = '1'; });
-
-      // auto-hide after 2s if not clicked again
-      hideTimer = setTimeout(() => { hideBtn(); }, 1000);
-    };
-
-    const hideBtn = () => {
-      ignoreNextClick = false;
-      if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
-
-      // fade out, then set display:none when done
-      cookBtn.style.opacity = '0';
-      fadeTimer = setTimeout(() => {
-        cookBtn.style.display = 'none';
-        fadeTimer = null;
-      }, 220); // a hair longer than the 200ms transition
-    };
-
-    hoverTarget.appendChild(cookBtn);
-
-    // First tap shows the pink overlay (doesn't open Cook Mode yet)
-    hoverTarget.addEventListener('pointerdown', () => {
-      if (cookBtn.style.display === 'none') showBtn();
-    });
-
-    // Second tap (on the pink overlay) opens Cook Mode
-    cookBtn.addEventListener('click', (ev) => {
+  // Touch (phones/tablets): single tap opens immediately
+  if (isCoarse) {
+    hoverTarget.addEventListener('click', (ev) => {
       ev.stopPropagation();
-      if (ignoreNextClick) { ignoreNextClick = false; return; }
       if (window.cookMode && typeof window.cookMode.open === 'function') {
         window.cookMode.open(r, 0);
-        hideBtn();
-      } else {
-        alert('Cook Mode module is not available.');
       }
-    });
+    }, { passive:true });
+    return; // skip the desktop two-step overlay
   }
+
+  // Desktop (mouse): keep your existing 2-step “reveal then click” behavior
+  let hideTimer=null, fadeTimer=null, ignoreNext=false;
+
+  const showBtn = () => {
+    ignoreNext = true;
+    if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+    if (fadeTimer) { clearTimeout(fadeTimer); fadeTimer = null; }
+    cookBtn.style.display = 'flex';
+    requestAnimationFrame(() => { cookBtn.style.opacity = '1'; });
+    hideTimer = setTimeout(() => hideBtn(), 1200); // a bit longer than 1s
+  };
+  const hideBtn = () => {
+    ignoreNext = false;
+    if (hideTimer) { clearTimeout(hideTimer); hideTimer=null; }
+    cookBtn.style.opacity = '0';
+    fadeTimer = setTimeout(() => { cookBtn.style.display='none'; fadeTimer=null; }, 220);
+  };
+
+  hoverTarget.addEventListener('pointerdown', () => {
+    if (cookBtn.style.display === 'none') showBtn();
+  });
+
+  cookBtn.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    if (ignoreNext) { ignoreNext=false; return; }
+    if (window.cookMode && typeof window.cookMode.open === 'function') {
+      window.cookMode.open(r, 0);
+      hideBtn();
+    } else {
+      alert('Cook Mode module is not available.');
+    }
+  });
+}
 
 
 
@@ -2082,7 +2342,7 @@
         left.style.gap = '10px';
 
         const img = document.createElement('img');
-        img.className = 'recipeThumb';
+img.className = 'thumb recipeThumb';
         img.loading = 'lazy';
         img.decoding = 'async';
         img.src = r.coverUrl;
@@ -2247,7 +2507,17 @@
     return { url, path };
   }
 
+// === Utility: Capitalize at start of string or after spaces only ===
+function capitalizeWords(str){
+  if (!str) return '';
+  // Uppercase only the first letter after start/space (handles umlauts properly)
+  return String(str).replace(/(^|\s)([a-z\u00C0-\u024F])/g, function(_, pre, ch){
+    return pre + ch.toUpperCase();
+  });
+}
 
+
+const editingOpen = new Set();
 
       function renderRow(it){
         const row = document.createElement('div');
@@ -2300,7 +2570,8 @@
         const catdot = document.createElement('span'); catdot.className = 'catdot';
         const nameEl = document.createElement('span');
   nameEl.className = 'name';
-  nameEl.textContent = it.name || '';
+nameEl.textContent = capitalizeWords(it.name || '');
+
 
   // Show red flag if routeOrder is missing or invalid
   const routeMissing = (
@@ -2322,67 +2593,130 @@
   const meta = document.createElement('div');
   meta.className = 'meta';
 
-  // Qty input
-  const qtyInline = document.createElement('input');
-  qtyInline.type = 'text';
-  qtyInline.inputMode = 'decimal';
-  qtyInline.placeholder = 'Qty';
-  qtyInline.className = 'qty-inline';
-  qtyInline.value = it.qty || '';
-        // === Auto-size width to content ===
-  function autoSizeInput(el) {
-    // Minimum width = 4ch; grows with content
-    const len = (el.value && el.value.length) ? el.value.length : 1;
-    const ch = Math.max(len + 1, 4); // 4ch floor
-    el.style.width = ch + 'ch';
-  }
+ // Qty (click-to-edit; shows placeholder when empty)
+const qtySpan = document.createElement('span');
+qtySpan.className = 'muted';
+qtySpan.title = 'Click to edit qty';
+qtySpan.style.cursor = 'text';
 
-  autoSizeInput(qtyInline);
-  qtyInline.addEventListener('input', () => autoSizeInput(qtyInline));
+const setQtyDisplay = (val) => {
+  const hasVal = !!(val && val.trim());
+  qtySpan.textContent = hasVal ? val.trim() : 'Add qty';
+  qtySpan.classList.toggle('muted', true);
+  qtySpan.style.fontStyle = hasVal ? 'normal' : 'italic';
+};
+setQtyDisplay(it.qty || '');
 
+qtySpan.addEventListener('click', () => {
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.inputMode = 'decimal';
+  input.placeholder = 'Qty';
+  input.className = 'qty-inline';
+  input.value = it.qty || '';
+  qtySpan.replaceWith(input);
+  input.focus();
+  try { input.select(); } catch {}
 
-  // Save qty changes (same logic as before)
-  qtyInline.addEventListener('change', async () => {
-    const newQty = (qtyInline.value || '').trim();
+  autoSize(input);
+  input.addEventListener('input', () => autoSize(input));
 
+  const finish = async (commit) => {
+    const newQty = commit ? (input.value || '').trim() : (it.qty || '');
+
+    // Uncheck if moving from "0"/empty → positive (keep original logic)
     const asNum = (s) => (typeof parseNum === 'function' ? parseNum(s) : NaN);
     const wasZeroish = !it.qty || asNum(it.qty) === 0;
-
     const n = asNum(newQty);
     const nowPositive = (Number.isFinite(n) && n > 0) || (!Number.isFinite(n) && newQty !== '');
-
     const shouldUncheck = !!it.checked && wasZeroish && nowPositive;
 
-    try {
-      const patch = {
-        qty: newQty,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      };
-      if (shouldUncheck) patch.checked = false;
+    if (commit && newQty !== (it.qty || '')) {
+      try {
+        const patch = {
+          qty: newQty,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        if (shouldUncheck) patch.checked = false;
+        await updateItem(it.id, patch);
+        it.qty = newQty;
 
-      await updateItem(it.id, patch);
-
-      it.qty = newQty;
-      if (shouldUncheck) {
-        cb.checked = false;
-        it.checked = false;
-        showToast('Moved back to Shopping');
+        if (shouldUncheck) {
+          cb.checked = false;
+          it.checked = false;
+          showToast('Moved back to Shopping');
+        }
+      } catch (e) {
+        console.error('Qty inline update failed:', e);
+        showToast('Failed to update qty');
       }
-    } catch (e) {
-      console.error('Qty inline update failed:', e);
-      showToast('Failed to update qty');
     }
+
+    // Restore display node (with placeholder if empty)
+    setQtyDisplay(newQty);
+    input.replaceWith(qtySpan);
+  };
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+    if (e.key === 'Escape') { e.preventDefault(); finish(false); }
   });
+  input.addEventListener('blur', () => finish(true));
+});
 
-  meta.appendChild(qtyInline);
+meta.appendChild(qtySpan);
 
-  // Optional size text
-  if (it.size) {
-    const sizeSpan = document.createElement('span');
-    sizeSpan.className = 'muted';
-    sizeSpan.textContent = it.size;
-    meta.appendChild(sizeSpan);
-  }
+
+ // Size (click-to-edit; shows placeholder when empty)
+const sizeSpan = document.createElement('span');
+sizeSpan.className = 'muted';
+sizeSpan.title = 'Click to edit size';
+sizeSpan.style.cursor = 'text';
+
+const setSizeDisplay = (val) => {
+  const hasVal = !!(val && val.trim());
+  sizeSpan.textContent = hasVal ? val.trim() : 'Add size';
+  sizeSpan.classList.toggle('muted', true);
+  sizeSpan.style.fontStyle = hasVal ? 'normal' : 'italic';
+};
+setSizeDisplay(it.size || '');
+
+sizeSpan.addEventListener('click', () => {
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'qty-inline'; // reuse existing inline styling
+  input.value = it.size || '';
+  sizeSpan.replaceWith(input);
+  input.focus();
+  try { input.select(); } catch {}
+
+  const finish = async (commit) => {
+    const newVal = commit ? (input.value || '').trim() : (it.size || '');
+    if (commit && newVal !== (it.size || '')) {
+      try {
+        await updateItem(it.id, {
+          size: newVal,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        it.size = newVal;
+      } catch (e) {
+        console.error('Size inline update failed:', e);
+        showToast('Failed to update size');
+      }
+    }
+    setSizeDisplay(newVal);
+    input.replaceWith(sizeSpan);
+  };
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+    if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+  });
+  input.addEventListener('blur', () => finish(true));
+});
+
+meta.appendChild(sizeSpan);
+
 
   // attach the second line under the name
   line1.append(meta);
@@ -2401,32 +2735,55 @@
     editBtn.type = 'button';
     editBtn.className = 'editbtn';
     editBtn.textContent = 'Edit';
+
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.className = 'btn-icon';
+    delBtn.title = 'Delete item';
+    delBtn.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-trash"></use></svg>';
+    delBtn.style.display = 'none';   // hidden unless editing
+    delBtn.onclick = () => removeItem(it.id);
+
+    actions.append(editBtn, delBtn);
+
+ // Helper to refresh the button label while this row is editing
+function refreshEditBtnLabel(){
+  const isDirty = window.editDirty && window.editDirty.has(it.id);
+  editBtn.textContent = isDirty ? 'Save' : 'Close';
+  editBtn.classList.toggle('btn-pink', !!isDirty);
+}
+
+
+    // Click handler: enter/exit edit mode
     editBtn.onclick = (ev) => {
       ev.stopPropagation();
-      const editing = row.classList.toggle('editing');
-      editBtn.textContent = editing ? 'Close' : 'Edit';
-      
+      const isEditing = row.classList.contains('editing');
+
+      if (!isEditing) {
+        // ENTER edit mode for this row
+        window.currentEditingId = it.id;
+        row.classList.add('editing');
+        delBtn.style.display = '';
+        // If already marked dirty (e.g., from a quick change), show Save, else Close
+        refreshEditBtnLabel();
+      } else {
+    // EXIT edit mode (treat as "Save" if dirty — changes already persisted by onchange)
+row.classList.remove('editing');
+delBtn.style.display = 'none';
+if (window.editDirty) window.editDirty.delete(it.id);
+window.currentEditingId = null;
+editBtn.textContent = 'Edit';
+editBtn.classList.remove('btn-pink');
+
+      }
     };
 
-  const delBtn = document.createElement('button');
-  delBtn.type = 'button';
-  delBtn.className = 'btn-icon';
-  delBtn.title = 'Delete item';
-  delBtn.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-trash"></use></svg>';
-  delBtn.style.display = 'none';   // 🔴 hide by default
-  delBtn.onclick = () => removeItem(it.id);
-
-  actions.append(editBtn, delBtn);
-
-  // Toggle editing: show/hide trash button
-  editBtn.onclick = (ev) => {
-    ev.stopPropagation();
-    const editing = row.classList.toggle('editing');
-    editBtn.textContent = editing ? 'Close' : 'Edit';
-    delBtn.style.display = editing ? '' : 'none';   // 🔴 only show in editing mode
-    
-  };
-
+    // If this row is the one currently being edited, restore that state after re-render
+    if (window.currentEditingId === it.id) {
+      row.classList.add('editing');
+      delBtn.style.display = '';
+      refreshEditBtnLabel();
+    }
   }
 
 
@@ -2448,13 +2805,22 @@
               onFile: async (file) => {
                 if (!file) return;
                 try {
-                  showToast('Uploading photo…');
-                  const { url, path } = await uploadItemPhoto(file, it.id, it.photoPath || null);
-                  it.photoUrl = url; it.photoPath = path;
-                  mountThumb(url);
-                  below.classList.remove('hidden');
-                  showToast('Photo updated');
-                  removePhotoBtn.disabled = false;
+                showToast('Uploading photo in background…');
+
+(async () => {
+  try {
+    const { url, path } = await uploadItemPhoto(file, it.id, it.photoPath || null);
+    it.photoUrl = url; it.photoPath = path;
+    mountThumb(url);
+    below.classList.remove('hidden');
+    removePhotoBtn.disabled = false;
+    showToast('Photo uploaded');
+  } catch (e) {
+    console.error(e);
+    showToast('Photo upload failed');
+  }
+})();
+
 
                 } catch(e){ alert('Upload failed: ' + (e.message || e)); }
               }
@@ -2476,12 +2842,108 @@
         if (it.photoUrl) mountThumb(it.photoUrl); else mountCameraBtn();
 
         const line2 = document.createElement('div');
-        line2.className = 'line2';
-        line2.textContent = it.notes || '';
+line2.className = 'line2';
+line2.title = 'Click to edit notes';
+line2.style.cursor = 'text';
 
-        below.append(mediaCell, line2);
+// If no notes on the Shopping tab, show a clickable placeholder
+if (!it.notes && activeTab === 'shopping') {
+  line2.textContent = 'Add note';
+  line2.classList.add('muted');
+  line2.style.fontStyle = 'italic';
+} else {
+  line2.textContent = it.notes || '';
+}
 
-        if (!it.photoUrl && !it.notes) below.classList.add('hidden');
+
+// Click-to-edit: swap display div → auto-growing textarea
+line2.addEventListener('click', () => {
+  // Build textarea
+  const ta = document.createElement('textarea');
+  ta.value = it.notes || '';
+  ta.setAttribute('rows', '1');
+  ta.style.width = '100%';
+  ta.style.font = 'inherit';
+  ta.style.color = 'inherit';
+  ta.style.background = 'var(--surface)';
+  ta.style.border = '1px solid var(--border)';
+  ta.style.borderRadius = '10px';
+  ta.style.padding = '8px 10px';
+  ta.style.resize = 'none';
+  ta.style.lineHeight = '1.35';
+  ta.style.boxSizing = 'border-box';
+
+  // Auto-grow helper
+  const autoGrow = () => {
+    ta.style.height = 'auto';
+    ta.style.height = (ta.scrollHeight + 2) + 'px';
+  };
+
+  line2.replaceWith(ta);
+  ta.focus();
+  try { ta.select(); } catch {}
+
+  autoGrow();
+  ta.addEventListener('input', autoGrow);
+
+  const finish = async (commit) => {
+    const newVal = commit ? (ta.value || '').trim() : (it.notes || '');
+
+    if (commit && newVal !== (it.notes || '')) {
+      try {
+        await updateItem(it.id, {
+          notes: newVal,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        it.notes = newVal;
+        showToast('Notes updated');
+      } catch (e) {
+        console.error('Notes inline update failed:', e);
+        showToast('Failed to update notes');
+      }
+    }
+
+    // Restore display node (or hide below row if now empty and no photo)
+if (newVal) {
+  line2.textContent = newVal;
+  line2.classList.remove('muted');
+  line2.style.fontStyle = '';
+  ta.replaceWith(line2);
+  below.classList.remove('hidden');
+} else {
+  if (activeTab === 'shopping') {
+    // Keep a clickable placeholder on Shopping tab
+    line2.textContent = 'Add note';
+    line2.classList.add('muted');
+    line2.style.fontStyle = 'italic';
+    ta.replaceWith(line2);
+    below.classList.remove('hidden');
+  } else {
+    // Non-Shopping: remove the line and (if no photo) hide the below row
+    ta.remove();
+    if (!it.photoUrl) {
+      below.classList.add('hidden');
+    }
+  }
+}
+
+
+  };
+
+  ta.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); finish(true); }
+    if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+  });
+  ta.addEventListener('blur', () => finish(true));
+});
+
+below.append(mediaCell, line2);
+
+/* Keep the below row visible on the Shopping tab so the camera button is available
+   even when there are no notes yet. Hide elsewhere if empty. */
+if (!it.photoUrl && !it.notes && activeTab !== 'shopping') {
+  below.classList.add('hidden');
+}
 
         /* 5) Editor row */
         const editor = document.createElement('div');
@@ -2489,61 +2951,132 @@
 
         const qty = document.createElement('input');
         qty.className = 'qty'; qty.placeholder = 'Qty'; qty.value = it.qty || '';
-        qty.onchange = () => updateItem(it.id, { qty: qty.value });
+qty.onchange = () => { 
+  window.currentEditingId = it.id; (window.editDirty||=new Set()).add(it.id);
+const eb = row.querySelector('.editbtn');  
+if (eb) {    
+  eb.textContent = 'Save';    
+  eb.classList.add('btn-pink');  
+}
+  updateItem(it.id, { qty: qty.value, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+};
 
         const size = document.createElement('input');
         size.className = 'size'; size.placeholder = 'Size'; size.value = it.size || '';
-        size.onchange = () => updateItem(it.id, { size: size.value });
+size.onchange = () => { 
+  window.currentEditingId = it.id; (window.editDirty||=new Set()).add(it.id);
+const eb = row.querySelector('.editbtn');  
+if (eb) {    
+  eb.textContent = 'Save';    
+  eb.classList.add('btn-pink');  
+}
+  updateItem(it.id, { size: size.value, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+};
 
         const notes = document.createElement('input');
         notes.className = 'notes'; notes.placeholder = 'Notes'; notes.value = it.notes || '';
-        notes.onchange = () => updateItem(it.id, { notes: notes.value });
+notes.onchange = () => { 
+  window.currentEditingId = it.id; (window.editDirty||=new Set()).add(it.id);
+const eb = row.querySelector('.editbtn');  
+if (eb) {    
+  eb.textContent = 'Save';    
+  eb.classList.add('btn-pink');  
+}
+  updateItem(it.id, { notes: notes.value, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+};
 
         const cat  = document.createElement('select'); cat.className = 'category';
         ["", "Produce", "Meat & Poultry", "Fish & Seafood", "Dairy & Eggs", "Bakery", "Pantry", "Frozen", "Beverages", "Snacks & Confectionery", "Household & Cleaning", "Personal Care & Health", "Other"].forEach(opt => {
           const o = document.createElement('option'); o.value = opt; o.textContent = opt || '— Select —';
           if ((it.category||'') === opt) o.selected = true; cat.appendChild(o);
         });
-        cat.onchange = () => updateItemAndCatalog(it, { category: cat.value });
+cat.onchange = () => { 
+  window.currentEditingId = it.id; (window.editDirty||=new Set()).add(it.id);
+const eb = row.querySelector('.editbtn');  
+if (eb) {    
+  eb.textContent = 'Save';    
+  eb.classList.add('btn-pink');  
+}
+  updateItemAndCatalog(it, { category: cat.value, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+};
 
         const route = document.createElement('input');
         route.className = 'route'; route.type = 'number'; route.step = '0.1'; route.placeholder = 'Route'; route.value = it.routeOrder ?? '';
-        route.onchange = () => updateItemAndCatalog(it, { routeOrder: route.value ? Number(route.value) : '' });
+route.onchange = () => { 
+  window.currentEditingId = it.id; (window.editDirty||=new Set()).add(it.id);
+const eb = row.querySelector('.editbtn');  
+if (eb) {    
+  eb.textContent = 'Save';    
+  eb.classList.add('btn-pink');  
+}
+  updateItemAndCatalog(it, { routeOrder: route.value ? Number(route.value) : '', updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+};
 
         const changePhoto = document.createElement('button');
         changePhoto.type = 'button'; changePhoto.textContent = it.photoUrl ? 'Change photo' : 'Add photo';
-        changePhoto.onclick = () => {
-          openPhotoPicker({
-            onFile: async (file) => {
-              if (!file) return;
-              try {
-                showToast('Uploading photo…');
-                const { url, path } = await uploadItemPhoto(file, it.id, it.photoPath || null);
-                it.photoUrl = url; it.photoPath = path;
-                mountThumb(url);
-                below.classList.remove('hidden');
-                showToast('Photo updated');
-                removePhotoBtn.disabled = false;
+       changePhoto.onclick = () => {
+  openPhotoPicker({
+    onFile: async (file) => {
+      if (!file) return;
+      try {
+      // flip button state immediately
+window.currentEditingId = it.id; (window.editDirty ||= new Set()).add(it.id);
+if (typeof refreshEditBtnLabel === 'function') refreshEditBtnLabel();
+const eb = row.querySelector('.editbtn');  if (eb) { eb.textContent = 'Save'; eb.classList.add('btn-pink'); }
 
-              } catch(e){ alert('Upload failed: ' + (e.message || e)); }
-            }
-          });
-        };
+// start upload in background (non-blocking)
+showToast('Uploading photo in background…');
+
+(async () => {
+  try {
+    const { url, path } = await uploadItemPhoto(file, it.id, it.photoPath || null);
+
+    it.photoUrl = url; it.photoPath = path;
+    mountThumb(url);
+    below.classList.remove('hidden');
+    removePhotoBtn.disabled = false;
+
+    showToast('Photo uploaded');
+  } catch (e) {
+    console.error(e);
+    showToast('Photo upload failed');
+  }
+})();
+
+      } catch (e) {
+        alert('Upload failed: ' + (e.message || e));
+      }
+    }
+  });
+};
+
 
         const removePhotoBtn = document.createElement('button');
         removePhotoBtn.type = 'button'; removePhotoBtn.textContent = 'Remove photo';
         removePhotoBtn.disabled = !it.photoPath;
-        removePhotoBtn.onclick = async () => {
-          try {
-            await removeItemPhoto(it.id, it.photoPath || null);
-            it.photoUrl = ''; it.photoPath = '';
-            mountCameraBtn();
-            below.classList.toggle('hidden', !it.notes);
-            showToast('Photo removed');
-          } catch(e){
-            alert('Failed to remove photo: ' + (e.message || e));
-          }
-        };
+       removePhotoBtn.onclick = async () => {
+  // Flip to “Save” + pink immediately
+  window.currentEditingId = it.id; (window.editDirty ||= new Set()).add(it.id);
+  if (typeof refreshEditBtnLabel === 'function') refreshEditBtnLabel();
+  const eb = row.querySelector('.editbtn');
+  if (eb) { eb.textContent = 'Save'; eb.classList.add('btn-pink'); }
+
+  try {
+    await removeItemPhoto(it.id, it.photoPath || null);
+    it.photoUrl = ''; it.photoPath = '';
+
+    // Reflect UI
+    mountCameraBtn();
+    if (typeof changePhoto !== 'undefined') changePhoto.textContent = 'Add photo';
+    removePhotoBtn.disabled = true;
+/* On Shopping tab, keep below visible so the camera button remains accessible. */
+below.classList.toggle('hidden', (!it.notes && activeTab !== 'shopping'));
+    showToast('Photo removed');
+  } catch(e){
+    alert('Failed to remove photo: ' + (e.message || e));
+  }
+};
+
 
         editor.append(qty, size, notes, cat, route, changePhoto, removePhotoBtn);
 
@@ -2629,7 +3162,7 @@
 
           $('add').onclick = async () => {
         if (!auth || !auth.currentUser || !household) return alert('Click Sign in, then set the household code.');
-        const name = $('itemName').value.trim(); if (!name) return alert('Type an item name.');
+        const name = capitalizeWords($('itemName').value.trim()); if (!name) return alert('Type an item name.');
         const qty = $('itemQty').value.trim();
         const size = $('itemSize').value.trim();
         let category = $('itemCategory').value.trim ? $('itemCategory').value.trim() : $('itemCategory').value;
@@ -2700,61 +3233,106 @@
 
         }
 
-        // === CREATE new item (existing behavior) ===
-        let newId = null;
+        // === CREATE new item (optimistic, non-blocking) ===
+        // 1) Prepare a client-id and optimistic payload
+        const itemsCol = db.collection('lists').doc(String(household)).collection('items');
+        const ref      = itemsCol.doc();                // create a doc ref now to get an id
+        const newId    = ref.id;
+        const now      = Date.now();
+
+        const optimistic = {
+          id: newId,                                     // for local render
+          name, qty, size, notes,
+          category: category || '',
+          routeOrder: routeOrder === '' ? '' : Number(routeOrder),
+          checked: false,
+          photoUrl: '',                                  // filled after upload (background)
+          photoPath: '',
+          // server will overwrite these with serverTimestamp()
+          createdAt: { _client: now },
+          updatedAt: { _client: now },
+          _pending: true                                 // local hint (optional)
+        };
+
+        // 2) Inject into local cache and repaint immediately (no await)
         try {
-          const ref = db.collection('lists').doc(household).collection('items').doc();
-          newId = ref.id;
-          await ref.set({
-            name, qty, size, notes,
-            category: category || '',
-            routeOrder: routeOrder === '' ? '' : Number(routeOrder),
-            checked: false,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-          });
+          (lastSnapshotItems ||= []);
+          lastSnapshotItems = [...lastSnapshotItems, optimistic];
           lastAddedId = newId;
-        } catch(e){
-          return alert('Add failed: ' + (e.message || e));
-        }
+          scheduleRenderItems(lastSnapshotItems);        // instant row
+        } catch (_) {}
 
-        if (photoFile && newId){
-          try{
-            await uploadItemPhoto(photoFile, newId, null);
-          } catch(e){ console.warn('Photo upload failed:', e.message); }
-        }
-
-        // Save to catalog for next time
-        if (name){
-          try{
-            await db.collection('catalog').doc(household).collection('items')
-              .doc(name.toLowerCase())
-              .set({
-                name,
-                category: category || '',
-                routeOrder: routeOrder === '' ? '' : Number(routeOrder),
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-              }, { merge: true });
-            catalogCache.set(name.toLowerCase(), {
-              category: category || '',
-              routeOrder: routeOrder === '' ? '' : Number(routeOrder)
-            });
-          } catch(e){ console.warn('Catalog save failed:', e.message); }
-        }
-
-               // clear form (existing)
+        // 3) Clear form/UI right away so the user can keep typing
         $('itemName').value=''; $('itemQty').value=''; $('itemSize').value='';
         $('itemCategory').value=''; $('itemRoute').value=''; $('itemNotes').value='';
-        
-        liveListQuery = '';                          // reset live filter
-        scheduleRenderItems(lastSnapshotItems || []); // re-render full list
+        liveListQuery = '';
+        scheduleRenderItems(lastSnapshotItems || []);
 
-        // clear pending new photo
-        newItemPhotoFile = null;
         const pn = $('photoName'); if (pn) pn.textContent = '';
         setPhotoPreview('');
+        const photoFileToUpload = newItemPhotoFile || null;
+        newItemPhotoFile = null;
 
+        // 4) Firestore writes in background (do not block UI)
+        (async () => {
+          try {
+            // Ensure parent doc exists (best-effort)
+            try { if (typeof ensureHouseholdDoc === 'function') { await ensureHouseholdDoc(household); } } catch (_) {}
+
+            // Commit the item
+            await ref.set({
+              name, qty, size, notes,
+              category: category || '',
+              routeOrder: routeOrder === '' ? '' : Number(routeOrder),
+              checked: false,
+              createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+              updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            // Optional: background photo upload
+            if (photoFileToUpload){
+              try {
+                await uploadItemPhoto(photoFileToUpload, newId, null);
+              } catch (e) {
+                console.warn('Photo upload failed:', e.message);
+                showToast('Photo upload failed');
+              }
+            }
+
+            // Save to catalog (best-effort) in background
+            if (name){
+              try{
+                await db.collection('catalog').doc(household).collection('items')
+                  .doc(name.toLowerCase())
+                  .set({
+                    name,
+                    category: category || '',
+                    routeOrder: routeOrder === '' ? '' : Number(routeOrder),
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                  }, { merge: true });
+                catalogCache.set(name.toLowerCase(), {
+                  category: category || '',
+                  routeOrder: routeOrder === '' ? '' : Number(routeOrder)
+                });
+              } catch(e){ console.warn('Catalog save failed:', e.message); }
+            }
+
+            // Success: let onSnapshot bring the canonical doc; nothing else to do.
+
+          } catch (e) {
+            console.error('Background add failed:', e);
+            showToast('Add failed — check connection');
+
+            // Roll back optimistic row if the snapshot doesn’t arrive shortly.
+            // (We also rely on onSnapshot to self-correct when it resumes.)
+            try {
+              lastSnapshotItems = (lastSnapshotItems || []).filter(it => it.id !== newId);
+              scheduleRenderItems(lastSnapshotItems);
+            } catch (_) {}
+          }
+        })();
       };
+
 
       
 
@@ -2762,6 +3340,8 @@
     activeTab = tab;
     const isShopping = tab === 'shopping';
     const isRecipes  = tab === 'recipes';
+     const fab = document.getElementById('weeklyItemsFab');
+  if (fab) fab.style.display = isShopping ? 'block' : 'none';
 
     // Re-query the buttons NOW (they didn’t exist when the first consts ran)
     const tList     = document.getElementById('tabList');
@@ -3297,17 +3877,35 @@ if (rmAddStepBtn) rmAddStepBtn.onclick = () => { addStepRow(); markRecipeDirty()
     if (typeof rmSteps_renumber === 'function') rmSteps_renumber();
   }
 
+  // --- ALWAYS start editor sections collapsed on open -----------------
+  try {
+    ['rmIngredientsWrap', 'rmSteps', 'rmTagsWrap'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.removeAttribute('open');
+    });
+    localStorage.setItem('rmIngredients.open', '0');
+    localStorage.setItem('rmSteps.open', '0');
+    localStorage.setItem('rmTags.open', '0');
 
+    const carets = ['rmIngredientsCaret','rmStepsCaret','rmTagsCaret'];
+    carets.forEach(id => {
+      const c = document.getElementById(id);
+      if (c) c.style.transform = 'rotate(-90deg)';
+    });
+  } catch (e) {}
+  // -------------------------------------------------------------------
 
-    
+  // show modal
+  recipeModal.classList.add('show');
+  document.body.classList.add('modal-open');
+  recipeModal.setAttribute('aria-hidden','false');
 
+  // Push a history entry so Back first closes this modal
+  try {
+    history.pushState({ recipeModalOpen: true }, '');
+  } catch (e) {}
 
-
-
-    // show modal
-    recipeModal.classList.add('show');
-    recipeModal.setAttribute('aria-hidden','false');
-    // ensure nothing is focused (also blurs whatever was focused on the list)
+  // ensure nothing is focused (also blurs whatever was focused on the list)
   setTimeout(() => {
     const ae = document.activeElement;
     if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT' || ae.isContentEditable)) {
@@ -3316,10 +3914,31 @@ if (rmAddStepBtn) rmAddStepBtn.onclick = () => { addStepRow(); markRecipeDirty()
   }, 0);
 
   }
+
   function closeRecipeModal(){
     recipeModal.classList.remove('show');
     recipeModal.setAttribute('aria-hidden','true');
+    document.body.classList.remove('modal-open');
+
+    // Pop the history entry we pushed on open
+    try {
+      if (history.state && history.state.recipeModalOpen) {
+        history.back();
+      }
+    } catch (e) {}
   }
+  // When user presses Back / swipe-back while the Recipe modal is open, close it
+  window.addEventListener('popstate', () => {
+    try {
+      if (recipeModal && recipeModal.classList.contains('show')) {
+        recipeModal.classList.remove('show');
+        recipeModal.setAttribute('aria-hidden','true');
+        document.body.classList.remove('modal-open');
+      }
+    } catch (e) {}
+  });
+
+
 
   if (btnOpenAddRecipe) btnOpenAddRecipe.onclick = () => openRecipeModal('add');
   if (rmClose) rmClose.onclick = closeRecipeModal;
@@ -4019,7 +4638,10 @@ row.querySelector('.step-down').onclick = () => {
     const row = createStepRow(prefill);
     list.appendChild(row);
     rmSteps_renumber();
-
+// Bind checkbox-autocomplete to the new textarea
+if (window.initStepIngredientAutocomplete) {
+  window.initStepIngredientAutocomplete();
+}
     // ---- Auto-assign default photo for NEW steps (no photo yet) ----
     // Tries “step N” with common extensions and base paths. If you provide files,
     // place them (for example) in /assets/steps/ as: Step 1.jpg, Step 2.png, etc.
@@ -4160,11 +4782,18 @@ row.querySelector('.step-down').onclick = () => {
     // Render the checklist based on atlIngredients
     renderAtlList();
 
-    // Show modal
-    addToListModal.classList.add('show');
-    addToListModal.setAttribute('aria-hidden','false');
+   // Show modal
+  addToListModal.classList.add('show');
+  document.body.classList.add('modal-open');
+  addToListModal.setAttribute('aria-hidden','false');
 
-    // Focus servings input for quick scaling
+  // Push a history entry so Back first closes this modal
+  try {
+    history.pushState({ addToListOpen: true }, '');
+  } catch (e) {}
+
+  // Focus servings input for quick scaling
+
    
   }
 
@@ -4172,7 +4801,26 @@ row.querySelector('.step-down').onclick = () => {
   function closeAddToListModal(){
     addToListModal.classList.remove('show');
     addToListModal.setAttribute('aria-hidden','true');
+    document.body.classList.remove('modal-open');
+
+    // Pop the history entry we pushed on open
+    try {
+      if (history.state && history.state.addToListOpen) {
+        history.back();
+      }
+    } catch (e) {}
   }
+  // When user presses Back / swipe-back while Add-to-List is open, close it
+  window.addEventListener('popstate', () => {
+    try {
+      if (addToListModal && addToListModal.classList.contains('show')) {
+        addToListModal.classList.remove('show');
+        addToListModal.setAttribute('aria-hidden','true');
+        document.body.classList.remove('modal-open');
+      }
+    } catch (e) {}
+  });
+
 
   // wire close
   if (atlClose) atlClose.onclick = closeAddToListModal;
@@ -4257,10 +4905,10 @@ row.querySelector('.step-down').onclick = () => {
             checked: false, // force it back onto the Shopping list
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
           }, { merge: true });
-        } else {
+         } else {
           // new item; pull category/route from catalogCache if available
           const catKnown = catalogCache.get((ing.name||'').toLowerCase()) || {};
-          const ref = db.collection('lists').doc(household).collection('items').doc();
+          const ref = db.collection('lists').doc(String(household)).collection('items').doc();
           batch.set(ref, {
             name: ing.name,
             qty: scaledQty,
@@ -4273,6 +4921,7 @@ row.querySelector('.step-down').onclick = () => {
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
           });
         }
+
       }
 
       // Update recipe lastUsedServings
@@ -4378,6 +5027,12 @@ row.querySelector('.step-down').onclick = () => {
     <!-- Right: Filter controls -->
     <button id="filterBtn" class="tab" type="button" aria-label="Filters">⚙️</button>
   </nav>
+<!-- Weekly Items FAB (bottom-right, above nav) -->
+<!-- Weekly Items FAB -->
+<button id="weeklyItemsFab" class="fab btn btn-pink" type="button" style="display:none;" aria-label="Weekly Items">
+  Weekly Items
+</button>
+
 
   <!-- ============ Settings Menu Sheet ============ -->
   <div id="menuSheet" class="menu-sheet" aria-hidden="true">
@@ -4713,22 +5368,28 @@ row.querySelector('.step-down').onclick = () => {
   if (menuSheet) menuSheet.addEventListener('click', (e)=>{ if(e.target===menuSheet) closeSheet(menuSheet); });
 
   if (filterBtn) filterBtn.onclick = () => {
-    const filterModeSel = document.getElementById('filterMode');
-    const filterBlock = filterModeSel && filterModeSel.closest('div');
-    if (filterBlock) {
-      // Show Filter only on List tab
-      filterBlock.style.display = (activeTab === 'list') ? '' : 'none';
-    }
+  const filterModeSel = document.getElementById('filterMode');
+  const sortModeSel   = document.getElementById('sortMode');
 
-    const sortModeSel = document.getElementById('sortMode');
-    const sortBlock = sortModeSel && sortModeSel.closest('div');
-    if (sortBlock) {
-      // Show Sort on List + Shopping, hide on Recipes
-      sortBlock.style.display = (activeTab === 'list' || activeTab === 'shopping') ? '' : 'none';
-    }
+  // Show/hide blocks depending on tab
+  if (filterModeSel) {
+    const filterBlock = filterModeSel.closest('div');
+    if (filterBlock) filterBlock.style.display = (activeTab === 'list') ? '' : 'none';
+  }
+  if (sortModeSel) {
+    const sortBlock = sortModeSel.closest('div');
+    if (sortBlock) sortBlock.style.display = (activeTab === 'list' || activeTab === 'shopping') ? '' : 'none';
+  }
 
-    openSheet(filterSheet);
-  };
+  // Load tab-specific sort value into the select before opening the sheet
+  if (sortModeSel) {
+    const key = (activeTab === 'shopping') ? 'sortMode_shopping' : 'sortMode_list';
+    sortModeSel.value = localStorage.getItem(key) || 'route';
+  }
+
+  openSheet(filterSheet);
+};
+
 
 
   if (filterClose) filterClose.onclick = () => closeSheet(filterSheet);
@@ -4816,22 +5477,38 @@ row.querySelector('.step-down').onclick = () => {
       // Visual state
       document.querySelectorAll('.bottom-nav .tab').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
+     
+
 
       // Persist + render using your existing function
-      localStorage.setItem('activeTab', tab);
-      if (typeof setActiveTab === 'function') setActiveTab(tab);
+localStorage.setItem('activeTab', tab);
+if (typeof setActiveTab === 'function') setActiveTab(tab);
+
+
+
+
+
     });
 
-    // Sync the active highlight on page load
-    (function syncBottomNav(){
-      const current = localStorage.getItem('activeTab') || 'list';
-      const el = {
-        list: document.getElementById('tabList'),
-        shopping: document.getElementById('tabShopping'),
-        recipes: document.getElementById('tabRecipes')
-      }[current];
-      if (el) el.classList.add('active');
-    })();
+  // Sync the active highlight on page load
+(function syncBottomNav(){
+  const current = localStorage.getItem('activeTab') || 'list';
+
+  const el = {
+    list: document.getElementById('tabList'),
+    shopping: document.getElementById('tabShopping'),
+    recipes: document.getElementById('tabRecipes')
+  };
+
+  // first remove all active classes
+  Object.values(el).forEach(b => b && b.classList.remove('active'));
+
+  // then add the active class to the correct tab
+  if (el[current]) el[current].classList.add('active');
+
+
+})();
+
   </script>
 
 
@@ -4845,15 +5522,27 @@ row.querySelector('.step-down').onclick = () => {
   sortModeEl   = document.getElementById('sortMode');
   filterModeEl = document.getElementById('filterMode');
 
-  // Sort
-  if (sortModeEl) {
-    const savedSort = localStorage.getItem('sortMode');
-    if (savedSort) sortModeEl.value = savedSort;
-    sortModeEl.onchange = () => {
-      localStorage.setItem('sortMode', sortModeEl.value);
-      scheduleRenderItems(lastSnapshotItems || []);
-    };
-  }
+  // Sort (per tab)
+if (sortModeEl) {
+
+  // one-time migration from legacy single key → per-tab keys
+  (function migrateLegacySortKey(){
+    const legacy = localStorage.getItem('sortMode');
+    if (legacy && !localStorage.getItem('sortMode_list') && !localStorage.getItem('sortMode_shopping')) {
+      localStorage.setItem('sortMode_list', legacy);
+      localStorage.setItem('sortMode_shopping', legacy);
+      // keep legacy around harmlessly; no delete needed
+    }
+  })();
+
+  // When the dropdown changes, save to the active tab's key and repaint
+  sortModeEl.onchange = () => {
+    const key = (activeTab === 'shopping') ? 'sortMode_shopping' : 'sortMode_list';
+    localStorage.setItem(key, sortModeEl.value);
+    scheduleRenderItems(lastSnapshotItems || []);
+  };
+}
+
 
   // Filter
   if (filterModeEl) {
@@ -5361,7 +6050,7 @@ row.querySelector('.step-down').onclick = () => {
     #cookTimerLabel { font-weight:600; }
     #cookTimerMeta { font-size:12px; opacity:.85; }
     #cookTimerProgress { height:6px; background:#161616; border-radius:6px; overflow:hidden; border:1px solid rgba(255,255,255,.1); }
-    #cookTimerProgress > div { height:100%; width:0%; background:#3a86ff; }
+    #cookTimerProgress > div { height:100%; width:0%; background:#ff4081; }
     #cookTimerRow { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
     .cookBtn {
       border:1px solid rgba(255,255,255,.2); background:#121212; color:#eee;
@@ -5391,7 +6080,16 @@ row.querySelector('.step-down').onclick = () => {
 
       <div id="cookModeBody">
         <div class="cookStepPage">
-          <img id="cookStepPhoto" class="cookPhoto" alt="" />
+<div id="cookPhotoWrap" style="position:relative;">
+  <img id="cookStepPhoto" class="cookPhoto" alt="" />
+  <button id="cookStepPhotoBtn" type="button" title="Change photo"
+          style="position:absolute; right:10px; bottom:10px; display:none;
+                 border-radius:999px; padding:6px 10px; font-size:12px;
+                 border:1px solid rgba(255,255,255,.25);
+                 background:#151515; color:#eee;">
+    Change photo
+  </button>
+</div>
 
           <!-- Timer controls (per-step) -->
           <div id="cookTimerCard">
@@ -5410,9 +6108,7 @@ row.querySelector('.step-down').onclick = () => {
     <div class="tbtn" id="cookM1" role="button">–1m</div>
 
     <div class="tbtn" id="cookS1" role="button">+1m</div>
-    <div class="tbtn" id="cookS3" role="button">+3m</div>
-    <div class="tbtn" id="cookS5" role="button">+5m</div>
-    <div class="tbtn" id="cookS10" role="button">+10m</div>
+    
     <button id="cookTimerStop" class="tbtn" type="button" style="margin-left:auto;">Stop</button>
   </div>
 
@@ -5449,6 +6145,9 @@ row.querySelector('.step-down').onclick = () => {
     const elCount   = modal.querySelector('#cookStepCount');
     const elBody    = modal.querySelector('#cookStepBody');
     const elPhoto   = modal.querySelector('#cookStepPhoto');
+    const elPhotoBtn = modal.querySelector('#cookStepPhotoBtn');
+const showPhotoBtn = (show) => { if (elPhotoBtn) elPhotoBtn.style.display = show ? '' : 'none'; };
+
     // Listen for touch on the scrollable body instead of the overlay (which is non-blocking)
     const swipeRegion = modal.querySelector('#cookModeBody');
 
@@ -5466,9 +6165,7 @@ row.querySelector('.step-down').onclick = () => {
   const btnM10s   = modal.querySelector('#cookM10s');
   const btnM1     = modal.querySelector('#cookM1');
   const btnS1     = modal.querySelector('#cookS1');
-  const btnS3     = modal.querySelector('#cookS3');
-  const btnS5     = modal.querySelector('#cookS5');
-  const btnS10    = modal.querySelector('#cookS10');
+  
 
 
 
@@ -5506,14 +6203,49 @@ row.querySelector('.step-down').onclick = () => {
       return Math.max(0, Math.min(1, done/total));
     }
     function findTimerForStep(recipeId, stepId, stepIndex){
-      if (!window.timers || typeof window.timers.list !== 'function') return null;
-      const arr = window.timers.list();
-      return arr.find(t => t.context
-        && String(t.context.recipeId||'') === String(recipeId||'')
-        && String(t.context.stepId||'') === String(stepId||'')
-        && Number(t.context.stepIndex||0) === Number(stepIndex||0)
-      ) || null;
-    }
+  if (!window.timers || typeof window.timers.list !== 'function') return null;
+  const arr = window.timers.list();
+  return arr.find(t => t.context
+    && String(t.context.recipeId||'') === String(recipeId||'')
+    && String(t.context.stepId||'') === String(stepId||'')
+    && Number(t.context.stepIndex||0) === Number(stepIndex||0)
+  ) || null;
+}
+
+// --- Cook progress (resume last step) ---------------------------------
+const PROG_LS_KEY = 'cookProgress.v1';
+const PROG_TTL_MS = 12 * 60 * 60 * 1000; // 12h, matches cookSession vibe
+
+function _readProgStore(){
+  try { return JSON.parse(localStorage.getItem(PROG_LS_KEY) || '{}'); }
+  catch { return {}; }
+}
+function _writeProgStore(s){
+  localStorage.setItem(PROG_LS_KEY, JSON.stringify(s));
+}
+function _getSavedIndex(recipeId){
+  if (!recipeId) return null;
+  const s = _readProgStore();
+  const e = s[String(recipeId)];
+  if (!e) return null;
+  const ts = Number(e.lastUsedAt || 0);
+  if (!Number.isFinite(ts) || (Date.now() - ts) > PROG_TTL_MS) return null; // expired
+  const idx = Number(e.index);
+  return Number.isFinite(idx) ? idx : null;
+}
+function _saveIndex(recipeId, index){
+  if (!recipeId) return;
+  const s = _readProgStore();
+  s[String(recipeId)] = { index: Number(index)||0, lastUsedAt: Date.now() };
+  _writeProgStore(s);
+}
+function _clearIndex(recipeId){
+  if (!recipeId) return;
+  const s = _readProgStore();
+  delete s[String(recipeId)];
+  _writeProgStore(s);
+}
+
 
     function open(recipe, startIndex=0){
       if (!recipe) return;
@@ -5525,7 +6257,17 @@ row.querySelector('.step-down').onclick = () => {
       state.recipe = Object.assign({}, recipe, { steps: stepsArr });
 
       // Clamp index; if no steps, index will be 0 and UI will show "No steps"
-      state.index = Math.max(0, Math.min(startIndex|0, stepsArr.length ? (stepsArr.length - 1) : 0));
+// Prefer saved index if fresh; otherwise use caller's startIndex
+let desired = startIndex|0;
+try {
+  const saved = _getSavedIndex(state.recipe && state.recipe.id);
+  if (saved != null) desired = saved;
+} catch {}
+// Clamp index correctly: allow 0 (prep) through steps.length (last step)
+const maxIdx = stepsArr.length; 
+state.index = Math.max(0, Math.min(desired, maxIdx));
+// Touch timestamp so the entry stays fresh while cooking
+try { _saveIndex(state.recipe && state.recipe.id, state.index); } catch {}
 
         render();
       show();
@@ -5564,16 +6306,52 @@ row.querySelector('.step-down').onclick = () => {
 
     
 
+      // Unique history key for Cook Mode
+    const COOK_MODE_STATE_KEY = 'cookModeOpen';
+
     function show(){
       modal.style.display = 'block';
       sheet.focus?.();
       document.documentElement.style.overflow = 'hidden';
+      document.body.classList.add('modal-open');
+
+      // Push a history entry so Android Back will first close this modal
+      try {
+        history.pushState({ [COOK_MODE_STATE_KEY]: true }, '');
+      } catch(e){}
     }
 
     function hide(){
       modal.style.display = 'none';
       document.documentElement.style.overflow = '';
+      document.body.classList.remove('modal-open');
     }
+
+    // If user presses Back (or swipe-back) while Cook Mode is visible, close it
+    function onCookModePopState(){
+      try {
+        if (modal.style.display === 'block') {
+          // Close without adding another history entry
+          unbindListeners();
+          state.listenersBound = false;
+          state.recipe = null;
+          state.index = 0;
+          hide();
+        }
+      } catch(e){}
+    }
+    window.addEventListener('popstate', onCookModePopState);
+
+    // When closing via UI, also pop the history entry we added on open
+    function maybePopCookHistory(){
+      try {
+        if (history.state && history.state[COOK_MODE_STATE_KEY]) {
+          history.back();
+        }
+      } catch(e){}
+    }
+
+
 
     function close(){
       if (typeof state.cleanupTasksBinding === 'function') {
@@ -5581,14 +6359,16 @@ row.querySelector('.step-down').onclick = () => {
         state.cleanupTasksBinding = null;
       }
       if (state.unsubTimers) { state.unsubTimers(); state.unsubTimers = null; }
-      // stop local UI tick (it self-stops on next frame when modal hidden, but be explicit)
       try { if (window.__cookUITick) { window.__cookUITick = null; } } catch {}
       unbindListeners();
       state.listenersBound = false;
       state.recipe = null;
       state.index = 0;
       hide();
+      // Pop the history entry we pushed in show()
+      maybePopCookHistory();
     }
+
 
 
     function next(){
@@ -5603,15 +6383,18 @@ row.querySelector('.step-down').onclick = () => {
       if (state.index > 0) setIndex(state.index - 1);
     }
 
-    function setIndex(i){
-      if (typeof state.cleanupTasksBinding === 'function') {
-        state.cleanupTasksBinding();
-        state.cleanupTasksBinding = null;
-      }
-      state.index = i;
-      render();
-      updateTimerUI();
-    }
+  function setIndex(i){
+  if (typeof state.cleanupTasksBinding === 'function') {
+    state.cleanupTasksBinding();
+    state.cleanupTasksBinding = null;
+  }
+  state.index = i;
+  // save progress (prep = 0, steps start at 1)
+  try { _saveIndex(state.recipe && state.recipe.id, state.index); } catch {}
+  render();
+  updateTimerUI();
+}
+
 
     function render(){
      const steps = state.recipe.steps || [];
@@ -5721,6 +6504,7 @@ row.querySelector('.step-down').onclick = () => {
         elPhoto.style.display = 'none';
         elPhoto.alt = '';
       }
+      showPhotoBtn(!isPrep);
 
       // Count
       elCount.textContent = (steps.length > 0) ? `Step ${n} of ${steps.length}` : 'No steps';
@@ -5881,15 +6665,65 @@ row.querySelector('.step-down').onclick = () => {
   btnS1.addEventListener('click', () => {
     const ctx = currentStepContext(); const t = findTimerForStep(ctx.recipeId, ctx.stepId, ctx.stepIndex); if (t) window.timers.snooze(t.id,1);
   });
-  btnS3.addEventListener('click', () => {
-    const ctx = currentStepContext(); const t = findTimerForStep(ctx.recipeId, ctx.stepId, ctx.stepIndex); if (t) window.timers.snooze(t.id,3);
+
+// Cook Mode: change the current step photo
+if (typeof elPhotoBtn !== 'undefined' && elPhotoBtn) {
+  elPhotoBtn.addEventListener('click', () => {
+    if (!state || !state.recipe) return;
+
+    const steps = Array.isArray(state.recipe.steps) ? state.recipe.steps : [];
+    const idx = state.index - 1; // UI is 1-based for steps; 0 = prep
+    if (idx < 0 || idx >= steps.length) return;
+
+    const step = steps[idx] || {};
+    const stepId = step.id || String(idx + 1);
+    const recipeId = state.recipe.id;
+
+    if (typeof openPhotoPicker !== 'function') {
+      alert('Photo picker not available.');
+      return;
+    }
+
+    openPhotoPicker({
+      onFile: async (file) => {
+        if (!file) return;
+        try {
+          const prevPath = step.photoPath || null;
+          const { url, path } = await uploadStepPhoto(file, recipeId, stepId, prevPath);
+
+          // Update local state + image
+          step.photoUrl = url;
+          step.photoPath = path;
+          steps[idx] = step;
+
+          if (elPhoto) {
+            elPhoto.src = url;
+            elPhoto.style.display = '';
+            elPhoto.alt = state.recipe.name ? `${state.recipe.name} – Step ${idx + 1}` : `Step ${idx + 1}`;
+          }
+
+          // Persist to Firestore
+          try {
+            await db.collection('recipes').doc(household)
+              .collection('recipes').doc(recipeId)
+              .set({
+                steps: steps,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                updatedBy: (auth.currentUser.email || auth.currentUser.uid || 'unknown')
+              }, { merge: true });
+          } catch (e) {
+            console.warn('Failed to save updated step photo to Firestore:', e);
+          }
+
+          if (typeof showToast === 'function') showToast('Photo updated');
+        } catch (e) {
+          console.error(e);
+          alert('Upload failed: ' + (e.message || e));
+        }
+      }
+    });
   });
-  btnS5.addEventListener('click', () => {
-    const ctx = currentStepContext(); const t = findTimerForStep(ctx.recipeId, ctx.stepId, ctx.stepIndex); if (t) window.timers.snooze(t.id,5);
-  });
-  btnS10.addEventListener('click', () => {
-    const ctx = currentStepContext(); const t = findTimerForStep(ctx.recipeId, ctx.stepId, ctx.stepIndex); if (t) window.timers.snooze(t.id,10);
-  });
+}
 
 
     // Navigation + swipe
@@ -5938,6 +6772,13 @@ row.querySelector('.step-down').onclick = () => {
     // Public API
     window.cookMode = { open, close, next, prev, setIndex };
   })();
+
+/* (intentionally blank) — legacy modal open/close removed; the FAB swapper script owns this now */
+
+
+
+
+    
   </script>
 
 
@@ -6090,6 +6931,85 @@ row.querySelector('.step-down').onclick = () => {
     const doneMsg = document.getElementById('timerDoneMsg');
     const doneAck = document.getElementById('timerDoneAck');
     const doneOpen = document.getElementById('timerDoneOpen');
+    // ---------- Screen Wake (keep display on while timers run) ----------
+    let wakeLock = null;
+    const hasWakeLock = !!(navigator && navigator.wakeLock);
+
+    // iOS fallback (no Wake Lock API): keep a muted 1s video looping
+    let _iosVideo = null;
+    const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent || '') && !hasWakeLock;
+
+    function startIOSSilentVideo(){
+      if (!isIOS) return;
+      // If already present, just play again
+      if (_iosVideo) { try { _iosVideo.play(); } catch(e){} return; }
+
+      const v = document.createElement('video');
+      v.setAttribute('playsinline','');
+      v.muted = true;
+      v.loop = true;
+      v.src = 'silent-1s.mp4';  // ⟵ put a tiny 1s silent MP4 next to index.html
+      Object.assign(v.style, {
+        position:'fixed', width:'1px', height:'1px', opacity:'0',
+        pointerEvents:'none', bottom:'0', left:'0', zIndex:'-1'
+      });
+      document.body.appendChild(v);
+      _iosVideo = v;
+      try { v.play(); } catch(e){}
+    }
+
+    function stopIOSSilentVideo(){
+      if (!_iosVideo) return;
+      try { _iosVideo.pause(); } catch(e){}
+      try { _iosVideo.remove(); } catch(e){}
+      _iosVideo = null;
+    }
+
+    async function requestScreenWakeLock(){
+      try {
+        if (hasWakeLock) {
+          if (wakeLock) return; // already locked
+          wakeLock = await navigator.wakeLock.request('screen');
+          // If the lock is released by the UA (e.g., system changes), clear our handle
+          wakeLock.addEventListener?.('release', () => { wakeLock = null; });
+        } else {
+          // iOS fallback
+          startIOSSilentVideo();
+        }
+      } catch(e){
+        // Best effort: ignore failures
+        console.warn('Wake lock request failed:', e);
+      }
+    }
+
+    function releaseScreenWakeLock(){
+      try {
+        if (wakeLock) { wakeLock.release?.(); }
+      } catch(e){}
+      wakeLock = null;
+      stopIOSSilentVideo();
+    }
+
+    function anyRunning(){
+      // Any timer with an active countdown (not paused, not done)
+      const arr = list();
+      return arr.some(t => !t.isPaused && !t.isDone && t.endsAt != null);
+    }
+
+    function maybeUpdateWakeLock(){
+      try {
+        if (document.visibilityState !== 'visible') {
+          // Page not visible — don’t try to hold the screen on
+          releaseScreenWakeLock();
+          return;
+        }
+        if (anyRunning()) {
+          requestScreenWakeLock();
+        } else {
+          releaseScreenWakeLock();
+        }
+      } catch(e){}
+    }
 
     // ---------- Store ----------
     function uid8(){
@@ -6112,7 +7032,10 @@ row.querySelector('.step-down').onclick = () => {
       localStorage.setItem(LS_KEY, JSON.stringify(arr));
       if (bc) bc.postMessage({ type:"storeUpdated" });
       notify();
+      // Keep screen awake if any timer is actively running
+      try { maybeUpdateWakeLock(); } catch(e){}
     }
+
 
     function list(){ return readStore(); }
     function getById(id){ return list().find(t => t.id === id); }
@@ -6243,24 +7166,42 @@ row.querySelector('.step-down').onclick = () => {
 
 
   async function unlockAudio(){
-      if (audioUnlocked) return;
+  if (audioUnlocked) return;
+  try {
+    ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+    try { if (ac.state === 'suspended') await ac.resume(); } catch(e){}
+    const n = ac.createOscillator();
+    const g = ac.createGain();
+    n.type = 'sine';
+    n.frequency.value = 880;
+    g.gain.value = 0;
+    n.connect(g); g.connect(ac.destination);
+    n.start();
+    // brief click to unlock
+    g.gain.setValueAtTime(0.0001, ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + 0.05);
+    setTimeout(() => { try{ n.stop(); }catch(e){} }, 120);
+    audioUnlocked = (ac.state === 'running');
+
+    // --- NEW: Preload & decode alarm buffer right now (once) ---
+    if (!alarmBuffer && ac && typeof fetch === 'function') {
       try {
-        ac = ac || new (window.AudioContext || window.webkitAudioContext)();
-        try { if (ac.state === 'suspended') await ac.resume(); } catch(e){}
-        const n = ac.createOscillator();
-        const g = ac.createGain();
-        n.type = 'sine';
-        n.frequency.value = 880;
-        g.gain.value = 0;
-        n.connect(g); g.connect(ac.destination);
-        n.start();
-        // brief click to unlock
-        g.gain.setValueAtTime(0.0001, ac.currentTime);
-        g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + 0.05);
-        setTimeout(() => { try{ n.stop(); }catch(e){} }, 120);
-        audioUnlocked = (ac.state === 'running');
-      } catch(e){}
+        const res = await fetch(ALARM_URL, { cache: 'force-cache' });
+        const arr = await res.arrayBuffer();
+        if (ac.decodeAudioData.length === 1) {
+          alarmBuffer = await ac.decodeAudioData(arr);
+        } else {
+          alarmBuffer = await new Promise((resolve, reject) => {
+            ac.decodeAudioData(arr, resolve, reject);
+          });
+        }
+      } catch(e){
+        console.error('Failed to preload alarm sound:', e);
+      }
     }
+  } catch(e){}
+}
+
 
         async function playAlarm(){
       // Ensure AudioContext exists and is running
@@ -6362,16 +7303,31 @@ row.querySelector('.step-down').onclick = () => {
       try { if ('vibrate' in navigator) navigator.vibrate([200, 100, 200, 100, 400]); } catch(e){}
     }
     function sendNotification(t){
-      try {
-        if (!("Notification" in window)) return;
-        if (Notification.permission !== 'granted') return;
-        const title = 'Timer done';
-        const body = String(t?.label || 'Timer');
-        const n = new Notification(title, { body, tag: 'timers', renotify:true });
-        // Clicking focuses the app
-        n.onclick = () => { window.focus?.(); try { n.close(); } catch{} };
-      } catch(e){}
+  try {
+    if (!("Notification" in window)) return;
+    if (Notification.permission !== 'granted') return;
+    const title = 'Timer done';
+    const body  = String(t?.label || 'Timer');
+
+    // Prefer Service Worker notifications so they fire in the background
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.ready
+        .then(reg => {
+          reg.showNotification(title, {
+            body,
+            tag: 'timers',        // collapse/replace previous
+            renotify: true,       // play sound again if needed
+            requireInteraction: false, // let it auto-dismiss per OS
+          });
+        })
+        .catch(()=>{ /* fall back below */ });
     }
+
+    // Fallback: page-level Notification (foreground only)
+    const n = new Notification(title, { body, tag: 'timers', renotify:true });
+    n.onclick = () => { window.focus?.(); try { n.close(); } catch{} };
+  } catch(e){}
+}
 
     // ---------- UI: Chip + Drawer + Done Bar ----------
     function openDrawer(){
@@ -6421,7 +7377,7 @@ row.querySelector('.step-down').onclick = () => {
           if (typeof firstDone.context.goTo === 'function') {
             firstDone.context.goTo();
           } else if (firstDone.context.recipe && Array.isArray(firstDone.context.recipe.steps)) {
-            cookMode.open(firstDone.context.recipe, Number(firstDone.context.stepIndex||0)|0);
+            cookMode.open(firstDone.context.recipe, (Number(firstDone.context.stepIndex||0)|0) + 1);
           }
         } catch(e){}
       }
@@ -6478,6 +7434,43 @@ row.querySelector('.step-down').onclick = () => {
       rafId = requestAnimationFrame(tick);
     }
     rafId = requestAnimationFrame(tick);
+    
+// Background-safe tick: promotes finished timers & posts OS notification
+setInterval(() => {
+  try {
+    // Promote completed timers to done (same rule as in rAF tick)
+    const arr = list();
+    let mutated = false;
+    for (const t of arr) {
+      if (!t.isDone && !t.isPaused && t.endsAt != null && (t.endsAt - Date.now()) <= 0) {
+        t.isDone = true;
+        t.endsAt = Date.now();
+        t.remainingMs = 0;
+        mutated = true;
+      }
+    }
+    if (mutated) writeStore(arr);
+
+    // Decide whether to show the bar / notify
+    const arrNow = list();
+    const anyDone = arrNow.some(x => x.isDone);
+    const firstUnacked = arrNow.find(x => x.isDone && !x.isDoneAck);
+    const toShow = firstUnacked || arrNow.find(x => x.isDone);
+
+    if (anyDone && toShow) {
+      showDoneBar(toShow);
+      // In background, rely on OS notification (audio may be blocked)
+      if (firstUnacked) {
+        sendNotification(firstUnacked);
+        // Only play sound when visible (mobile blocks autoplay in background)
+        if (document.visibilityState === 'visible') { try { playAlarm(); } catch{} }
+      }
+    } else {
+      hideDoneBar();
+      try { stopAlarm(); } catch{}
+    }
+  } catch {}
+}, 1000);
 
     function fmt(ms){
       ms = Math.max(0, ms|0);
@@ -6595,9 +7588,9 @@ row.querySelector('.step-down').onclick = () => {
             if (typeof t.context.goTo === 'function') {
               t.context.goTo();
             } else if (t.context.recipe && Array.isArray(t.context.recipe.steps)) {
-              cookMode.open(t.context.recipe, Number(t.context.stepIndex||0)|0);
+              cookMode.open(t.context.recipe, (Number(t.context.stepIndex||0)|0) + 1);
             } else if (Number.isFinite(t.context.stepIndex)) {
-              cookMode.setIndex(Number(t.context.stepIndex)|0);
+              cookMode.setIndex((Number(t.context.stepIndex)|0) + 1);
             }
           } catch(e){}
         }
@@ -6608,7 +7601,19 @@ row.querySelector('.step-down').onclick = () => {
 
 
     // First gesture anywhere can unlock audio (best-effort)
-    window.addEventListener('pointerdown', unlockAudio, { once:true, passive:true });
+document.addEventListener('visibilitychange', () => {
+  try {
+    if (document.visibilityState === 'visible' && ac && ac.state === 'suspended') {
+      ac.resume();
+    }
+  } catch(e){}
+  try { maybeUpdateWakeLock(); } catch(e){}
+}, { passive:true });
+
+// On page unloads, always release the lock/audio fallback
+window.addEventListener('pagehide', () => { try { releaseScreenWakeLock(); } catch(e){} }, { passive:true });
+window.addEventListener('beforeunload', () => { try { releaseScreenWakeLock(); } catch(e){} }, { passive:true });
+
 
   // Expose API
     window.timers = {
@@ -6618,11 +7623,1210 @@ row.querySelector('.step-down').onclick = () => {
 
 
   })();
-  </script>
+
+</script>
+
+<!-- Weekly Items modal -->
+<div id="weeklyItemsModal" role="dialog" aria-modal="true" aria-labelledby="weeklyItemsTitle">
+  <div class="backdrop" data-close="1"></div>
+  <div class="sheet">
+    <div class="header">
+      <div id="weeklyItemsTitle">Weekly Items</div>
+      <button id="weeklyItemsClose" class="close" aria-label="Close">×</button>
+    </div>
+    <div class="body">
+      <!-- Content goes here -->
+      <!-- Weekly Items — full Lists tab clone (namespaced) -->
+<section id="wiSection" class="card" style="margin-top:0;">
+  <!-- Top toolbar like Lists -->
+  <div class="toolbar" id="wiFilterGroup">
+    <div class="group">
+      <h2 style="margin:0">Weekly Items</h2>
+      <span id="wiStatus" class="muted"></span>
+    </div>
+
+    <div class="group" style="flex:1; min-width:260px;">
+      <div class="row" style="gap:8px; flex-wrap:wrap;">
+       <div style="min-width:220px; flex:1;">
+  <label for="wiItemName">Item</label>
+<div class="wiInputWrap" style="position: relative; width: 100%;">
+  <input id="wiItemName" type="text" placeholder="e.g., Milch, Bananen" autocomplete="off" />
+  <!-- wiAutoList moved to .body for full-width -->
+</div>
+
+
+
+
+
+       
+
+        
+
+       
+
+       
+
+     
+
+       
+
+        <div><button id="wiAdd" class="primary">Add</button></div>
+      </div>
+
+      <!-- Weekly Items bulk actions (moved here) -->
+      <div class="row" style="margin-top:12px; justify-content:flex-end;">
+        <button id="wiClearChecked" type="button">Uncheck all</button>
+      </div>
+
+  
+    </div>
+  </div>
+
+  <!-- List render area -->
+  <div id="wiList" class="list" aria-live="polite"></div>
+
+
+  <!-- List render area -->
+  <div id="wiList" class="list" aria-live="polite"></div>
+  <div id="wiEmpty" class="empty" style="display:none">
+    <svg class="icon" aria-hidden="true"><use href="#i-cart"></use></svg>
+    <div class="headline">Your weekly list is empty</div>
+    <div class="muted">Add your first weekly item above.</div>
+  </div>
+
+  
+</section>
+
+      <!-- Full-width suggestion overlay anchored to the modal body -->
+      <div id="wiAutoList"
+           class="ac-list"
+           role="listbox"
+           aria-label="Suggestions"
+           style="display:none;"></div>
+
+    </div>
+  </div>
+</div>
+
+
+<script>
+/* ===================== Weekly Items (modal) =====================
+
+Collection path: lists/{household}/weekly
+Schema: same as main list items (name, qty, size, notes, category, routeOrder, checked, createdAt, updatedAt, photoPath, photoUrl)
+
+This is a namespaced clone so it won’t interfere with your main List tab.
+================================================================= */
+
+document.addEventListener('DOMContentLoaded', () => {
+  // Elements
+  const wrap       = document.getElementById('wiSection');
+  if (!wrap) return;
+
+  const statusEl   = document.getElementById('wiStatus');
+  const listEl     = document.getElementById('wiList');
+  const emptyEl    = document.getElementById('wiEmpty');
+
+  const nameEl     = document.getElementById('wiItemName');
+  const qtyEl      = document.getElementById('wiItemQty');
+  const sizeEl     = document.getElementById('wiItemSize');
+  const catEl      = document.getElementById('wiItemCategory');
+  const routeEl    = document.getElementById('wiItemRoute');
+  const notesEl    = document.getElementById('wiItemNotes');
+
+  const addBtn     = document.getElementById('wiAdd');
+  const clearBtn   = document.getElementById('wiClearChecked');
+  // === Shared references (Auth, Firestore, Household) ===
+const auth =
+  (window.auth && window.auth) ||
+  (firebase && firebase.auth && firebase.auth()) ||
+  null;
+
+const db =
+  (window.db && window.db) ||
+  (firebase && firebase.firestore && firebase.firestore()) ||
+  null;
+
+// Robust household detection (same logic as Lists tab)
+const householdId =
+  (typeof window.household !== 'undefined' && window.household) ||
+  (typeof window.activeHousehold !== 'undefined' && window.activeHousehold) ||
+  (typeof window.currentHousehold !== 'undefined' && window.currentHousehold) ||
+  localStorage.getItem('household') ||
+  localStorage.getItem('activeHousehold') ||
+  (document.body?.dataset?.household || '');
+
+// === Shared: Keyboard navigation for all autocomplete boxes ===
+function enableAutoListKeyboard(inputEl, listEl, onSelect) {
+  let activeIndex = -1;
+
+  inputEl.addEventListener('keydown', (e) => {
+    const items = listEl.querySelectorAll('.suggestion, .autoItem');
+    if (!items.length) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      activeIndex = (activeIndex + 1) % items.length;
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      activeIndex = (activeIndex - 1 + items.length) % items.length;
+    } else if (e.key === 'Enter' && activeIndex >= 0) {
+      e.preventDefault();
+      const chosen = items[activeIndex];
+      chosen?.click(); // triggers existing click handler
+      activeIndex = -1;
+      return;
+    } else {
+      return; // ignore other keys
+    }
+
+    // update visual focus
+    items.forEach((it, i) => it.classList.toggle('active', i === activeIndex));
+    items[activeIndex]?.scrollIntoView({ block: 'nearest' });
+  });
+}
+
+    // === Weekly Items: Name Autocomplete (mirrors LISTS tab) ===
+  const wiAutoList = document.getElementById('wiAutoList');
+enableAutoListKeyboard(document.getElementById('wiItemName'), wiAutoList);
+
+  function wiSuggestionMeta(it){
+    const parts = [];
+    if (it.category) parts.push(it.category);
+    if (it.size)     parts.push(it.size);
+    if (it.routeOrder !== '' && !isNaN(parseFloat(it.routeOrder))) parts.push('Route ' + it.routeOrder);
+    return parts.join(' • ');
+  }
+
+  function showWiSuggestions(q){
+  if (!wiAutoList) return;
+  q = (q || '').trim().toLowerCase();
+  if (!q){
+    wiAutoList.style.display = 'none';
+    wiAutoList.innerHTML = '';
+    return;
+  }
+
+  // Source: lastSnapshotItems from LISTS tab (already maintained globally)
+  const matches = (Array.isArray(lastSnapshotItems) ? lastSnapshotItems : [])
+    .filter(it => ((it.name || '').toLowerCase().includes(q)))
+    .sort((a,b)=>{
+      const an=(a.name||'').toLowerCase(), bn=(b.name||'').toLowerCase();
+      const as = an.startsWith(q) ? 0 : 1;
+      const bs = bn.startsWith(q) ? 0 : 1;
+      if (as !== bs) return as - bs;
+      return an.localeCompare(bn);
+    })
+    .slice(0, 8);
+
+  if (!matches.length){
+    wiAutoList.style.display = 'none';
+    wiAutoList.innerHTML = '';
+    return;
+  }
+
+  wiAutoList.innerHTML = '';
+  for (const it of matches){
+    const row = document.createElement('div');
+    row.className = 'ac-item';
+    row.setAttribute('role','option');
+    row.dataset.id = it.id || '';
+    row._item = it;
+
+    const safe = (s) => (s||'').replace(/[&<>\"']/g, c => (
+      {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]
+    ));
+
+    // Build inner layout to visually resemble list items
+    const photoHtml = it.photoUrl
+      ? `<img src="${safe(it.photoUrl)}" alt="" class="thumb" style="width:38px;height:38px;border-radius:6px;object-fit:cover;margin-right:8px;">`
+      : '';
+
+    const qtyTxt   = safe(it.qty   || '');
+    const sizeTxt  = safe(it.size  || '');
+    const notesTxt = safe(it.notes || '');
+    const catTxt   = safe(it.category || '');
+    const metaTxt  = [qtyTxt, sizeTxt].filter(Boolean).join(' • ');
+
+    row.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;">
+        ${photoHtml}
+        <div style="flex:1;overflow:hidden;">
+          <div style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${safe(it.name||'')}</div>
+          <div class="muted" style="font-size:0.85em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+            ${metaTxt ? metaTxt + (catTxt ? ' • '+catTxt : '') : (catTxt || '')}
+          </div>
+          ${notesTxt ? `<div class="muted" style="font-size:0.8em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${notesTxt}</div>` : ''}
+        </div>
+      </div>
+    `;
+
+    wiAutoList.appendChild(row);
+  }
+
+  // Position overlay directly under the Item input, within the modal body
+  const bodyEl = document.querySelector('#weeklyItemsModal .body');
+  const inputWrap = document.querySelector('#weeklyItemsModal .wiInputWrap');
+  if (bodyEl && inputWrap){
+    const bodyRect = bodyEl.getBoundingClientRect();
+    const wrapRect = inputWrap.getBoundingClientRect();
+    wiAutoList.style.top = (wrapRect.bottom - bodyRect.top) + 'px';
+  } else {
+    wiAutoList.style.top = '0px';
+  }
+
+  wiAutoList.style.display = 'block';
+}
+
+
+
+  function applyWiSuggestion(it){
+    if (!it) return;
+
+    // Remember the picked suggestion so we can carry fields into the created weekly item.
+    wiPicked = {
+      id: it.id || '',
+      name: it.name || '',
+      qty: (typeof it.qty !== 'undefined' && it.qty !== null) ? String(it.qty) : '',
+      size: it.size || '',
+      notes: it.notes || '',
+      category: it.category || '',
+      routeOrder: (it.routeOrder === 0 || it.routeOrder) ? it.routeOrder : '',
+      photoUrl: it.photoUrl || '',
+      photoPath: it.photoPath || ''
+    };
+
+    // Fill what exists in this modal (only the name input is present)
+    if (nameEl) nameEl.value = wiPicked.name;
+
+    // Hide list; keep focus in the name field for fast confirm
+    if (wiAutoList){ wiAutoList.style.display = 'none'; wiAutoList.innerHTML = ''; }
+    if (nameEl) nameEl.focus();
+  }
+
+
+  // Delegate suggestion clicks
+  if (wiAutoList){
+    wiAutoList.addEventListener('click', (e)=>{
+      const row = e.target.closest('.ac-item');
+      if (!row || !row._item) return;
+      applyWiSuggestion(row._item);
+    });
+  }
+
+  // Hide suggestions when clicking outside
+  document.addEventListener('click', (e)=>{
+    const withinName = nameEl && (e.target === nameEl || nameEl.contains(e.target));
+    const withinList = wiAutoList && (e.target === wiAutoList || wiAutoList.contains(e.target));
+    if (!withinName && !withinList && wiAutoList){
+      wiAutoList.style.display = 'none';
+      wiAutoList.innerHTML = '';
+    }
+  });
+
+
+  const addPhotoBtn= document.getElementById('wiAddPhoto');
+  const photoName  = document.getElementById('wiPhotoName');
+  const photoPrev  = document.getElementById('wiPhotoPreview');
+
+  const toggleBtn  = document.getElementById('wiToggleBtn');
+
+  // State
+  let unsubWeekly  = null;
+  let weeklyItems  = [];
+  let liveQuery    = '';
+  let newPhotoFile = null;
+
+  // Last suggestion the user clicked in the Weekly Items modal.
+  // We use this to propagate existing fields (qty, size, notes, category, routeOrder, photo*) into the new weekly item.
+  let wiPicked = null;
+
+
+  // Helpers already exist globally in your file: auth, db, storage, showToast, openPhotoPicker, uploadItemPhoto, etc. 
+
+  function setWiControlsEnabled(enabled){
+    [addBtn, clearBtn, nameEl, qtyEl, sizeEl, catEl, routeEl, notesEl, addPhotoBtn].forEach(n=>{
+      if (!n) return; n.disabled = !enabled; n.classList.toggle('disabled', !enabled);
+    });
+  }
+
+  function updateWiStatus(){
+    if (!statusEl) return;
+    const bits = [];
+    bits.push((auth && auth.currentUser) ? 'Signed in' : 'Not signed in');
+    bits.push('household: ' + (household || '—'));
+    statusEl.textContent = bits.join(' • ');
+    setWiControlsEnabled(!!(auth && auth.currentUser && household));
+  }
+
+  function wiDocRef(id){ return db.collection('lists').doc(household).collection('weekly').doc(id); }
+  function wiColRef(){   return db.collection('lists').doc(household).collection('weekly'); }
+
+  // Render
+  function renderWi(items){
+    // Filter by live query (match name)
+    const q = (liveQuery || '').trim().toLowerCase();
+    let filtered = q ? items.filter(i => (i.name||'').toLowerCase().includes(q)) : items;
+
+    // Sort like List tab: by route, then name
+    const sorted = [...filtered].sort((a,b)=>{
+      const ra = isNaN(parseFloat(a.routeOrder)) ? -1 : parseFloat(a.routeOrder);
+      const rb = isNaN(parseFloat(b.routeOrder)) ? -1 : parseFloat(b.routeOrder);
+      if (ra !== rb) return ra - rb;
+      return (a.name||'').localeCompare(b.name||'');
+    });
+
+    listEl.innerHTML = '';
+    if (!sorted.length){ emptyEl.style.display='block'; return; }
+    emptyEl.style.display='none';
+    for (const it of sorted) listEl.appendChild(renderWiRow(it));
+  }
+
+ function renderWiRow(it){
+  const row = document.createElement('div');
+  row.className = 'item';
+  row.dataset.id = it.id;
+  row.dataset.cat = ((it.category || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-'));
+
+  // === 1) Checkbox (left cell) ===
+  const left = document.createElement('div');
+  left.className = 'left';
+  const cb = document.createElement('input');
+  cb.type = 'checkbox';
+  cb.checked = !!it.checked;
+  cb.setAttribute('aria-label', 'Mark checked');
+  cb.onchange = async () => {
+    const isChecked = !!cb.checked;
+    try{
+      await wiDocRef(it.id).set({
+        checked: isChecked,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge:true });
+      it.checked = isChecked;
+    }catch(e){
+      console.error(e);
+      showToast('Failed to update');
+      cb.checked = !isChecked;
+    }
+  };
+  left.appendChild(cb);
+
+  // === 2) Title + meta (click-to-edit chips) ===
+  const line1 = document.createElement('div');
+  line1.className = 'line1';
+
+  const catdot = document.createElement('span');
+  catdot.className = 'catdot';
+
+  const nameEl = document.createElement('span');
+  nameEl.className = 'name';
+  nameEl.textContent = capitalizeWords(it.name || '');
+
+  // route flag
+  const routeMissing = (
+    it.routeOrder === undefined ||
+    it.routeOrder === null ||
+    it.routeOrder === '' ||
+    isNaN(parseFloat(it.routeOrder))
+  );
+  if (routeMissing) {
+    const flag = document.createElement('span');
+    flag.textContent = ' 🚩';
+    flag.title = 'No route number set';
+    flag.style.color = 'red';
+    nameEl.appendChild(flag);
+  }
+
+  line1.append(catdot, nameEl);
+
+  const meta = document.createElement('div');
+  meta.className = 'meta';
+
+  // Helper: editable chip (input)
+  function editableChip({
+    labelWhenEmpty,
+    value,
+    inputType = 'text',
+    inputMode,
+    field,
+    title
+  }){
+    const span = document.createElement('span');
+    span.className = 'muted';
+    span.style.cursor = 'text';
+    if (title) span.title = title;
+
+    const setDisplay = (val) => {
+      const v = (val || '').trim();
+      span.textContent = v || labelWhenEmpty;
+      span.classList.add('muted');
+      span.style.fontStyle = v ? 'normal' : 'italic';
+    };
+    setDisplay(value || '');
+
+    span.addEventListener('click', () => {
+      const input = document.createElement('input');
+      input.type = inputType;
+      if (inputMode) input.inputMode = inputMode;
+      input.className = 'qty-inline';
+      input.value = value || '';
+      span.replaceWith(input);
+      input.focus();
+      try { input.select(); } catch {}
+
+      const finish = async (commit) => {
+        const next = commit ? (input.value || '').trim() : (value || '');
+        if (commit && next !== (value || '')) {
+          try{
+            await wiDocRef(it.id).set({
+              [field]: next,
+              updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge:true });
+            it[field] = next;
+            value = next;
+          }catch(e){
+            console.error(`Failed to update ${field}`, e);
+            showToast(`Failed to update ${field}`);
+          }
+        }
+        setDisplay(next);
+        input.replaceWith(span);
+        // reflect category badge + data-cat for filtering if category changed
+        if (field === 'category') {
+          row.dataset.cat = ((next || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-'));
+        }
+      };
+
+      input.addEventListener('keydown', (e)=>{
+        if (e.key === 'Enter') finish(true);
+        else if (e.key === 'Escape') finish(false);
+      });
+      input.addEventListener('blur', () => finish(true));
+    });
+
+    return span;
+  }
+
+  // Qty (allow empty → “Add qty”)
+  const chipQty = editableChip({
+    labelWhenEmpty: 'Add qty',
+    value: it.qty || '',
+    inputType: 'text',
+    inputMode: 'decimal',
+    field: 'qty',
+    title: 'Click to edit qty'
+  });
+
+  // Size (allow empty → “Add size”)
+  const chipSize = editableChip({
+    labelWhenEmpty: 'Add size',
+    value: it.size || '',
+    inputType: 'text',
+    field: 'size',
+    title: 'Click to edit size'
+  });
+
+  // Category (free text chip; matches Lists inline feel)
+  const chipCat = editableChip({
+    labelWhenEmpty: 'Add category',
+    value: it.category || '',
+    inputType: 'text',
+    field: 'category',
+    title: 'Click to edit category'
+  });
+
+  // Route (number; allow empty)
+  const chipRoute = editableChip({
+    labelWhenEmpty: 'Add route',
+    value: (it.routeOrder !== undefined && it.routeOrder !== null) ? String(it.routeOrder) : '',
+    inputType: 'text',
+    inputMode: 'numeric',
+    field: 'routeOrder',
+    title: 'Click to edit route'
+  });
+
+  // Attach chips (no bullet separators)
+meta.append(
+  chipQty,
+  chipSize,
+
+);
+line1.appendChild(meta);
+
+
+  // === 3) Actions (right cell) — Weekly Items modal: NO Edit button ===
+  const actions = document.createElement('div');
+  actions.className = 'actions';
+
+  const delBtn = document.createElement('button');
+  delBtn.type = 'button';
+  delBtn.className = 'pill danger wi-del';
+  delBtn.textContent = 'Delete';
+  delBtn.onclick = async () => {
+    if (!confirm(`Delete '${it.name || ''}'?`)) return;
+    try{
+      await wiDocRef(it.id).delete();
+      showToast('Deleted');
+    }catch(e){
+      console.error(e);
+      alert('Delete failed: ' + (e.message || e));
+    }
+  };
+
+  actions.append(delBtn);
+
+
+  // === 4) Below row: photo + notes (notes already inline-editable) ===
+  const below = document.createElement('div');
+  below.className = 'below';
+
+  const mediaCell = document.createElement('div');
+
+  const mountCameraBtn = () => {
+    mediaCell.innerHTML = '';
+    const camBtn = document.createElement('button');
+    camBtn.type = 'button';
+    camBtn.className = 'camBtn';
+    camBtn.title = 'Add photo';
+    camBtn.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-camera"></use></svg>';
+    camBtn.onclick = () => {
+      if (typeof openPhotoPicker !== 'function') { alert('Photo picker not available.'); return; }
+      openPhotoPicker({
+        onFile: async (file) => {
+          if (!file) return;
+          try{
+            showToast('Uploading photo…');
+            const { url, path } = await uploadItemPhoto(file, it.id, it.photoPath || null);
+            it.photoUrl = url; it.photoPath = path;
+            mountThumb(url);
+            below.classList.remove('hidden');
+            showToast('Photo uploaded');
+          }catch(e){
+            console.error(e);
+            showToast('Photo upload failed');
+          }
+        }
+      });
+    };
+    mediaCell.appendChild(camBtn);
+  };
+
+  const mountThumb = (url) => {
+    mediaCell.innerHTML = '';
+    const thumb = document.createElement('img');
+    thumb.className = 'thumb';
+    thumb.src = url;
+    thumb.alt = it.name || 'photo';
+    thumb.onclick = () => openLightbox && openLightbox(url);
+    mediaCell.appendChild(thumb);
+  };
+
+  if (it.photoUrl) mountThumb(it.photoUrl); else mountCameraBtn();
+
+  const line2 = document.createElement('div');
+  line2.className = 'line2';
+  line2.title = 'Click to edit notes';
+  line2.style.cursor = 'text';
+  if (!it.notes) {
+    line2.textContent = 'Add note';
+    line2.classList.add('muted');
+    line2.style.fontStyle = 'italic';
+  } else {
+    line2.textContent = it.notes || '';
+  }
+
+  line2.addEventListener('click', () => {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = 'Notes';
+    input.className = 'notes';
+    input.value = it.notes || '';
+    line2.replaceWith(input);
+    input.focus();
+    input.select();
+
+    const commit = async () => {
+      const next = (input.value || '').trim();
+      try{
+        await wiDocRef(it.id).set({
+          notes: next,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge:true });
+        it.notes = next;
+        line2.textContent = next || 'Add note';
+        line2.classList.toggle('muted', !next);
+        line2.style.fontStyle = next ? 'normal' : 'italic';
+      }catch(e){
+        console.error(e);
+        showToast('Failed to update notes');
+      }finally{
+        input.replaceWith(line2);
+      }
+    };
+
+    input.addEventListener('keydown', (e)=>{
+      if (e.key === 'Enter') commit();
+      else if (e.key === 'Escape') { input.replaceWith(line2); }
+    });
+    input.addEventListener('blur', commit);
+  });
+
+  below.append(mediaCell, line2);
+
+  // === 5) Assemble ===
+  row.append(left, line1, actions, below);
+
+  return row;
+}
+
+
+
+ // Add new weekly item (UI reduced to "Item" only)
+if (addBtn) addBtn.addEventListener('click', async () => {
+  if (!auth || !auth.currentUser || !household) return alert('Sign in and set household first.');
+  const raw = (nameEl?.value || '').trim();
+  const name = capitalizeWords(raw);
+  if (!name) return alert('Name is required');
+
+  // Build payload from picked suggestion when available and matching the current text; otherwise fall back to blanks.
+  const usePick = (wiPicked && String(wiPicked.name || '').toLowerCase() === raw.toLowerCase()) ? wiPicked : null;
+
+  const payload = {
+    name,
+    qty:  usePick ? (usePick.qty ?? '') : '',
+    size: usePick ? (usePick.size || '') : '',
+    notes: usePick ? (usePick.notes || '') : '',
+    category: usePick ? (usePick.category || '') : '',
+    routeOrder: usePick ? ((usePick.routeOrder === 0 || usePick.routeOrder) ? usePick.routeOrder : '') : '',
+    // If photos exist on the source item, carry them too
+    photoUrl: usePick ? (usePick.photoUrl || '') : '',
+    photoPath: usePick ? (usePick.photoPath || '') : '',
+    checked: false,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+
+  const newId = wiColRef().doc().id;
+  try {
+    await wiDocRef(newId).set(payload);
+  } catch (e) {
+    return alert('Add failed: ' + (e.message || e));
+  }
+
+  // Clear form & UI (and drop the pick so next entry starts clean)
+  if (nameEl) nameEl.value = '';
+  wiPicked = null;
+
+  // Reset live filter and suggestions so the full list is visible again
+  liveQuery = '';
+  renderWi(weeklyItems);
+  if (wiAutoList) { wiAutoList.style.display = 'none'; wiAutoList.innerHTML = ''; }
+
+  // Focus back to the name field for fast entry
+  if (nameEl) nameEl.focus();
+});
+
+
+
+  // Add photo
+  if (addPhotoBtn) addPhotoBtn.addEventListener('click', () => {
+    if (typeof openPhotoPicker !== 'function') { alert('Photo picker not available.'); return; }
+    openPhotoPicker({
+      onFile: (file) => {
+        newPhotoFile = file;
+        if (photoName) photoName.textContent = file?.name || '';
+        if (photoPrev) {
+          const url = URL.createObjectURL(file);
+          photoPrev.src = url;
+          photoPrev.style.display = 'inline-block';
+        }
+        showToast('Photo selected');
+      }
+    });
+  });
+
+  // Live filter + autocomplete (mirrors LISTS tab)
+  if (nameEl){
+    nameEl.addEventListener('input', () => {
+      liveQuery = nameEl.value || '';
+      // If the user changed the text so it no longer equals the picked suggestion, drop wiPicked.
+      if (wiPicked && (String(wiPicked.name || '').toLowerCase() !== String(liveQuery).trim().toLowerCase())) {
+        wiPicked = null;
+      }
+      renderWi(weeklyItems);
+      showWiSuggestions(liveQuery);
+    });
+    // Also open suggestions on focus if there is already text
+    nameEl.addEventListener('focus', () => {
+      if (nameEl.value) showWiSuggestions(nameEl.value);
+      const bodyEl = document.querySelector('#weeklyItemsModal .body');
+      const inputWrap = document.querySelector('#weeklyItemsModal .wiInputWrap');
+      if (bodyEl && inputWrap) {
+        const bodyRect = bodyEl.getBoundingClientRect();
+        const wrapRect = inputWrap.getBoundingClientRect();
+        wiAutoList.style.top = (wrapRect.bottom - bodyRect.top) + 'px';
+      }
+    });
+
+
+  }
+
+  // Hide / Show items (mirrors your list collapse UX) 
+  if (toggleBtn){
+    toggleBtn.addEventListener('click', () => {
+      const pressed = toggleBtn.getAttribute('aria-pressed') === 'true';
+      const next = !pressed;
+      toggleBtn.setAttribute('aria-pressed', String(next));
+      toggleBtn.textContent = next ? '🔼 Hide items' : '🔽 Show items';
+      // Use CSS trick via inline style (modal-only)
+      if (next){
+        listEl.style.maxHeight = ''; listEl.style.opacity = ''; listEl.style.transform = ''; listEl.style.pointerEvents = '';
+        emptyEl.style.maxHeight = ''; emptyEl.style.opacity = ''; emptyEl.style.transform = ''; emptyEl.style.pointerEvents = '';
+      } else {
+        listEl.style.maxHeight = '0'; listEl.style.opacity = '0'; listEl.style.transform = 'translateY(-6px)'; listEl.style.pointerEvents = 'none';
+        emptyEl.style.maxHeight = '0'; emptyEl.style.opacity = '0'; emptyEl.style.transform = 'translateY(-6px)'; emptyEl.style.pointerEvents = 'none';
+      }
+    });
+  }
+
+  // Uncheck all
+  if (clearBtn) clearBtn.addEventListener('click', async () => {
+    if (!auth || !auth.currentUser || !household) return alert('Sign in and set household first.');
+    try{
+      const qs = await wiColRef().where('checked','==',true).get();
+      if (qs.empty) { showToast('Nothing to clear'); return; }
+    const batch = db.batch();
+  qs.forEach(doc => batch.set(doc.ref, { checked:false, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge:true }));
+   await batch.commit();
+      showToast('Unchecked all weekly items');
+    }catch(e){ alert('Failed: '+(e.message||e)); }
+  });
+
+  // Subscribe
+ async function subscribeWeekly(){
+  if (unsubWeekly) { unsubWeekly(); unsubWeekly = null; }
+  if (!auth || !auth.currentUser || !household) { renderWi([]); return; }
+
+  try {
+    // Ensure lists/{household} exists and this user is in members before any read
+    await ensureHouseholdDoc();
+
+    unsubWeekly = wiColRef().onSnapshot((snap) => {
+      const arr = [];
+      snap.forEach(d => arr.push({ id: d.id, ...d.data() }));
+      weeklyItems = arr;
+      renderWi(weeklyItems);
+    }, (err) => {
+      console.error(err);
+      alert('Cannot read weekly items. Check Firestore rules and that Firestore is enabled.');
+    });
+  } catch (e) {
+    console.error('subscribeWeekly bootstrap failed', e);
+    alert('Cannot read weekly items. Check Firestore rules and that Firestore is enabled.');
+  }
+}
+
+
+  // React to auth changes (reuse your global handler pattern) 
+  updateWiStatus();
+  auth && auth.onAuthStateChanged(() => { updateWiStatus(); subscribeWeekly(); });
+  // Also subscribe immediately if already signed in:
+  if (auth && auth.currentUser) subscribeWeekly();
+  // Expose a small API so other code (e.g., the FAB) can read checked weekly items.
+window.weeklyItemsAPI = window.weeklyItemsAPI || {};
+window.weeklyItemsAPI.getChecked = function () {
+  return Array.isArray(weeklyItems)
+    ? weeklyItems.filter(function (it) { return !!it.checked; })
+    : [];
+};
+
+});
+</script>
 
 
     
-  </body>
+<script>
+// Weekly Items: FAB label swap + add-checked-to-shopping while modal is open
+document.addEventListener('DOMContentLoaded', () => {
+  const fab      = document.getElementById('weeklyItemsFab');
+  const modal    = document.getElementById('weeklyItemsModal');
+  const closeBtn = document.getElementById('weeklyItemsClose');
+  const backdrop = modal ? modal.querySelector('.backdrop') : null;
+
+  if (!fab || !modal) return;
+
+  const WI_STATE_KEY = 'weeklyItemsOpen';
+
+  function openWeeklyItems(){
+    modal.classList.add('show');
+    document.body.classList.add('modal-open');
+    try { history.pushState({ [WI_STATE_KEY]: true }, ''); } catch(e){}
+    setFabToAdd();
+  }
+  function closeWeeklyItems(){
+    modal.classList.remove('show');
+    document.body.classList.remove('modal-open');
+    setFabToOpen();
+    // Pop the history entry we pushed on open
+    try { if (history.state && history.state[WI_STATE_KEY]) history.back(); } catch(e){}
+  }
+  function onWeeklyItemsPopState(){
+    try {
+      if (modal.classList.contains('show')) {
+        modal.classList.remove('show');
+        document.body.classList.remove('modal-open');
+        setFabToOpen();
+      }
+    } catch(e){}
+  }
+  window.addEventListener('popstate', onWeeklyItemsPopState);
+
+  // ---------- helpers ----------
+  function setFabToOpen() {
+    fab.textContent = 'Weekly Items';
+    fab.setAttribute('aria-label', 'Weekly Items');
+    fab.onclick = openWeeklyItems;
+  }
+
+  // When modal closes by X/backdrop, revert the FAB
+  if (closeBtn) closeBtn.addEventListener('click', closeWeeklyItems);
+  if (backdrop) backdrop.addEventListener('click', closeWeeklyItems);
+
+
+  // Weekly Items → Shopping: use the exact ATL-style commit logic (no servings scaling)
+  async function addWeeklyCheckedToShopping(){
+    // Require session + household (match ATL’s guard)
+    if (!auth || !auth.currentUser || !household) {
+      alert('Sign in and set the household first.');
+      return;
+    }
+
+    // Collect checked Weekly Items
+    const getChecked = (window.weeklyItemsAPI && typeof window.weeklyItemsAPI.getChecked === 'function')
+      ? window.weeklyItemsAPI.getChecked
+      : null;
+    const picked = getChecked ? getChecked() : [];
+    if (!picked.length){ showToast('Nothing selected'); return; }
+
+    try{
+      // Build a pseudo-ATL "chosen" list (no scaling; keep user-entered qty/size/notes)
+      const chosen = picked
+        .map(it => ({
+          name: (it && it.name ? String(it.name) : '').trim(),
+          nameKey: (it && it.name ? String(it.name).toLowerCase() : ''),
+          qty: (it && typeof it.qty !== 'undefined' && it.qty !== null) ? String(it.qty) : '',
+          size: (it && it.size)  ? String(it.size)  : '',
+          notes:(it && it.notes) ? String(it.notes) : ''
+        }))
+        .filter(x => !!x.name);
+
+      if (!chosen.length){ showToast('Nothing selected'); return; }
+
+      const batch = db.batch();
+
+      for (const ing of chosen){
+        // Find existing list item (same lookup as ATL)
+        const existing = (typeof findExistingItem === 'function')
+          ? findExistingItem(ing.nameKey || ing.name)
+          : null;
+
+        if (existing){
+          // Merge qty exactly like ATL (addQtyStr), and prefer existing size/notes
+          const newQty = (typeof addQtyStr === 'function')
+            ? addQtyStr(existing.qty || '', ing.qty || '')
+            : ((ing.qty || existing.qty || ''));
+
+          const ref = db.collection('lists').doc(household).collection('items').doc(existing.id);
+          batch.set(ref, {
+            qty: newQty,
+            size: existing.size || ing.size || '',
+            notes: existing.notes || ing.notes || '',
+            checked: false,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          }, { merge: true });
+
+        } else {
+          // New item; pull category/route from catalogCache (same as ATL)
+          const catKnown = (window.catalogCache && typeof catalogCache.get === 'function')
+            ? (catalogCache.get((ing.name||'').toLowerCase()) || {})
+            : {};
+
+          const ref = db.collection('lists').doc(String(household)).collection('items').doc();
+          batch.set(ref, {
+            name: ing.name,
+            qty: ing.qty || '',
+            size: ing.size || '',
+            notes: ing.notes || '',
+            category: catKnown.category || '',
+            routeOrder: (catKnown.routeOrder === 0 || catKnown.routeOrder) ? catKnown.routeOrder : '',
+            checked: false,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+        }
+      }
+
+      await batch.commit();
+      showToast('Added to shopping list');
+
+      // Close Weekly Items modal and restore FAB (unchanged)
+      if (modal) modal.classList.remove('show');
+      document.body.classList.remove('modal-open');
+      setFabToOpen();
+
+    } catch(e){
+      console.error(e);
+      alert('Add failed: ' + (e.message || e));
+    }
+  }
+
+
+
+  function setFabToAdd() {
+    fab.textContent = 'Add to Shopping List';
+    fab.setAttribute('aria-label', 'Add checked weekly items to the Shopping list');
+    fab.onclick = () => { addWeeklyCheckedToShopping(); };
+  }
+
+  // ---------- initial visibility (Shopping tab only) ----------
+  const current = localStorage.getItem('activeTab') || 'list';
+  fab.style.display = (current === 'shopping') ? 'block' : 'none';
+
+  // Update FAB visibility when tabs are clicked
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('#tabList, #tabShopping, #tabRecipes');
+    if (!btn) return;
+    const idToTab = { tabList: 'list', tabShopping: 'shopping', tabRecipes: 'recipes' };
+    const tab = idToTab[btn.id];
+    if (!tab) return;
+    fab.style.display = (tab === 'shopping') ? 'block' : 'none';
+  });
+
+  // ---------- open/close wiring ----------
+  // Default state (closed): FAB opens the modal
+  setFabToOpen();
+
+  // Close modal actions restore FAB to open-mode
+  if (closeBtn) closeBtn.addEventListener('click', () => { modal.classList.remove('show'); setFabToOpen(); });
+  if (backdrop) backdrop.addEventListener('click', () => { modal.classList.remove('show'); setFabToOpen(); });
+});
+  /* ====== Recipe Step Ingredient Autocomplete (checkbox-triggered) ======
+   Triggers when the caret is on a line that starts with "- [ ] "
+   and user types at least 1 character. Shows ingredients from the
+   current recipe (best-effort sources below).
+====================================================================== */
+
+
+// Collect detailed ingredients (name, qty, size, notes) for the active recipe
+function getActiveRecipeIngredientsDetailed() {
+  const out = [];
+
+  // 1) From a provided active recipe object (if present)
+  if (window.activeRecipe && Array.isArray(window.activeRecipe.ingredients)) {
+    window.activeRecipe.ingredients.forEach(x => {
+      if (!x) return;
+      if (typeof x === 'string') {
+        const name = String(x).trim();
+        if (name) out.push({ name, qty: '', size: '', notes: '' });
+      } else {
+        const name  = (x.name  || '').toString().trim();
+        const qty   = (x.qty   || '').toString().trim();
+        const size  = (x.size  || '').toString().trim();
+        const notes = (x.notes || '').toString().trim();
+        if (name) out.push({ name, qty, size, notes });
+      }
+    });
+  }
+
+  // 2) Live editor rows (the modal you type in)
+  document.querySelectorAll('#rmIngredients .ing-row').forEach(row => {
+    const name  = ((row.querySelector('.ing-name')?.value)  || (row.querySelector('.ing-name')?.textContent) || '').trim();
+    const qty   = (row.querySelector('.ing-qty')?.value  || '').trim();
+    const size  = (row.querySelector('.ing-size')?.value || '').trim();
+    const notes = (row.querySelector('.ing-notes')?.value|| '').trim();
+    if (name) out.push({ name, qty, size, notes });
+  });
+
+  // 3) DOM fallbacks elsewhere on the page (names only)
+  document.querySelectorAll('[data-ingredient-name]').forEach(el => {
+    const name = (el.getAttribute('data-ingredient-name') || '').trim();
+    if (name) out.push({ name, qty: '', size: '', notes: '' });
+  });
+  document.querySelectorAll('.ingredient-name').forEach(el => {
+    const name = (el.textContent || '').trim();
+    if (name) out.push({ name, qty: '', size: '', notes: '' });
+  });
+
+  return out;
+}
+
+
+
+function attachStepAutocomplete(ta) {
+  const wrapper = document.createElement('div');
+  wrapper.style.position = 'relative';
+  wrapper.style.width = '100%';
+  ta.parentNode.insertBefore(wrapper, ta);
+  wrapper.appendChild(ta);
+
+  const list = document.createElement('div');
+  list.className = 'stepAutoList';
+  list.setAttribute('role', 'listbox');
+  wrapper.appendChild(list);
+
+  let items = [];
+  let highlighted = -1;
+  let lastAnchor = null;
+  let lastQuery = '';
+  const CHECKBOX_LINE = /^\s*(?:-\s*)?(?:\[\s?\]|☐)\s*(.*)$/;
+
+  function closeList() {
+    list.style.display = 'none';
+    list.innerHTML = '';
+    items = [];
+    highlighted = -1;
+  }
+
+  function openList() {
+    list.style.left = '0px';
+    list.style.top = ta.offsetHeight + 'px';
+    list.style.width = ta.offsetWidth + 'px';
+    list.style.display = 'block';
+  }
+
+  function renderList() {
+    list.innerHTML = '';
+    items.forEach((txt, i) => {
+      const item = document.createElement('div');
+      item.className = 'stepAutoItem';
+      item.setAttribute('role', 'option');
+      item.setAttribute('aria-selected', i === highlighted ? 'true' : 'false');
+      item.textContent = txt;
+      item.addEventListener('mouseenter', () => { highlighted = i; renderList(); });
+      item.addEventListener('mousedown', (ev) => {
+        ev.preventDefault();
+        commitChoice(i);
+      });
+      list.appendChild(item);
+    });
+    if (items.length) openList(); else closeList();
+  }
+
+  function moveHighlight(delta) {
+    if (!items.length) return;
+    highlighted = (highlighted + delta + items.length) % items.length;
+    renderList();
+    const el = list.children[highlighted];
+    if (el) {
+      const top = el.offsetTop, bottom = top + el.offsetHeight;
+      if (list.scrollTop > top) list.scrollTop = top;
+      else if (list.scrollTop + list.clientHeight < bottom) list.scrollTop = bottom - list.clientHeight;
+    }
+  }
+
+  function commitChoice(index) {
+    if (index < 0 || index >= items.length || !lastAnchor) return;
+    const choice = items[index];
+    const { lineStart, insertFrom, caretAt } = lastAnchor;
+    const v = ta.value;
+    const before = v.slice(0, insertFrom);
+    const after  = v.slice(caretAt);
+    const newVal = before + choice + after;
+    const newCaret = (before + choice).length;
+    ta.value = newVal;
+    ta.focus();
+    ta.setSelectionRange(newCaret, newCaret);
+    closeList();
+  }
+
+  function trySuggest() {
+    const v = ta.value;
+    const caret = ta.selectionStart;
+    const lineStart = v.lastIndexOf('\n', Math.max(0, caret - 1)) + 1;
+    const lineEnd = v.indexOf('\n', caret);
+    const line = v.slice(lineStart, lineEnd === -1 ? v.length : lineEnd);
+    const m = line.match(CHECKBOX_LINE);
+    if (!m) { closeList(); return; }
+
+    const textAfterCheckbox = m[1];
+    const caretInLine = caret - lineStart;
+    const offsetAfter = line.indexOf(textAfterCheckbox);
+    if (offsetAfter === -1 || caretInLine < offsetAfter) { closeList(); return; }
+
+    const typed = textAfterCheckbox.slice(0, Math.max(0, caretInLine - offsetAfter)).trimStart();
+    if (!typed || typed.length < 1) { closeList(); return; }
+
+    // Build suggestions: match by NAME, display as "qty size name"
+    const pool = getActiveRecipeIngredientsDetailed();
+    const q = typed.toLowerCase();
+    const matches = pool
+      .filter(obj => (obj && obj.name && obj.name.toLowerCase().startsWith(q)))
+      .slice(0, 50);
+    const toLabel = (o) => [o.qty, o.size, o.name].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+
+    items = matches.map(toLabel);
+    highlighted = items.length ? 0 : -1;
+
+    const insertFrom = lineStart + offsetAfter + (textAfterCheckbox.length - textAfterCheckbox.trimStart().length);
+    lastAnchor = { lineStart, insertFrom, caretAt: caret };
+    lastQuery = typed;
+
+    renderList();
+  }
+
+  ta.addEventListener('input', trySuggest);
+  ta.addEventListener('click', trySuggest);
+  ta.addEventListener('keyup', trySuggest);
+
+  ta.addEventListener('keydown', (e) => {
+    if (list.style.display === 'block') {
+      if (e.key === 'ArrowDown') { e.preventDefault(); moveHighlight(+1); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); moveHighlight(-1); }
+      else if (e.key === 'Enter') {
+        if (highlighted >= 0) { e.preventDefault(); commitChoice(highlighted); }
+      } else if (e.key === 'Escape') { e.preventDefault(); closeList(); }
+    }
+  });
+
+  ta.addEventListener('blur', () => setTimeout(closeList, 120));
+}
+
+
+/** Initialize on any step textarea we can find.
+ *  If your step textareas have a known selector, replace query below with it.
+ */
+function initStepAutocomplete() {
+  const selectors = [
+    'textarea.step-text',
+    'textarea[data-step-text]',
+    'textarea[name="stepText"]',
+    'textarea[id*="step"]'
+  ];
+  selectors.forEach(sel => {
+    document.querySelectorAll(sel).forEach(ta => {
+      if (ta.dataset.stepAcInit === '1') return; // prevent double-wrap
+      attachStepAutocomplete(ta);
+      ta.dataset.stepAcInit = '1';
+    });
+  });
+}
+
+
+// Run after DOM ready (safe if called multiple times)
+document.addEventListener('DOMContentLoaded', initStepAutocomplete);
+// If your UI adds step editors dynamically, expose a global you can call after rendering:
+window.initStepIngredientAutocomplete = initStepAutocomplete;
+/* ====== /Recipe Step Ingredient Autocomplete ====== */
+</script>
+
+</script>
+
+
+</body>
+
+
+
+
   </html>
 
 
