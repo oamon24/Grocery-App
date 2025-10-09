@@ -8944,88 +8944,129 @@ window.initStepIngredientAutocomplete = initStepAutocomplete;
 </div>
 
 <script id="ocr-ui">
-(function(){
-  const openBtn   = document.getElementById('importKptnBtn'); // existing button you kept
-  const overlay   = document.getElementById('ocrOverlay');
-  const backdrop  = document.getElementById('ocrBackdrop');
-  const closeBtn  = document.getElementById('ocrClose');
-  const drop      = document.getElementById('ocrDrop');
-  const pickBtn   = document.getElementById('ocrPick');
-  const fileInput = document.getElementById('ocrInput');
-  const grid      = document.getElementById('previewGrid');
-  const countEl   = document.getElementById('ocrCount');
-  const runBtn    = document.getElementById('ocrRun');
+(async function () {
+  // Load Tesseract.js from CDN once
+  if (!window.Tesseract) {
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js";
+    document.head.appendChild(s);
+    await new Promise(r => (s.onload = r));
+  }
+
+  const openBtn   = document.getElementById("importKptnBtn");
+  const overlay   = document.getElementById("ocrOverlay");
+  const backdrop  = document.getElementById("ocrBackdrop");
+  const closeBtn  = document.getElementById("ocrClose");
+  const drop      = document.getElementById("ocrDrop");
+  const pickBtn   = document.getElementById("ocrPick");
+  const fileInput = document.getElementById("ocrInput");
+  const grid      = document.getElementById("previewGrid");
+  const countEl   = document.getElementById("ocrCount");
+  const runBtn    = document.getElementById("ocrRun");
 
   if (!overlay || !openBtn) return;
 
   let files = [];
 
-  function openOverlay(){
-    overlay.classList.add('show');
-    document.body.classList.add('modal-open');
+  function openOverlay() {
+    overlay.classList.add("show");
+    document.body.classList.add("modal-open");
     drop && drop.focus();
   }
-  function closeOverlay(){
-    overlay.classList.remove('show');
-    document.body.classList.remove('modal-open');
+  function closeOverlay() {
+    overlay.classList.remove("show");
+    document.body.classList.remove("modal-open");
   }
 
-  function renderPreviews(){
-    grid.innerHTML = '';
+  function renderPreviews() {
+    grid.innerHTML = "";
     files.forEach((f, idx) => {
       const url = URL.createObjectURL(f);
-      const el = document.createElement('div');
-      el.className = 'pv';
-      el.innerHTML = `<img src="${url}" alt="screenshot ${idx+1}"><button class="rm" type="button" data-i="${idx}">✕</button>`;
+      const el = document.createElement("div");
+      el.className = "pv";
+      el.innerHTML = `<img src="${url}" alt="screenshot ${idx + 1}">
+        <button class="rm" type="button" data-i="${idx}">✕</button>`;
       grid.appendChild(el);
     });
     countEl.textContent = String(files.length);
     runBtn.disabled = files.length === 0;
   }
 
-  function addFiles(list){
+  function addFiles(list) {
     const arr = Array.from(list || []);
     if (!arr.length) return;
-    // Keep only images
     const imgs = arr.filter(f => /^image\//.test(f.type));
     files = files.concat(imgs);
     renderPreviews();
   }
 
-  // Open/close
-  openBtn.addEventListener('click', openOverlay);
-  backdrop.addEventListener('click', closeOverlay);
-  closeBtn.addEventListener('click', closeOverlay);
+  openBtn.addEventListener("click", openOverlay);
+  backdrop.addEventListener("click", closeOverlay);
+  closeBtn.addEventListener("click", closeOverlay);
 
-  // Pick via button
-  pickBtn.addEventListener('click', () => fileInput.click());
-  fileInput.addEventListener('change', (e) => addFiles(e.target.files));
+  pickBtn.addEventListener("click", () => fileInput.click());
+  fileInput.addEventListener("change", e => addFiles(e.target.files));
 
-  // Drag & drop
-  ['dragenter','dragover'].forEach(ev =>
-    drop.addEventListener(ev, (e)=>{ e.preventDefault(); e.stopPropagation(); drop.classList.add('drag'); })
+  ["dragenter", "dragover"].forEach(ev =>
+    drop.addEventListener(ev, e => {
+      e.preventDefault();
+      e.stopPropagation();
+      drop.classList.add("drag");
+    })
   );
-  ['dragleave','drop'].forEach(ev =>
-    drop.addEventListener(ev, (e)=>{ e.preventDefault(); e.stopPropagation(); drop.classList.remove('drag'); })
+  ["dragleave", "drop"].forEach(ev =>
+    drop.addEventListener(ev, e => {
+      e.preventDefault();
+      e.stopPropagation();
+      drop.classList.remove("drag");
+    })
   );
-  drop.addEventListener('drop', (e)=> addFiles(e.dataTransfer.files));
+  drop.addEventListener("drop", e => addFiles(e.dataTransfer.files));
 
-  // Remove preview
-  grid.addEventListener('click', (e)=>{
-    const b = e.target.closest('button.rm');
+  grid.addEventListener("click", e => {
+    const b = e.target.closest("button.rm");
     if (!b) return;
     const i = Number(b.dataset.i);
-    files.splice(i,1);
+    files.splice(i, 1);
     renderPreviews();
   });
 
-  // Placeholder action for next step
-  runBtn.addEventListener('click', ()=>{
-    // Step 2 (next): wire Tesseract.js OCR here.
-    // For now, just close to verify UI flow.
+  // OCR runner
+  runBtn.addEventListener("click", async () => {
+    if (!files.length) return;
+    runBtn.disabled = true;
+    runBtn.textContent = "Running OCR...";
+
+    const results = [];
+    for (const f of files) {
+      const url = URL.createObjectURL(f);
+      try {
+        const { data } = await Tesseract.recognize(url, "deu+eng", {
+          logger: m => {
+            if (m.status === "recognizing text") {
+              runBtn.textContent = `Processing (${Math.round(m.progress * 100)}%)`;
+            }
+          },
+        });
+        console.log("OCR result for", f.name, ":\n", data.text);
+        results.push(data.text);
+      } catch (err) {
+        console.error("OCR error for", f.name, err);
+      }
+    }
+
+    runBtn.textContent = "Run OCR";
+    runBtn.disabled = false;
     closeOverlay();
+
+    // Combine and log full text for now
+    const fullText = results.join("\n\n---\n\n");
+    console.log("Combined OCR text:\n", fullText);
+    alert("OCR complete! Check the browser console (F12) to see extracted text.");
   });
 })();
+</script>
+
 </script>
 
 </body>
