@@ -2086,8 +2086,10 @@ function subscribeRecipes(){
           const arr = [];
           snap.forEach(d => arr.push({ id: d.id, ...d.data() }));
           arr.sort((a,b) => (a.name||'').localeCompare(b.name||''));
-          // This already updates lastSnapshotRecipes, rebuilds tags, and reapplies filters.
           setRecipesAndRepaint(arr);
+
+          lastSnapshotRecipes = arr;
+          scheduleRenderRecipes(arr);
         }, (err) => {
           console.error(err);
           alert('Cannot read recipes. Check Firestore rules.');
@@ -2098,6 +2100,7 @@ function subscribeRecipes(){
       alert('Cannot read recipes. Check Firestore rules.');
     }
   }
+
 
 
 
