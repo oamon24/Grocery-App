@@ -6359,7 +6359,7 @@ function _clearIndex(recipeId){
 }
 
 
-    function open(recipe, startIndex=0){
+  function open(recipe, startIndex=0){
       if (!recipe) return;
 
       // Allow recipes with no steps; treat as empty array
@@ -6368,24 +6368,24 @@ function _clearIndex(recipeId){
       // Shallow-clone to avoid mutating the caller; ensure steps is always an array
       state.recipe = Object.assign({}, recipe, { steps: stepsArr });
 
-      // Clamp index; if no steps, index will be 0 and UI will show "No steps"
-// Prefer saved index if fresh; otherwise use caller's startIndex
-let desired = startIndex|0;
-try {
-  const saved = _getSavedIndex(state.recipe && state.recipe.id);
-  if (saved != null) desired = saved;
-} catch {}
-// Clamp index correctly: allow 0 (prep) through steps.length (last step)
-const maxIdx = stepsArr.length; 
-state.index = Math.max(0, Math.min(desired, maxIdx));
-// Touch timestamp so the entry stays fresh while cooking
-try { _saveIndex(state.recipe && state.recipe.id, state.index); } catch {}
+      // Use caller's startIndex when non-zero; otherwise fall back to saved
+      let desired = startIndex|0;
+      try {
+        const saved = _getSavedIndex(state.recipe && state.recipe.id);
+        if (saved != null && desired === 0) desired = saved;
+      } catch {}
+      // Clamp index correctly: allow 0 (prep) through steps.length (last step)
+      const maxIdx = stepsArr.length; 
+      state.index = Math.max(0, Math.min(desired, maxIdx));
+      // Touch timestamp so the entry stays fresh while cooking
+      try { _saveIndex(state.recipe && state.recipe.id, state.index); } catch {}
 
-        render();
+      render();
       show();
       if (window.timers && typeof window.timers.unlockAudio === 'function') {
         window.timers.unlockAudio();
       }
+
 
 
       if (!state.listenersBound) {
@@ -6647,6 +6647,7 @@ try { _saveIndex(state.recipe && state.recipe.id, state.index); } catch {}
     goTo: () => { if (window.cookMode && typeof window.cookMode.setIndex === 'function') window.cookMode.setIndex(idx + 1); }
   };
 }
+
 
 
     function updateTimerUI(){
