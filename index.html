@@ -3213,34 +3213,72 @@ below.classList.toggle('hidden', (!it.notes && activeTab !== 'shopping'));
         return row;
       }
 
-      async function updateItem(id, patch){
-        if (!auth || !auth.currentUser || !household) return alert('Sign in and set household first.');
+      function updateItem(id, patch){
+        if (!auth || !auth.currentUser || !household) { alert('Sign in and set household first.'); return; }
         const ref = db.collection('lists').doc(household).collection('items').doc(id);
-        await ref.set(patch, { merge: true });
+        // Fire-and-forget; do not block UI
+        ref.set(patch, { merge: true })
+          .catch(e => {
+            console.error('Background save failed:', e);
+            try { showToast('Save failed'); } catch(_) {}
+          });
       }
 
-      async function updateItemAndCatalog(it, patch){
-        await updateItem(it.id, patch);
+      function updateItemAndCatalog(it, patch){
+        // Item patch in background
+        updateItem(it.id, patch);
+
+        // Catalog patch in background (best-effort)
         const name = (it.name||'').trim(); if (!name) return;
         const key = name.toLowerCase();
         const catRef = db.collection('catalog').doc(household).collection('items').doc(key);
         const data = { name, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
         if (patch.category !== undefined) data.category = patch.category || '';
         if (patch.routeOrder !== undefined) data.routeOrder = (patch.routeOrder === '' ? '' : Number(patch.routeOrder));
-        await catRef.set(data, { merge: true });
-        catalogCache.set(key, { category: data.category ?? '', routeOrder: data.routeOrder ?? '' });
+
+        catRef.set(data, { merge: true })
+          .then(() => {
+            catalogCache.set(key, { category: data.category ?? '', routeOrder: data.routeOrder ?? '' });
+          })
+          .catch(e => {
+            console.warn('Catalog background save failed:', e);
+          });
       }
 
-      async function removeItem(id){
+
+       function removeItem(id){
         if (!auth || !auth.currentUser || !household) return;
-        // best-effort: delete attached photo too
-        try{
-          const doc = await db.collection('lists').doc(household).collection('items').doc(id).get();
-          const d = doc.exists ? doc.data() : null;
-          if (d && d.photoPath) { try { await storage.ref().child(d.photoPath).delete(); } catch(e){} }
-        }catch(e){}
-        await db.collection('lists').doc(household).collection('items').doc(id).delete();
+
+        // Optimistic UI: drop row immediately
+        try {
+          if (Array.isArray(lastSnapshotItems)) {
+            lastSnapshotItems = lastSnapshotItems.filter(it => it.id !== id);
+            scheduleRenderItems(lastSnapshotItems);
+          }
+        } catch (_) {}
+
+        // Background delete (doc + best-effort photo)
+        Promise.resolve().then(async () => {
+          try {
+            const ref = db.collection('lists').doc(household).collection('items').doc(id);
+            try {
+              const snap = await ref.get();
+              const data = snap.exists ? snap.data() : null;
+              if (data && data.photoPath) {
+                try { await storage.ref().child(data.photoPath).delete(); } catch(_) {}
+              }
+            } catch (_) {}
+
+            await ref.delete();
+          } catch (err) {
+            console.error('Delete failed:', err);
+            try { showToast('Delete failed'); } catch(_) {}
+            // Optional resync
+            try { if (typeof subscribeList === 'function') subscribeList(); } catch(_) {}
+          }
+        });
       }
+
 
   const _clearBtn = $('clearChecked'); if (_clearBtn) _clearBtn.onclick = async () => {
     if (!auth || !auth.currentUser || !household) return alert('Sign in and set household first.');
@@ -3287,52 +3325,12 @@ below.classList.toggle('hidden', (!it.notes && activeTab !== 'shopping'));
           if ((routeOrder === '' || isNaN(routeOrder)) && (known.routeOrder || known.routeOrder===0)) routeOrder = known.routeOrder;
         }
 
-        // === UPDATE existing item if a suggestion was selected ===
+        // === UPDATE existing item if a suggestion was selected (background, non-blocking) ===
         if (selectedItemId){
-          try{
-            await updateItem(selectedItemId, {
-              name,
-              qty,
-              size,
-              notes,
-              category: category || '',
-              routeOrder: routeOrder === '' ? '' : Number(routeOrder),
-              checked: false, // force unchecked so it shows on the active list
-              updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-
-            if (photoFile){
-              try {
-                await uploadItemPhoto(photoFile, selectedItemId, selectedItemPhotoPath || null);
-              } catch(e){ console.warn('Photo upload during update failed:', e.message); }
-            }
-
-            // Update catalog (same as create path)
-            try{
-              await db.collection('catalog').doc(household).collection('items')
-                .doc(name.toLowerCase())
-                .set({
-                  name,
-                  category: category || '',
-                  routeOrder: routeOrder === '' ? '' : Number(routeOrder),
-                  updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                }, { merge: true });
-              catalogCache.set(name.toLowerCase(), {
-                category: category || '',
-                routeOrder: routeOrder === '' ? '' : Number(routeOrder)
-              });
-            } catch(e){ console.warn('Catalog save failed:', e.message); }
-
-            showToast(selectedItemInitialChecked ? `Unchecked and updated '${name}'.` : `Updated '${name}'.`);
-          } catch(e){
-            alert('Failed to update: ' + (e.message || e));
-            return;
-          }
-
-                   // Clear form + state
+          // Clear form + state immediately so the UI never waits
           $('itemName').value=''; $('itemQty').value=''; $('itemSize').value='';
           $('itemCategory').value=''; $('itemRoute').value=''; $('itemNotes').value='';
-          
+
           liveListQuery = '';                          // reset live filter
           scheduleRenderItems(lastSnapshotItems || []); // re-render full list
 
@@ -3340,9 +3338,52 @@ below.classList.toggle('hidden', (!it.notes && activeTab !== 'shopping'));
           const pn = $('photoName'); if (pn) pn.textContent = '';
           setPhotoPreview('');
           clearUpdateMode();
-          return;
 
+          // Kick off the update chain in the background
+          Promise.resolve().then(async () => {
+            try{
+              await updateItem(selectedItemId, {
+                name,
+                qty,
+                size,
+                notes,
+                category: category || '',
+                routeOrder: routeOrder === '' ? '' : Number(routeOrder),
+                checked: false, // force unchecked so it shows on the active list
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+              });
+
+              if (photoFile){
+                try {
+                  await uploadItemPhoto(photoFile, selectedItemId, selectedItemPhotoPath || null);
+                } catch(e){ console.warn('Photo upload during update failed:', e.message); }
+              }
+
+              // Update catalog (same as create path)
+              try{
+                await db.collection('catalog').doc(household).collection('items')
+                  .doc(name.toLowerCase())
+                  .set({
+                    name,
+                    category: category || '',
+                    routeOrder: routeOrder === '' ? '' : Number(routeOrder),
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                  }, { merge: true });
+                catalogCache.set(name.toLowerCase(), {
+                  category: category || '',
+                  routeOrder: routeOrder === '' ? '' : Number(routeOrder)
+                });
+              } catch(e){ console.warn('Catalog save failed:', e.message); }
+
+              showToast(selectedItemInitialChecked ? `Unchecked and updated '${name}'.` : `Updated '${name}'.`);
+            } catch(e){
+              alert('Failed to update: ' + (e.message || e));
+            }
+          });
+
+          return;
         }
+
 
         // === CREATE new item (optimistic, non-blocking) ===
         // 1) Prepare a client-id and optimistic payload
@@ -8741,19 +8782,29 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
 
-      await batch.commit();
-      showToast('Added to shopping list');
-
-      // Close Weekly Items modal and restore FAB (unchanged)
+      // Close Weekly Items modal immediately
       if (modal) modal.classList.remove('show');
       document.body.classList.remove('modal-open');
       setFabToOpen();
+      showToast('Adding to shopping list…');
+
+      // Background commit
+      Promise.resolve().then(async () => {
+        try {
+          await batch.commit();
+          showToast('Added to shopping list');
+        } catch (e) {
+          console.error(e);
+          showToast('Add failed');
+        }
+      });
 
     } catch(e){
       console.error(e);
       alert('Add failed: ' + (e.message || e));
     }
   }
+
 
 
 
