@@ -2071,7 +2071,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
 
-  async function subscribeRecipes(){
+function subscribeRecipes(){
     if (unsubRecipes) { unsubRecipes(); unsubRecipes = null; }
     if (!auth || !auth.currentUser || !household) { setRecipesAndRepaint([]); return; }
 
@@ -2086,10 +2086,8 @@ document.addEventListener('DOMContentLoaded', () => {
           const arr = [];
           snap.forEach(d => arr.push({ id: d.id, ...d.data() }));
           arr.sort((a,b) => (a.name||'').localeCompare(b.name||''));
+          // This already updates lastSnapshotRecipes, rebuilds tags, and reapplies filters.
           setRecipesAndRepaint(arr);
-
-          lastSnapshotRecipes = arr;
-          scheduleRenderRecipes(arr);
         }, (err) => {
           console.error(err);
           alert('Cannot read recipes. Check Firestore rules.');
@@ -2100,6 +2098,7 @@ document.addEventListener('DOMContentLoaded', () => {
       alert('Cannot read recipes. Check Firestore rules.');
     }
   }
+
 
 
 
