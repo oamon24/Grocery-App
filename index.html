@@ -3280,23 +3280,34 @@ below.classList.toggle('hidden', (!it.notes && activeTab !== 'shopping'));
       }
 
 
-  const _clearBtn = $('clearChecked'); if (_clearBtn) _clearBtn.onclick = async () => {
-    if (!auth || !auth.currentUser || !household) return alert('Sign in and set household first.');
+  const _clearBtn = $('clearChecked'); if (_clearBtn) _clearBtn.onclick = () => {
+    if (!auth || !auth.currentUser || !household) { alert('Sign in and set household first.'); return; }
 
-    // Uncheck all checked items; do NOT delete docs or photos.
-    const qs = await db.collection('lists').doc(household).collection('items')
-      .where('checked','==',true).get();
+    // Immediate feedback; do not block UI
+    showToast('Unchecking items…');
 
-    if (qs.empty) { showToast('Nothing to clear'); return; }
+    // Background uncheck
+    Promise.resolve().then(async () => {
+      try {
+        const qs = await db.collection('lists').doc(household).collection('items')
+          .where('checked','==',true).get();
 
-    const batch = db.batch();
-    qs.forEach(doc => {
-      batch.set(doc.ref, { checked: false, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+        if (qs.empty) { showToast('Nothing to clear'); return; }
+
+        const batch = db.batch();
+        qs.forEach(doc => {
+          batch.set(doc.ref, { checked: false, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+        });
+
+        await batch.commit();
+        showToast('Unchecked all items');
+      } catch (e) {
+        console.error('Clear checked failed:', e);
+        showToast('Uncheck failed');
+      }
     });
-
-    await batch.commit();
-    showToast('Unchecked all items');
   };
+
 
 
       // === Add new item ===
