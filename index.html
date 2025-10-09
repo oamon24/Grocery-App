@@ -2261,74 +2261,184 @@ const mode = (activeTab === 'shopping')
         left.appendChild(tags);
       }
 
-      // Helper to inject the full-overlay pink "Cook Mode" button into a hover target
-        // Helper to inject the full-overlay pink "Cook Mode" button into a tap target (2-tap flow)
-      // Helper to inject the full-overlay pink "Cook Mode" button into a tap target (true 2-tap flow)
-      // Helper to inject the full-overlay pink "Cook Mode" button into a tap target (true 2-tap flow; no auto-hide)
-        // Helper to inject the full-overlay pink "Cook Mode" button into a tap target (true 2-tap flow; stays visible)
-    function attachCookOverlay(hoverTarget){
-  hoverTarget.style.position = hoverTarget.style.position || 'relative';
+      // Helper to inject the full-overlay pink "Cook Mode" button into a tap/hover target
+      // Also supports long-press to approve via per-user tag
+      function attachCookOverlay(hoverTarget){
+        hoverTarget.style.position = hoverTarget.style.position || 'relative';
 
-  const isCoarse = window.matchMedia && window.matchMedia('(pointer:coarse)').matches;
+        const isCoarse = window.matchMedia && window.matchMedia('(pointer:coarse)').matches;
 
-  // Create the overlay button (kept for desktop hover use)
-  const cookBtn = document.createElement('button');
-  cookBtn.type = 'button';
-  cookBtn.textContent = 'Cook Mode';
-  cookBtn.setAttribute('aria-label', 'Open Cook Mode for ' + (r.name||'Recipe'));
-  cookBtn.className = 'btn-pink';
-  Object.assign(cookBtn.style, {
-    position:'absolute', inset:'0', width:'100%', height:'100%',
-    display:'none', opacity:'0', transition:'opacity 200ms ease',
-    borderRadius:'10px', fontSize:'14px', fontWeight:'600', zIndex:'2',
-    alignItems:'center', justifyContent:'center', textAlign:'center', cursor:'pointer'
-  });
-  hoverTarget.appendChild(cookBtn);
+        // Build the overlay button (desktop hover)
+        const cookBtn = document.createElement('button');
+        cookBtn.type = 'button';
+        cookBtn.textContent = 'Cook Mode';
+        cookBtn.setAttribute('aria-label', 'Open Cook Mode for ' + (r.name||'Recipe'));
+        cookBtn.className = 'btn-pink';
+        Object.assign(cookBtn.style, {
+          position:'absolute', inset:'0', width:'100%', height:'100%',
+          display:'none', opacity:'0', transition:'opacity 200ms ease',
+          borderRadius:'10px', fontSize:'14px', fontWeight:'600', zIndex:'2',
+          alignItems:'center', justifyContent:'center', textAlign:'center', cursor:'pointer'
+        });
+        hoverTarget.appendChild(cookBtn);
 
-  // Touch (phones/tablets): single tap opens immediately
-  if (isCoarse) {
-    hoverTarget.addEventListener('click', (ev) => {
-      ev.stopPropagation();
-      if (window.cookMode && typeof window.cookMode.open === 'function') {
-        window.cookMode.open(r, 0);
+        // --- Approval popup (Yes adds tag, No removes) ----------------------
+        function tagForEmail(email){
+          const e = String(email||'').toLowerCase();
+          if (e === 'damon@damon.com') return 'Damon Approved';
+          if (e === 'ines@ines.com')   return 'Ines Approved';
+          return null;
+        }
+
+        function openApprovePopup(recipe){
+          const email = auth && auth.currentUser && auth.currentUser.email;
+          const tag = tagForEmail(email);
+          if (!tag){
+            if (typeof showToast === 'function') showToast('Approval not available for this account');
+            else alert('Approval not available for this account');
+            return;
+          }
+
+          // Lazy-create a lightweight popup using the existing popup styles
+          let pop = document.getElementById('approvePopup');
+          if (!pop){
+            pop = document.createElement('div');
+            pop.id = 'approvePopup';
+            pop.className = 'popup-backdrop';
+            pop.setAttribute('role','dialog');
+            pop.setAttribute('aria-modal','true');
+            pop.innerHTML = `
+              <div class="popup" role="document">
+                <h3>Like this recipe?</h3>
+                <div class="choices">
+                  <button id="apYes"  type="button">Yes</button>
+                  <button id="apNo"   type="button">No</button>
+                  <button id="apCancel" type="button">Cancel</button>
+                </div>
+              </div>`;
+            document.body.appendChild(pop);
+          }
+
+          const close = () => {
+            pop.classList.remove('show');
+            pop.setAttribute('aria-hidden','true');
+            pop.onclick = null;
+            document.removeEventListener('keydown', onEsc);
+            ['apYes','apNo','apCancel'].forEach(id=>{
+              const b = document.getElementById(id);
+              if (b) b.onclick = null;
+            });
+          };
+          const onEsc = (e)=>{ if (e.key === 'Escape') close(); };
+
+          pop.classList.add('show');
+          pop.setAttribute('aria-hidden','false');
+          document.addEventListener('keydown', onEsc);
+          pop.onclick = (e)=>{ if (e.target === pop) close(); };
+
+          const recipesCol = db.collection('recipes').doc(household).collection('recipes');
+          const docRef = recipesCol.doc(recipe.id);
+
+          const yes = document.getElementById('apYes');
+          const no  = document.getElementById('apNo');
+          const ca  = document.getElementById('apCancel');
+
+          if (yes) yes.onclick = async () => {
+            try {
+              await docRef.set({ 
+                tags: firebase.firestore.FieldValue.arrayUnion(tag),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                updatedBy: email || 'unknown'
+              }, { merge:true });
+              if (typeof showToast === 'function') showToast(tag);
+            } catch(e){ console.warn(e); }
+            close();
+          };
+
+          if (no) no.onclick = async () => {
+            try {
+              await docRef.set({ 
+                tags: firebase.firestore.FieldValue.arrayRemove(tag),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                updatedBy: email || 'unknown'
+              }, { merge:true });
+              if (typeof showToast === 'function') showToast('Removed ' + tag);
+            } catch(e){ console.warn(e); }
+            close();
+          };
+
+          if (ca) ca.onclick = close;
+        }
+        // --------------------------------------------------------------------
+
+        // Long-press detection on all pointers
+        let lpTimer = null;
+        let longPressed = false;
+        const LP_MS = 600;
+
+        function clearLP(){ if (lpTimer){ clearTimeout(lpTimer); lpTimer=null; } }
+
+        hoverTarget.addEventListener('pointerdown', () => {
+          longPressed = false;
+          // Show desktop overlay if hidden
+          if (cookBtn.style.display === 'none') {
+            // don’t block long-press
+            cookBtn.style.display = cookBtn.style.display;
+          }
+          lpTimer = setTimeout(() => {
+            longPressed = true;
+            openApprovePopup(r);
+          }, LP_MS);
+        });
+        ['pointerup','pointerleave','pointercancel'].forEach(ev=>{
+          hoverTarget.addEventListener(ev, clearLP);
+        });
+
+        // Coarse pointers: single tap opens Cook Mode; long-press handled above
+        if (isCoarse) {
+          hoverTarget.addEventListener('click', (ev) => {
+            if (longPressed) { ev.stopPropagation(); return; }
+            ev.stopPropagation();
+            if (window.cookMode && typeof window.cookMode.open === 'function') {
+              window.cookMode.open(r, 0);
+            }
+          }, { passive:true });
+        } else {
+          // Desktop two-step reveal
+          let hideTimer=null, fadeTimer=null, ignoreNext=false;
+          const showBtn = () => {
+            ignoreNext = true;
+            if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+            if (fadeTimer) { clearTimeout(fadeTimer); fadeTimer = null; }
+            cookBtn.style.display = 'flex';
+            requestAnimationFrame(() => { cookBtn.style.opacity = '1'; });
+            hideTimer = setTimeout(() => hideBtn(), 1200);
+          };
+          const hideBtn = () => {
+            ignoreNext = false;
+            if (hideTimer) { clearTimeout(hideTimer); hideTimer=null; }
+            cookBtn.style.opacity = '0';
+            fadeTimer = setTimeout(() => { cookBtn.style.display='none'; fadeTimer=null; }, 220);
+          };
+
+          hoverTarget.addEventListener('pointerdown', () => {
+            if (cookBtn.style.display === 'none') showBtn();
+          });
+
+          cookBtn.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            if (longPressed) { longPressed=false; return; }
+            if (ignoreNext) { ignoreNext=false; return; }
+            if (window.cookMode && typeof window.cookMode.open === 'function') {
+              window.cookMode.open(r, 0);
+              hideBtn();
+            } else {
+              alert('Cook Mode module is not available.');
+            }
+          });
+        }
       }
-    }, { passive:true });
-    return; // skip the desktop two-step overlay
-  }
 
-  // Desktop (mouse): keep your existing 2-step “reveal then click” behavior
-  let hideTimer=null, fadeTimer=null, ignoreNext=false;
-
-  const showBtn = () => {
-    ignoreNext = true;
-    if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
-    if (fadeTimer) { clearTimeout(fadeTimer); fadeTimer = null; }
-    cookBtn.style.display = 'flex';
-    requestAnimationFrame(() => { cookBtn.style.opacity = '1'; });
-    hideTimer = setTimeout(() => hideBtn(), 1200); // a bit longer than 1s
-  };
-  const hideBtn = () => {
-    ignoreNext = false;
-    if (hideTimer) { clearTimeout(hideTimer); hideTimer=null; }
-    cookBtn.style.opacity = '0';
-    fadeTimer = setTimeout(() => { cookBtn.style.display='none'; fadeTimer=null; }, 220);
-  };
-
-  hoverTarget.addEventListener('pointerdown', () => {
-    if (cookBtn.style.display === 'none') showBtn();
-  });
-
-  cookBtn.addEventListener('click', (ev) => {
-    ev.stopPropagation();
-    if (ignoreNext) { ignoreNext=false; return; }
-    if (window.cookMode && typeof window.cookMode.open === 'function') {
-      window.cookMode.open(r, 0);
-      hideBtn();
-    } else {
-      alert('Cook Mode module is not available.');
-    }
-  });
-}
 
 
 
