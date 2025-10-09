@@ -5086,14 +5086,26 @@ if (window.initStepIngredientAutocomplete) {
         }, { merge: true });
       }
 
-      await batch.commit();
-      showToast('Added to shopping list');
+      // Close modal immediately for snappy UI
       closeAddToListModal();
+      showToast('Adding to shopping list…');
+
+      // Background commit
+      Promise.resolve().then(async () => {
+        try {
+          await batch.commit();
+          showToast('Added to shopping list');
+        } catch (e) {
+          console.error(e);
+          showToast('Add failed');
+        }
+      });
     } catch(e){
       console.error(e);
       alert('Add failed: ' + (e.message || e));
     }
   };
+
 
     </script>
 
