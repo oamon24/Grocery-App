@@ -4230,34 +4230,48 @@ if (rmAddStepBtn) rmAddStepBtn.onclick = () => { addStepRow(); markRecipeDirty()
       ? recipeDocRef.id
       : null;
 
-    // Upload any newly chosen step photos, then patch the steps array
+    // Kick off step photo uploads in background, then persist steps
+    const uploadTasks = [];
     if (recipeIdForUpload && Array.isArray(steps) && steps.length){
       for (const s of steps){
         const row = rowMap.get(s.id);
         if (row && row._file){
-          try {
-            const prevPath = row.dataset.photoPath || null;
-            const { url, path } = await uploadStepPhoto(row._file, recipeIdForUpload, s.id, prevPath);
-            s.photoUrl = url;
-            s.photoPath = path;
-            // reflect back to the DOM row so subsequent saves keep the info
-            row.dataset.photoUrl = url;
-            row.dataset.photoPath = path;
-            row._file = null; // clear reference
-          } catch (e) {
-            console.warn('Step photo upload failed for', s.id, e);
-            // keep existing s.photoUrl/path as-is if upload fails
-          }
+          const prevPath = row.dataset.photoPath || null;
+
+          // Start upload without awaiting to keep UI responsive
+          const task = uploadStepPhoto(row._file, recipeIdForUpload, s.id, prevPath)
+            .then(({ url, path }) => {
+              s.photoUrl = url;
+              s.photoPath = path;
+              // reflect back to the DOM row so subsequent saves keep the info
+              try { row.dataset.photoUrl = url; row.dataset.photoPath = path; } catch(_) {}
+              row._file = null;
+            })
+            .catch(e => console.warn('Step photo upload failed for', s.id, e));
+
+          uploadTasks.push(task);
         }
       }
     }
 
-    await recipeDocRef.set({
+    // Save ingredients/steps immediately; let uploads settle in the background
+    recipeDocRef.set({
       ingredients,
       steps,
       updatedAt: now,
       updatedBy: who
-    }, { merge: true });
+    }, { merge: true })
+    .catch(e => {
+      console.error(e);
+      alert('Saving ingredients/steps failed: ' + (e.message || e));
+    });
+
+    // Optionally reconcile after uploads finish (best-effort)
+    Promise.allSettled(uploadTasks).then(() => {
+      recipeDocRef.set({ steps, updatedAt: now, updatedBy: who }, { merge: true })
+        .catch(e => console.warn('Post-upload steps patch failed:', e));
+    });
+
   } catch (e) {
     console.error(e);
     alert('Saving ingredients/steps failed: ' + (e.message || e));
