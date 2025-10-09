@@ -1461,14 +1461,16 @@ window.editDirty       = window.editDirty       || new Set(); // set of ids that
       chip.className = 'preset' + (rcQuery.tags.includes(tag) ? ' active' : '');
       chip.textContent = `${tag} (${count})`;
       chip.title = 'Add filter';
-      chip.onclick = () => {
-        if (!rcQuery.tags.includes(tag)){
-      rcQuery.tags.push(tag);
-  saveRcQuery();
-  renderRecipeSearchUI();
-  applyRecipeFilter();
-
+   chip.onclick = () => {
+        const i = rcQuery.tags.indexOf(tag);
+        if (i >= 0) {
+          rcQuery.tags.splice(i, 1);
+        } else {
+          rcQuery.tags.push(tag);
         }
+        saveRcQuery();
+        renderRecipeSearchUI();
+        applyRecipeFilter();
       };
       topRow.appendChild(chip);
     }
