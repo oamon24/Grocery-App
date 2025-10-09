@@ -961,9 +961,11 @@
         </div>
       </div>
 
-      <div class="group">
-        <button id="btnOpenAddRecipe" class="primary" type="button">Add Recipe</button>
-      </div>
+<div class="group">
+  <button id="btnOpenAddRecipe" class="primary" type="button">Add Recipe</button>
+  <button id="importKptnBtn" type="button" title="Import from KptnCook">Import from KptnCook</button>
+</div>
+
     </div>
 
     <div id="recipeList" class="list" style="margin-top:12px;"></div>
@@ -8878,6 +8880,77 @@ window.initStepIngredientAutocomplete = initStepAutocomplete;
 
 </script>
 
+<!-- ==================== Import from KptnCook (small modal) ==================== -->
+<div id="kptnImportModal" class="modal" aria-hidden="true">
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="kptnImportTitle">
+    <div class="modal-head">
+      <h3 id="kptnImportTitle" style="margin:0;">Import from KptnCook</h3>
+      <button id="kptnImportClose" type="button" title="Close">✕</button>
+    </div>
+
+    <div class="modal-body">
+      <label>
+        <div>Paste KptnCook share link or ID</div>
+        <input id="kptnLinkInput" type="text" placeholder="https://share.kptncook.com/... or e.g. 4rpu82s4" />
+      </label>
+      <div class="muted" style="margin-top:6px;font-size:12px;">
+        Tip: You can paste just the ID. We won’t add spaces between numbers and units (e.g., <b>30g</b>, <b>2EL</b>).
+      </div>
+      <div id="kptnImportError" class="muted" style="color:crimson; display:none; margin-top:6px;"></div>
+    </div>
+
+    <div class="modal-foot">
+      <div style="flex:1"></div>
+      <button id="kptnImportConfirm" class="primary" type="button">Import</button>
+    </div>
+  </div>
+</div>
+
+<script id="kptn-import-ui">
+(function(){
+  const openBtn   = document.getElementById('importKptnBtn');
+  const modal     = document.getElementById('kptnImportModal');
+  const closeBtn  = document.getElementById('kptnImportClose');
+  const confirmBtn= document.getElementById('kptnImportConfirm');
+  const input     = document.getElementById('kptnLinkInput');
+  const errEl     = document.getElementById('kptnImportError');
+
+  if (!openBtn || !modal) return;
+
+  function openModal(){
+    modal.classList.add('show');
+    document.body.classList.add('modal-open');
+    errEl && (errEl.style.display = 'none');
+    setTimeout(() => input && input.focus(), 0);
+  }
+  function closeModal(){
+    modal.classList.remove('show');
+    document.body.classList.remove('modal-open');
+  }
+
+  openBtn.addEventListener('click', openModal);
+  closeBtn && closeBtn.addEventListener('click', closeModal);
+
+  // Click on backdrop closes
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeModal();
+  });
+
+  // Keyboard helpers
+  input && input.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); closeModal(); }
+    if (e.key === 'Enter')  { e.preventDefault(); confirmBtn && confirmBtn.click(); }
+  });
+
+  // NOTE: confirmBtn will be wired in Step 4 to call the backend importer.
+  if (confirmBtn){
+    confirmBtn.addEventListener('click', () => {
+      // For now, just close; real import logic comes in a later step.
+      closeModal();
+    });
+  }
+})();
+</script>
 
 </body>
 
