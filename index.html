@@ -963,7 +963,7 @@
 
 <div class="group">
 <button id="btnOpenAddRecipe" class="primary" type="button">Add Recipe</button>
-<button id="importKptnBtn" class="primary" type="button" title="Import from KptnCook">Import from KptnCook</button>
+<button id="importRecipe" class="primary" type="button" title="Import Recipe">Import Recipe</button>
 
 
 </div>
@@ -8882,6 +8882,137 @@ window.initStepIngredientAutocomplete = initStepAutocomplete;
 
 </script>
 
+<!-- ===== Import Recipe from JSON (adds ingredients + steps with timers) ===== -->
+<input id="importJsonFile" type="file" accept="application/json" style="display:none">
+
+<script>
+(function(){
+  const btn = document.getElementById('importRecipe');
+  const fileInput = document.getElementById('importJsonFile');
+  if (!btn || !fileInput) return;
+
+  // Open file chooser
+  btn.addEventListener('click', () => fileInput.click());
+
+  // When file selected
+  fileInput.addEventListener('change', async () => {
+    const f = fileInput.files && fileInput.files[0];
+    fileInput.value = ''; // reset
+    if (!f) return;
+
+    try {
+      const text = await f.text();
+      const json = JSON.parse(text);
+      importIntoEditor(json);
+    } catch (e) {
+      console.error(e);
+      alert('Could not read this JSON file.');
+    }
+  });
+
+  // ---------- HELPERS ----------
+
+  // Parse lower bound of a time expression → seconds
+  function parseLowerTimeToSeconds(s){
+    if (!s || typeof s !== 'string') return 0;
+    s = s.toLowerCase();
+
+    // mm:ss
+    const mmss = s.match(/(\d{1,3})\s*:\s*(\d{1,2})/);
+    if (mmss) {
+      const mm = parseInt(mmss[1],10) || 0;
+      const ss = Math.min(59, parseInt(mmss[2],10) || 0);
+      return mm*60 + ss;
+    }
+
+    // range "6–8 min" or "6-8 min"
+    const rangeMin = s.match(/(\d+(?:\.\d+)?)\s*(?:–|-|to)\s*\d+(?:\.\d+)?\s*(?:m|min|minute|minutes)\b/);
+    if (rangeMin) return Math.round(parseFloat(rangeMin[1]) * 60);
+
+    // minutes only
+    const mins = s.match(/(\d+(?:\.\d+)?)\s*(?:m|min|minute|minutes)\b/);
+    if (mins) return Math.round(parseFloat(mins[1]) * 60);
+
+    // seconds only
+    const secs = s.match(/(\d+(?:\.\d+)?)\s*(?:s|sec|secs|second|seconds)\b/);
+    if (secs) return Math.round(parseFloat(secs[1]));
+
+    // fallback plain number → minutes
+    const num = s.match(/\b(\d+(?:\.\d+)?)\b/);
+    if (num) return Math.round(parseFloat(num[1]) * 60);
+
+    return 0;
+  }
+
+  // Normalize ingredient object
+  function mapIng(raw){
+    const name = (raw && raw.name) ? String(raw.name).trim() : '';
+    const qty  = (raw && raw.qty) ? String(raw.qty).replace(/\s+/g,'') : ''; // no space (e.g. 30g)
+    const size = (raw && raw.size) ? String(raw.size).trim() : '';
+    const notes= (raw && raw.notes) ? String(raw.notes).trim() : '';
+    return { name, qty, size, notes };
+  }
+
+  // Import JSON payload into the editor
+  function importIntoEditor(payload){
+    // Open Add Recipe modal if available
+    if (typeof openRecipeModal === 'function') openRecipeModal('add');
+
+    const $ = (id) => document.getElementById(id);
+
+    // Name + portions
+    if (payload && payload.name) $('rmName').value = String(payload.name);
+    if (payload && payload.basePortions != null)
+      $('rmBasePortions').value = Math.max(1, parseInt(payload.basePortions,10) || 1);
+
+    // INGREDIENTS
+    const rmIngredients = $('rmIngredients');
+    if (rmIngredients) {
+      rmIngredients.innerHTML = '';
+      const list = Array.isArray(payload && payload.ingredients) ? payload.ingredients.map(mapIng) : [];
+      if (list.length === 0) list.push({ name:'', qty:'', size:'', notes:'' });
+      list.forEach(ing => {
+        if (typeof window.createIngRow === 'function') {
+          rmIngredients.appendChild(createIngRow(ing));
+        }
+      });
+    }
+
+    // STEPS (text + timer)
+    const rmStepsList = $('rmStepsList');
+    if (rmStepsList) {
+      rmStepsList.innerHTML = '';
+      const steps = Array.isArray(payload && payload.steps) ? payload.steps : [];
+      steps.forEach(s => {
+        const text = (s && s.text) ? String(s.text) : '';
+        let timerSec = 0;
+
+        if (typeof s.timerSeconds === 'number') {
+          timerSec = Math.max(0, s.timerSeconds|0);
+        } else if (s && s.timerText) {
+          timerSec = parseLowerTimeToSeconds(String(s.timerText));
+        } else {
+          timerSec = parseLowerTimeToSeconds(text);
+        }
+
+        if (typeof window.addStepRow === 'function') {
+          addStepRow({ text, timerSec });
+        }
+      });
+
+      if (typeof window.rmSteps_setupDnd === 'function') rmSteps_setupDnd();
+      if (typeof window.rmSteps_renumber === 'function') rmSteps_renumber();
+    }
+
+    // Mark editor dirty for save
+    if (typeof window.markRecipeDirty === 'function') markRecipeDirty();
+
+    // Focus for review
+    try { $('rmName').focus(); } catch(e){}
+  }
+})();
+</script>
+<!-- ===== /Import Recipe from JSON ===== -->
 
 </body>
 
