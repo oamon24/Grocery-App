@@ -6643,8 +6643,8 @@ try { _saveIndex(state.recipe && state.recipe.id, state.index); } catch {}
     recipeId: state.recipe.id || 'temp',
     stepId: step.id || String(idx),
     stepIndex: idx,
-    // Optional hook for drawer "Open Step"
-    goTo: () => { window.cookMode && window.cookMode.setIndex && window.cookMode.setIndex(state.index); }
+    // Jump to THIS step (UI is 1-based; prep=0)
+    goTo: () => { if (window.cookMode && typeof window.cookMode.setIndex === 'function') window.cookMode.setIndex(idx + 1); }
   };
 }
 
