@@ -2654,34 +2654,47 @@ const editingOpen = new Set();
         const cb = document.createElement('input');
         cb.type = 'checkbox';
         cb.checked = !!it.checked;
-  cb.onchange = async () => {
+  // Optimistic checkbox on List tab
+  cb.onchange = () => {
     const isChecked = !!cb.checked;
+
+    // Build patch (zero qty when checking)
     const patch = {
       checked: isChecked,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     };
+    if (isChecked) patch.qty = '0';
 
-    // If the user checks the box, zero the qty
+    // Snapshot previous state for rollback
+    const prevChecked = !!it.checked;
+    const prevQty = it.qty;
+
+    // Optimistic UI + local model
+    it.checked = isChecked;
     if (isChecked) {
-      patch.qty = '0';
+      it.qty = '0';
+      const qi = row.querySelector('.qty-inline');
+      if (qi) qi.value = '0';
     }
 
-    try {
-      await updateItem(it.id, patch);
-
-      // reflect local state
-      it.checked = isChecked;
-      if (isChecked) {
-        it.qty = '0';
-        // Update the inline qty input on this row (if present)
+    // Background write with rollback on failure
+    Promise.resolve().then(async () => {
+      try {
+        const ref = db.collection('lists').doc(household).collection('items').doc(it.id);
+        await ref.set(patch, { merge: true });
+      } catch (e) {
+        console.error('Checkbox update failed:', e);
+        showToast('Failed to update item');
+        // Roll back UI + model
+        it.checked = prevChecked;
+        it.qty = prevQty;
+        cb.checked = prevChecked;
         const qi = row.querySelector('.qty-inline');
-        if (qi) qi.value = '0';
+        if (qi) qi.value = prevQty || '';
       }
-    } catch (e) {
-      console.error('Checkbox update failed:', e);
-      showToast('Failed to update item');
-    }
+    });
   };
+
 
 
 
