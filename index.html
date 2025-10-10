@@ -3020,7 +3020,7 @@ if (!it.notes && activeTab === 'shopping') {
 }
 
 
-// Click-to-edit: swap display div → auto-growing textarea
+// Click-to-edit: swap display div → auto-growing textarea (optimistic)
 line2.addEventListener('click', () => {
   // Build textarea
   const ta = document.createElement('textarea');
@@ -3050,48 +3050,57 @@ line2.addEventListener('click', () => {
   autoGrow();
   ta.addEventListener('input', autoGrow);
 
-  const finish = async (commit) => {
+  const finish = (commit) => {
     const newVal = commit ? (ta.value || '').trim() : (it.notes || '');
+    const changed = commit && newVal !== (it.notes || '');
 
-    if (commit && newVal !== (it.notes || '')) {
+    // Restore display immediately, matching original UI rules
+    if (newVal) {
+      line2.textContent = newVal;
+      line2.classList.remove('muted');
+      line2.style.fontStyle = '';
+      ta.replaceWith(line2);
+      below.classList.remove('hidden');
+    } else {
+      if (activeTab === 'shopping') {
+        // Keep a clickable placeholder on Shopping tab
+        line2.textContent = 'Add note';
+        line2.classList.add('muted');
+        line2.style.fontStyle = 'italic';
+        ta.replaceWith(line2);
+        below.classList.remove('hidden');
+      } else {
+        // Non-Shopping: remove the line and (if no photo) hide the below row
+        ta.remove();
+        if (!it.photoUrl) {
+          below.classList.add('hidden');
+        }
+      }
+    }
+
+    if (!changed) return;
+
+    // Optimistic: update local state
+    const prev = it.notes || '';
+    it.notes = newVal;
+
+    // Background write with rollback on failure
+    Promise.resolve().then(async () => {
       try {
-        await updateItem(it.id, {
+        const ref = db.collection('lists').doc(household).collection('items').doc(it.id);
+        await ref.set({
           notes: newVal,
           updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-        it.notes = newVal;
+        }, { merge: true });
         showToast('Notes updated');
       } catch (e) {
         console.error('Notes inline update failed:', e);
         showToast('Failed to update notes');
+        // Roll back model and re-render this row to restore DOM state
+        it.notes = prev;
+        try { scheduleRenderItems(lastSnapshotItems || []); } catch(_) {}
       }
-    }
-
-    // Restore display node (or hide below row if now empty and no photo)
-if (newVal) {
-  line2.textContent = newVal;
-  line2.classList.remove('muted');
-  line2.style.fontStyle = '';
-  ta.replaceWith(line2);
-  below.classList.remove('hidden');
-} else {
-  if (activeTab === 'shopping') {
-    // Keep a clickable placeholder on Shopping tab
-    line2.textContent = 'Add note';
-    line2.classList.add('muted');
-    line2.style.fontStyle = 'italic';
-    ta.replaceWith(line2);
-    below.classList.remove('hidden');
-  } else {
-    // Non-Shopping: remove the line and (if no photo) hide the below row
-    ta.remove();
-    if (!it.photoUrl) {
-      below.classList.add('hidden');
-    }
-  }
-}
-
-
+    });
   };
 
   ta.addEventListener('keydown', (e) => {
@@ -3102,6 +3111,7 @@ if (newVal) {
 });
 
 below.append(mediaCell, line2);
+
 
 /* Keep the below row visible on the Shopping tab so the camera button is available
    even when there are no notes yet. Hide elsewhere if empty. */
