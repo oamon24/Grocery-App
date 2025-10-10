@@ -8318,7 +8318,7 @@ enableAutoListKeyboard(document.getElementById('wiItemName'), wiAutoList);
   const meta = document.createElement('div');
   meta.className = 'meta';
 
-  // Helper: editable chip (input)
+  // Helper: editable chip (input) — optimistic UI
   function editableChip({
     labelWhenEmpty,
     value,
@@ -8350,27 +8350,46 @@ enableAutoListKeyboard(document.getElementById('wiItemName'), wiAutoList);
       input.focus();
       try { input.select(); } catch {}
 
-      const finish = async (commit) => {
+      const finish = (commit) => {
         const next = commit ? (input.value || '').trim() : (value || '');
-        if (commit && next !== (value || '')) {
+        const changed = commit && next !== (value || '');
+
+        // Always restore display node immediately
+        setDisplay(next);
+        input.replaceWith(span);
+
+        // Reflect category badge + data-cat immediately
+        if (field === 'category') {
+          row.dataset.cat = ((next || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-'));
+        }
+
+        if (!changed) return;
+
+        // Optimistic: update local state now
+        const prevVal = value || '';
+        const prevIt  = it[field];
+        it[field] = next;
+        value = next;
+
+        // Background write with rollback on failure
+        Promise.resolve().then(async () => {
           try{
             await wiDocRef(it.id).set({
               [field]: next,
               updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             }, { merge:true });
-            it[field] = next;
-            value = next;
           }catch(e){
             console.error(`Failed to update ${field}`, e);
             showToast(`Failed to update ${field}`);
+            // Roll back local + UI
+            it[field] = prevIt;
+            value = prevVal;
+            setDisplay(prevVal);
+            if (field === 'category') {
+              row.dataset.cat = ((prevVal || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-'));
+            }
           }
-        }
-        setDisplay(next);
-        input.replaceWith(span);
-        // reflect category badge + data-cat for filtering if category changed
-        if (field === 'category') {
-          row.dataset.cat = ((next || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-'));
-        }
+        });
       };
 
       input.addEventListener('keydown', (e)=>{
@@ -8382,6 +8401,7 @@ enableAutoListKeyboard(document.getElementById('wiItemName'), wiAutoList);
 
     return span;
   }
+
 
   // Qty (allow empty → “Add qty”)
   const chipQty = editableChip({
