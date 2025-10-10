@@ -3136,66 +3136,132 @@ if (!it.photoUrl && !it.notes && activeTab !== 'shopping') {
 
         const qty = document.createElement('input');
         qty.className = 'qty'; qty.placeholder = 'Qty'; qty.value = it.qty || '';
-qty.onchange = () => { 
+qty.onchange = () => {
   window.currentEditingId = it.id; (window.editDirty||=new Set()).add(it.id);
-const eb = row.querySelector('.editbtn');  
-if (eb) {    
-  eb.textContent = 'Save';    
-  eb.classList.add('btn-pink');  
-}
-  updateItem(it.id, { qty: qty.value, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+  const eb = row.querySelector('.editbtn'); if (eb) { eb.textContent = 'Save'; eb.classList.add('btn-pink'); }
+  const prev = it.qty || '';
+  const next = qty.value;
+  it.qty = next;
+  Promise.resolve().then(async () => {
+    try{
+      const ref = db.collection('lists').doc(household).collection('items').doc(it.id);
+      await ref.set({ qty: next, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    } catch(e){
+      console.error('Qty save failed:', e);
+      showToast('Save failed');
+      it.qty = prev;
+      try { scheduleRenderItems(lastSnapshotItems || []); } catch(_) {}
+    }
+  });
 };
+
 
         const size = document.createElement('input');
         size.className = 'size'; size.placeholder = 'Size'; size.value = it.size || '';
-size.onchange = () => { 
+size.onchange = () => {
   window.currentEditingId = it.id; (window.editDirty||=new Set()).add(it.id);
-const eb = row.querySelector('.editbtn');  
-if (eb) {    
-  eb.textContent = 'Save';    
-  eb.classList.add('btn-pink');  
-}
-  updateItem(it.id, { size: size.value, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+  const eb = row.querySelector('.editbtn'); if (eb) { eb.textContent = 'Save'; eb.classList.add('btn-pink'); }
+  const prev = it.size || '';
+  const next = size.value;
+  it.size = next;
+  Promise.resolve().then(async () => {
+    try{
+      const ref = db.collection('lists').doc(household).collection('items').doc(it.id);
+      await ref.set({ size: next, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    } catch(e){
+      console.error('Size save failed:', e);
+      showToast('Save failed');
+      it.size = prev;
+      try { scheduleRenderItems(lastSnapshotItems || []); } catch(_) {}
+    }
+  });
 };
 
         const notes = document.createElement('input');
         notes.className = 'notes'; notes.placeholder = 'Notes'; notes.value = it.notes || '';
-notes.onchange = () => { 
+notes.onchange = () => {
   window.currentEditingId = it.id; (window.editDirty||=new Set()).add(it.id);
-const eb = row.querySelector('.editbtn');  
-if (eb) {    
-  eb.textContent = 'Save';    
-  eb.classList.add('btn-pink');  
-}
-  updateItem(it.id, { notes: notes.value, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+  const eb = row.querySelector('.editbtn'); if (eb) { eb.textContent = 'Save'; eb.classList.add('btn-pink'); }
+  const prev = it.notes || '';
+  const next = notes.value;
+  it.notes = next;
+  Promise.resolve().then(async () => {
+    try{
+      const ref = db.collection('lists').doc(household).collection('items').doc(it.id);
+      await ref.set({ notes: next, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    } catch(e){
+      console.error('Notes save failed:', e);
+      showToast('Save failed');
+      it.notes = prev;
+      try { scheduleRenderItems(lastSnapshotItems || []); } catch(_) {}
+    }
+  });
 };
+
 
         const cat  = document.createElement('select'); cat.className = 'category';
         ["", "Produce", "Meat & Poultry", "Fish & Seafood", "Dairy & Eggs", "Bakery", "Pantry", "Frozen", "Beverages", "Snacks & Confectionery", "Household & Cleaning", "Personal Care & Health", "Other"].forEach(opt => {
           const o = document.createElement('option'); o.value = opt; o.textContent = opt || '— Select —';
           if ((it.category||'') === opt) o.selected = true; cat.appendChild(o);
         });
-cat.onchange = () => { 
+cat.onchange = () => {
   window.currentEditingId = it.id; (window.editDirty||=new Set()).add(it.id);
-const eb = row.querySelector('.editbtn');  
-if (eb) {    
-  eb.textContent = 'Save';    
-  eb.classList.add('btn-pink');  
-}
-  updateItemAndCatalog(it, { category: cat.value, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+  const eb = row.querySelector('.editbtn'); if (eb) { eb.textContent = 'Save'; eb.classList.add('btn-pink'); }
+  const prev = it.category || '';
+  const next = cat.value;
+  it.category = next;
+  Promise.resolve().then(async () => {
+    try{
+      // Item
+      const ref = db.collection('lists').doc(household).collection('items').doc(it.id);
+      await ref.set({ category: next, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+      // Catalog best-effort
+      const name = (it.name||'').trim(); if (name) {
+        const key = name.toLowerCase();
+        await db.collection('catalog').doc(household).collection('items').doc(key)
+          .set({ name, category: next, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+        catalogCache.set(key, { ...(catalogCache.get(key)||{}), category: next });
+      }
+    } catch(e){
+      console.error('Category save failed:', e);
+      showToast('Save failed');
+      it.category = prev;
+      try { scheduleRenderItems(lastSnapshotItems || []); } catch(_) {}
+    }
+  });
 };
+
 
         const route = document.createElement('input');
         route.className = 'route'; route.type = 'number'; route.step = '0.1'; route.placeholder = 'Route'; route.value = it.routeOrder ?? '';
-route.onchange = () => { 
+route.onchange = () => {
   window.currentEditingId = it.id; (window.editDirty||=new Set()).add(it.id);
-const eb = row.querySelector('.editbtn');  
-if (eb) {    
-  eb.textContent = 'Save';    
-  eb.classList.add('btn-pink');  
-}
-  updateItemAndCatalog(it, { routeOrder: route.value ? Number(route.value) : '', updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+  const eb = row.querySelector('.editbtn'); if (eb) { eb.textContent = 'Save'; eb.classList.add('btn-pink'); }
+  const prev = (it.routeOrder === 0 || it.routeOrder) ? it.routeOrder : '';
+  const next = route.value ? Number(route.value) : '';
+  it.routeOrder = next;
+  Promise.resolve().then(async () => {
+    try{
+      // Item
+      const ref = db.collection('lists').doc(household).collection('items').doc(it.id);
+      await ref.set({ routeOrder: next, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+      // Catalog best-effort
+      const name = (it.name||'').trim(); if (name) {
+        const key = name.toLowerCase();
+        await db.collection('catalog').doc(household).collection('items').doc(key)
+          .set({ name, routeOrder: next, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+        const prevCat = catalogCache.get(key) || {};
+        catalogCache.set(key, { ...prevCat, routeOrder: next });
+      }
+    } catch(e){
+      console.error('Route save failed:', e);
+      showToast('Save failed');
+      it.routeOrder = prev;
+      try { scheduleRenderItems(lastSnapshotItems || []); } catch(_) {}
+    }
+  });
 };
+
 
    const changePhoto = document.createElement('button');
 changePhoto.type = 'button'; changePhoto.textContent = it.photoUrl ? 'Change photo' : 'Add photo';
@@ -3434,21 +3500,43 @@ removePhotoBtn.onclick = () => {
           if ((routeOrder === '' || isNaN(routeOrder)) && (known.routeOrder || known.routeOrder===0)) routeOrder = known.routeOrder;
         }
 
-        // === UPDATE existing item if a suggestion was selected (background, non-blocking) ===
+        // === UPDATE existing item if a suggestion was selected (optimistic) ===
         if (selectedItemId){
           // Clear form + state immediately so the UI never waits
           $('itemName').value=''; $('itemQty').value=''; $('itemSize').value='';
           $('itemCategory').value=''; $('itemRoute').value=''; $('itemNotes').value='';
 
           liveListQuery = '';                          // reset live filter
-          scheduleRenderItems(lastSnapshotItems || []); // re-render full list
+
+          // Optimistically patch the local item
+          let prev = null;
+          try {
+            if (Array.isArray(lastSnapshotItems)) {
+              const idx = lastSnapshotItems.findIndex(x => x && x.id === selectedItemId);
+              if (idx >= 0) {
+                prev = { ...lastSnapshotItems[idx] };
+                lastSnapshotItems[idx] = {
+                  ...lastSnapshotItems[idx],
+                  name,
+                  qty,
+                  size,
+                  notes,
+                  category: category || '',
+                  routeOrder: routeOrder === '' ? '' : Number(routeOrder),
+                  checked: false,
+                  updatedAt: { _client: Date.now() }
+                };
+              }
+              scheduleRenderItems(lastSnapshotItems || []);
+            }
+          } catch(_) {}
 
           newItemPhotoFile = null;
           const pn = $('photoName'); if (pn) pn.textContent = '';
           setPhotoPreview('');
           clearUpdateMode();
 
-          // Kick off the update chain in the background
+          // Kick off the update chain in the background, with rollback on failure
           Promise.resolve().then(async () => {
             try{
               await updateItem(selectedItemId, {
@@ -3458,7 +3546,7 @@ removePhotoBtn.onclick = () => {
                 notes,
                 category: category || '',
                 routeOrder: routeOrder === '' ? '' : Number(routeOrder),
-                checked: false, // force unchecked so it shows on the active list
+                checked: false,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
               });
 
@@ -3486,7 +3574,15 @@ removePhotoBtn.onclick = () => {
 
               showToast(selectedItemInitialChecked ? `Unchecked and updated '${name}'.` : `Updated '${name}'.`);
             } catch(e){
-              alert('Failed to update: ' + (e.message || e));
+              console.error(e);
+              showToast('Update failed');
+              // Roll back local change if we had one
+              try {
+                if (prev && Array.isArray(lastSnapshotItems)) {
+                  const idx = lastSnapshotItems.findIndex(x => x && x.id === selectedItemId);
+                  if (idx >= 0) { lastSnapshotItems[idx] = prev; scheduleRenderItems(lastSnapshotItems || []); }
+                }
+              } catch(_) {}
             }
           });
 
@@ -5228,37 +5324,101 @@ if (window.initStepIngredientAutocomplete) {
       const factor = Math.max(1, atlServings) / Math.max(1, atlBasePortions);
 
       const rows = Array.from(document.querySelectorAll('#atlList .checkrow'));
-      const chosen = rows.filter(r => r._cb && r._cb.checked);
+      const chosenRows = rows.filter(r => r._cb && r._cb.checked);
+      if (!chosenRows.length){ showToast('Nothing selected'); return; }
 
-      if (!chosen.length){ showToast('Nothing selected'); return; }
+      // Normalize chosen into simple ingredient objects
+      const chosen = chosenRows.map((row) => {
+        const ing = row._ing || {};
+        return {
+          name: String(ing.name || '').trim(),
+          nameKey: String(ing.nameKey || (ing.name||'').toLowerCase()),
+          qty: scaleQtyStr(ing.qty || '', factor),
+          size: String(ing.size || ''),
+          notes: String(ing.notes || '')
+        };
+      }).filter(x => !!x.name);
 
+      // ===== Optimistic merge into lastSnapshotItems =====
+      const itemsCol = db.collection('lists').doc(String(household)).collection('items');
+      const createdIds = [];
+      try {
+        lastSnapshotItems = Array.isArray(lastSnapshotItems) ? [...lastSnapshotItems] : [];
+        for (const ing of chosen){
+          const existing = (typeof findExistingItem === 'function')
+            ? findExistingItem(ing.nameKey || ing.name)
+            : null;
+
+          if (existing){
+            const newQty = (typeof addQtyStr === 'function')
+              ? addQtyStr(existing.qty || '', ing.qty || '')
+              : ((ing.qty || existing.qty || ''));
+            const idx = lastSnapshotItems.findIndex(x => x && x.id === existing.id);
+            if (idx >= 0) {
+              lastSnapshotItems[idx] = {
+                ...lastSnapshotItems[idx],
+                qty: newQty,
+                size: lastSnapshotItems[idx].size || ing.size || '',
+                notes: lastSnapshotItems[idx].notes || ing.notes || '',
+                checked: false,
+                updatedAt: { _client: Date.now() }
+              };
+            }
+          } else {
+            const ref = itemsCol.doc();
+            const newId = ref.id; createdIds.push(newId);
+
+            const catKnown = (window.catalogCache && typeof catalogCache.get === 'function')
+              ? (catalogCache.get((ing.name||'').toLowerCase()) || {})
+              : {};
+
+            lastSnapshotItems.push({
+              id: newId,
+              name: ing.name,
+              qty: ing.qty || '',
+              size: ing.size || '',
+              notes: ing.notes || '',
+              category: catKnown.category || '',
+              routeOrder: (catKnown.routeOrder === 0 || catKnown.routeOrder) ? catKnown.routeOrder : '',
+              checked: false,
+              photoUrl: '',
+              photoPath: '',
+              createdAt: { _client: Date.now() },
+              updatedAt: { _client: Date.now() },
+              _pending: true
+            });
+          }
+        }
+        if (typeof scheduleRenderItems === 'function') scheduleRenderItems(lastSnapshotItems);
+      } catch(_) {}
+
+      // Prepare Firestore batch matching the optimistic changes
       const batch = db.batch();
+      for (const ing of chosen){
+        const existing = (typeof findExistingItem === 'function')
+          ? findExistingItem(ing.nameKey || ing.name)
+          : null;
 
-      for (const row of chosen){
-        const ing = row._ing;
-        const scaledQty = scaleQtyStr(ing.qty || '', factor);
-
-        // Find existing list item
-        const existing = findExistingItem(ing.nameKey || ing.name);
         if (existing){
-          // merge qty
-          const newQty = addQtyStr(existing.qty || '', scaledQty);
+          const newQty = (typeof addQtyStr === 'function')
+            ? addQtyStr(existing.qty || '', ing.qty || '')
+            : ((ing.qty || existing.qty || ''));
           const ref = db.collection('lists').doc(household).collection('items').doc(existing.id);
           batch.set(ref, {
             qty: newQty,
-            // optionally fill size/notes if empty
             size: existing.size || ing.size || '',
             notes: existing.notes || ing.notes || '',
-            checked: false, // force it back onto the Shopping list
+            checked: false,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
           }, { merge: true });
-         } else {
-          // new item; pull category/route from catalogCache if available
-          const catKnown = catalogCache.get((ing.name||'').toLowerCase()) || {};
-          const ref = db.collection('lists').doc(String(household)).collection('items').doc();
+        } else {
+          const catKnown = (window.catalogCache && typeof catalogCache.get === 'function')
+            ? (catalogCache.get((ing.name||'').toLowerCase()) || {})
+            : {};
+          const ref = itemsCol.doc(createdIds.shift());
           batch.set(ref, {
             name: ing.name,
-            qty: scaledQty,
+            qty: ing.qty || '',
             size: ing.size || '',
             notes: ing.notes || '',
             category: catKnown.category || '',
@@ -5268,10 +5428,9 @@ if (window.initStepIngredientAutocomplete) {
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
           });
         }
-
       }
 
-      // Update recipe lastUsedServings
+      // Also persist lastUsedServings for this recipe
       if (atlRecipe && atlRecipe.id){
         const rref = db.collection('recipes').doc(household).collection('recipes').doc(atlRecipe.id);
         batch.set(rref, {
@@ -5281,11 +5440,11 @@ if (window.initStepIngredientAutocomplete) {
         }, { merge: true });
       }
 
-      // Close modal immediately for snappy UI
+      // Close modal immediately
       closeAddToListModal();
       showToast('Adding to shopping list…');
 
-      // Background commit
+      // Background commit with simple rollback trigger (resubscribe) on failure
       Promise.resolve().then(async () => {
         try {
           await batch.commit();
@@ -5293,6 +5452,7 @@ if (window.initStepIngredientAutocomplete) {
         } catch (e) {
           console.error(e);
           showToast('Add failed');
+          try { if (typeof subscribeList === 'function') subscribeList(); } catch(_) {}
         }
       });
     } catch(e){
@@ -5300,6 +5460,7 @@ if (window.initStepIngredientAutocomplete) {
       alert('Add failed: ' + (e.message || e));
     }
   };
+
 
 
     </script>
