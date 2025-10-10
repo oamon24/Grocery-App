@@ -8531,6 +8531,7 @@ line1.appendChild(meta);
     line2.textContent = it.notes || '';
   }
 
+  // Notes inline edit — optimistic UI
   line2.addEventListener('click', () => {
     const input = document.createElement('input');
     input.type = 'text';
@@ -8539,33 +8540,50 @@ line1.appendChild(meta);
     input.value = it.notes || '';
     line2.replaceWith(input);
     input.focus();
-    input.select();
+    try { input.select(); } catch {}
 
-    const commit = async () => {
-      const next = (input.value || '').trim();
-      try{
-        await wiDocRef(it.id).set({
-          notes: next,
-          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        }, { merge:true });
-        it.notes = next;
-        line2.textContent = next || 'Add note';
-        line2.classList.toggle('muted', !next);
-        line2.style.fontStyle = next ? 'normal' : 'italic';
-      }catch(e){
-        console.error(e);
-        showToast('Failed to update notes');
-      }finally{
-        input.replaceWith(line2);
-      }
+    const finish = (commit) => {
+      const next = commit ? (input.value || '').trim() : (it.notes || '');
+      const changed = commit && next !== (it.notes || '');
+
+      // Restore display immediately
+      line2.textContent = next || 'Add note';
+      line2.classList.toggle('muted', !next);
+      line2.style.fontStyle = next ? 'normal' : 'italic';
+      input.replaceWith(line2);
+
+      if (!changed) return;
+
+      // Optimistic: update local state
+      const prev = it.notes || '';
+      it.notes = next;
+
+      // Background write with rollback on failure
+      Promise.resolve().then(async () => {
+        try{
+          await wiDocRef(it.id).set({
+            notes: next,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          }, { merge:true });
+        }catch(e){
+          console.error('Failed to update notes', e);
+          showToast('Failed to update notes');
+          // Roll back UI + local
+          it.notes = prev;
+          line2.textContent = prev || 'Add note';
+          line2.classList.toggle('muted', !prev);
+          line2.style.fontStyle = prev ? 'normal' : 'italic';
+        }
+      });
     };
 
     input.addEventListener('keydown', (e)=>{
-      if (e.key === 'Enter') commit();
+      if (e.key === 'Enter') finish(true);
       else if (e.key === 'Escape') { input.replaceWith(line2); }
     });
-    input.addEventListener('blur', commit);
+    input.addEventListener('blur', () => finish(true));
   });
+
 
   below.append(mediaCell, line2);
 
