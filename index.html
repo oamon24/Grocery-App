@@ -2958,40 +2958,51 @@ editBtn.classList.remove('btn-pink');
         const mediaCell = document.createElement('div');
 
         const mountCameraBtn = () => {
-          mediaCell.innerHTML = '';
-          const camBtn = document.createElement('button');
-          camBtn.type = 'button';
-          camBtn.className = 'camBtn';
-          camBtn.title = 'Add photo';
-          camBtn.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-camera"></use></svg>';
-          camBtn.onclick = () => {
-            openPhotoPicker({
-              onFile: async (file) => {
-                if (!file) return;
-                try {
-                showToast('Uploading photo in background…');
+  mediaCell.innerHTML = '';
+  const camBtn = document.createElement('button');
+  camBtn.type = 'button';
+  camBtn.className = 'camBtn';
+  camBtn.title = 'Add photo';
+  camBtn.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-camera"></use></svg>';
+  camBtn.onclick = () => {
+    openPhotoPicker({
+      onFile: (file) => {
+        if (!file) return;
 
-(async () => {
-  try {
-    const { url, path } = await uploadItemPhoto(file, it.id, it.photoPath || null);
-    it.photoUrl = url; it.photoPath = path;
-    mountThumb(url);
-    below.classList.remove('hidden');
-    removePhotoBtn.disabled = false;
-    showToast('Photo uploaded');
-  } catch (e) {
-    console.error(e);
-    showToast('Photo upload failed');
-  }
-})();
+        // Optimistic preview
+        const prevUrl  = it.photoUrl || '';
+        const prevPath = it.photoPath || '';
+        const localUrl = URL.createObjectURL(file);
+        it.photoUrl = localUrl;
+        mountThumb(localUrl);
+        below.classList.remove('hidden');
+        removePhotoBtn.disabled = false;
+        showToast('Uploading photo in background…');
 
+        // Background upload with rollback
+        Promise.resolve().then(async () => {
+          try {
+            const { url, path } = await uploadItemPhoto(file, it.id, prevPath || null);
+            it.photoUrl = url; it.photoPath = path;
+            mountThumb(url);
+            showToast('Photo uploaded');
+          } catch (e) {
+            console.error(e);
+            showToast('Photo upload failed');
+            // Roll back
+            it.photoUrl = prevUrl; it.photoPath = prevPath;
+            if (prevUrl) { mountThumb(prevUrl); removePhotoBtn.disabled = false; }
+            else { mountCameraBtn(); removePhotoBtn.disabled = true; }
+          } finally {
+            try { URL.revokeObjectURL(localUrl); } catch(_) {}
+          }
+        });
+      }
+    });
+  };
+  mediaCell.appendChild(camBtn);
+};
 
-                } catch(e){ alert('Upload failed: ' + (e.message || e)); }
-              }
-            });
-          };
-          mediaCell.appendChild(camBtn);
-        };
 
         const mountThumb = (url) => {
           mediaCell.innerHTML = '';
