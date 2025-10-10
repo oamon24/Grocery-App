@@ -3378,7 +3378,19 @@ removePhotoBtn.onclick = () => {
   const _clearBtn = $('clearChecked'); if (_clearBtn) _clearBtn.onclick = () => {
     if (!auth || !auth.currentUser || !household) { alert('Sign in and set household first.'); return; }
 
-    // Immediate feedback; do not block UI
+    // Optimistic UI: uncheck locally and repaint
+    try {
+      if (Array.isArray(lastSnapshotItems)) {
+        let any = false;
+        lastSnapshotItems = lastSnapshotItems.map(it => {
+          if (it && it.checked) { any = true; return { ...it, checked: false }; }
+          return it;
+        });
+        if (!any) { showToast('Nothing to clear'); return; }
+        scheduleRenderItems(lastSnapshotItems);
+      }
+    } catch (_) {}
+
     showToast('Unchecking items…');
 
     // Background uncheck
@@ -3387,33 +3399,24 @@ removePhotoBtn.onclick = () => {
         const qs = await db.collection('lists').doc(household).collection('items')
           .where('checked','==',true).get();
 
-        if (qs.empty) { showToast('Nothing to clear'); return; }
+        if (!qs.empty) {
+          const batch = db.batch();
+          qs.forEach(doc => {
+            batch.set(doc.ref, { checked: false, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+          });
+          await batch.commit();
+        }
 
-        const batch = db.batch();
-        qs.forEach(doc => {
-          batch.set(doc.ref, { checked: false, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
-        });
-
-        await batch.commit();
         showToast('Unchecked all items');
       } catch (e) {
         console.error('Clear checked failed:', e);
         showToast('Uncheck failed');
+        // Optional resync if something went wrong
+        try { if (typeof subscribeList === 'function') subscribeList(); } catch(_) {}
       }
     });
   };
 
-
-
-      // === Add new item ===
-      $('newItemAddPhoto').onclick = () => {
-        openPhotoPicker({
-          onFile: (file) => {
-            setNewPhotoFile(file);
-            showToast('Photo selected');
-          }
-        });
-      };
 
           $('add').onclick = async () => {
         if (!auth || !auth.currentUser || !household) return alert('Click Sign in, then set the household code.');
@@ -8540,18 +8543,45 @@ line1.appendChild(meta);
   delBtn.type = 'button';
   delBtn.className = 'pill danger wi-del';
   delBtn.textContent = 'Delete';
-  delBtn.onclick = async () => {
+  delBtn.onclick = () => {
     if (!confirm(`Delete '${it.name || ''}'?`)) return;
-    try{
-      await wiDocRef(it.id).delete();
-      showToast('Deleted');
-    }catch(e){
-      console.error(e);
-      alert('Delete failed: ' + (e.message || e));
-    }
+
+    // Optimistic remove from local list
+    let idx = -1;
+    try {
+      if (Array.isArray(weeklyItems)) {
+        idx = weeklyItems.findIndex(x => x && x.id === it.id);
+        if (idx >= 0) {
+          weeklyItems = weeklyItems.filter(x => x && x.id !== it.id);
+          renderWi(weeklyItems);
+        }
+      }
+    } catch (_) {}
+
+    showToast('Deleting…');
+
+    // Background delete with rollback on failure
+    Promise.resolve().then(async () => {
+      try {
+        await wiDocRef(it.id).delete();
+        showToast('Deleted');
+      } catch (e) {
+        console.error('Weekly delete failed:', e);
+        alert('Delete failed: ' + (e.message || e));
+        // Roll back UI
+        try {
+          if (Array.isArray(weeklyItems)) {
+            if (idx < 0) idx = weeklyItems.length;
+            weeklyItems.splice(idx, 0, it);
+            renderWi(weeklyItems);
+          }
+        } catch (_) {}
+      }
+    });
   };
 
   actions.append(delBtn);
+
 
 
   // === 4) Below row: photo + notes (notes already inline-editable) ===
