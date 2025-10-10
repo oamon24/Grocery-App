@@ -3186,70 +3186,91 @@ if (eb) {
   updateItemAndCatalog(it, { routeOrder: route.value ? Number(route.value) : '', updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
 };
 
-        const changePhoto = document.createElement('button');
-        changePhoto.type = 'button'; changePhoto.textContent = it.photoUrl ? 'Change photo' : 'Add photo';
-       changePhoto.onclick = () => {
+   const changePhoto = document.createElement('button');
+changePhoto.type = 'button'; changePhoto.textContent = it.photoUrl ? 'Change photo' : 'Add photo';
+changePhoto.onclick = () => {
   openPhotoPicker({
-    onFile: async (file) => {
+    onFile: (file) => {
       if (!file) return;
-      try {
-      // flip button state immediately
-window.currentEditingId = it.id; (window.editDirty ||= new Set()).add(it.id);
-if (typeof refreshEditBtnLabel === 'function') refreshEditBtnLabel();
-const eb = row.querySelector('.editbtn');  if (eb) { eb.textContent = 'Save'; eb.classList.add('btn-pink'); }
 
-// start upload in background (non-blocking)
-showToast('Uploading photo in background…');
+      // Mark row dirty immediately
+      window.currentEditingId = it.id; (window.editDirty ||= new Set()).add(it.id);
+      if (typeof refreshEditBtnLabel === 'function') refreshEditBtnLabel();
+      const eb = row.querySelector('.editbtn'); if (eb) { eb.textContent = 'Save'; eb.classList.add('btn-pink'); }
 
-(async () => {
-  try {
-    const { url, path } = await uploadItemPhoto(file, it.id, it.photoPath || null);
+      // Optimistic preview
+      const prevUrl  = it.photoUrl || '';
+      const prevPath = it.photoPath || '';
+      const localUrl = URL.createObjectURL(file);
+      it.photoUrl = localUrl; // temporary
+      mountThumb(localUrl);
+      below.classList.remove('hidden');
+      removePhotoBtn.disabled = false;
+      showToast('Uploading photo in background…');
 
-    it.photoUrl = url; it.photoPath = path;
-    mountThumb(url);
-    below.classList.remove('hidden');
-    removePhotoBtn.disabled = false;
-
-    showToast('Photo uploaded');
-  } catch (e) {
-    console.error(e);
-    showToast('Photo upload failed');
-  }
-})();
-
-      } catch (e) {
-        alert('Upload failed: ' + (e.message || e));
-      }
+      // Background upload with rollback on failure
+      Promise.resolve().then(async () => {
+        try {
+          const { url, path } = await uploadItemPhoto(file, it.id, prevPath || null);
+          it.photoUrl = url; it.photoPath = path;
+          mountThumb(url);
+          showToast('Photo uploaded');
+        } catch (e) {
+          console.error(e);
+          showToast('Photo upload failed');
+          // Roll back to previous state
+          it.photoUrl = prevUrl; it.photoPath = prevPath;
+          if (prevUrl) { mountThumb(prevUrl); removePhotoBtn.disabled = false; }
+          else { mountCameraBtn(); removePhotoBtn.disabled = true; }
+        } finally {
+          try { URL.revokeObjectURL(localUrl); } catch(_) {}
+        }
+      });
     }
   });
 };
 
 
+
         const removePhotoBtn = document.createElement('button');
-        removePhotoBtn.type = 'button'; removePhotoBtn.textContent = 'Remove photo';
-        removePhotoBtn.disabled = !it.photoPath;
-       removePhotoBtn.onclick = async () => {
-  // Flip to “Save” + pink immediately
+removePhotoBtn.type = 'button'; removePhotoBtn.textContent = 'Remove photo';
+removePhotoBtn.disabled = !it.photoPath;
+removePhotoBtn.onclick = () => {
+  // Mark row dirty immediately
   window.currentEditingId = it.id; (window.editDirty ||= new Set()).add(it.id);
   if (typeof refreshEditBtnLabel === 'function') refreshEditBtnLabel();
-  const eb = row.querySelector('.editbtn');
-  if (eb) { eb.textContent = 'Save'; eb.classList.add('btn-pink'); }
+  const eb = row.querySelector('.editbtn'); if (eb) { eb.textContent = 'Save'; eb.classList.add('btn-pink'); }
 
-  try {
-    await removeItemPhoto(it.id, it.photoPath || null);
-    it.photoUrl = ''; it.photoPath = '';
+  // Snapshot for rollback
+  const prevUrl  = it.photoUrl || '';
+  const prevPath = it.photoPath || '';
 
-    // Reflect UI
-    mountCameraBtn();
-    if (typeof changePhoto !== 'undefined') changePhoto.textContent = 'Add photo';
-    removePhotoBtn.disabled = true;
-/* On Shopping tab, keep below visible so the camera button remains accessible. */
-below.classList.toggle('hidden', (!it.notes && activeTab !== 'shopping'));
-    showToast('Photo removed');
-  } catch(e){
-    alert('Failed to remove photo: ' + (e.message || e));
-  }
+  // Optimistic UI: remove now
+  it.photoUrl = ''; it.photoPath = '';
+  mountCameraBtn();
+  if (typeof changePhoto !== 'undefined') changePhoto.textContent = 'Add photo';
+  removePhotoBtn.disabled = true;
+  below.classList.toggle('hidden', (!it.notes && activeTab !== 'shopping'));
+  showToast('Removing photo…');
+
+  // Background remove with rollback on failure
+  Promise.resolve().then(async () => {
+    try {
+      await removeItemPhoto(it.id, prevPath || null);
+      showToast('Photo removed');
+    } catch (e) {
+      console.error('Failed to remove photo', e);
+      showToast('Failed to remove photo');
+      // Roll back
+      it.photoUrl = prevUrl; it.photoPath = prevPath;
+      if (prevUrl) { mountThumb(prevUrl); removePhotoBtn.disabled = false; }
+      else { mountCameraBtn(); removePhotoBtn.disabled = true; }
+      if (typeof changePhoto !== 'undefined') changePhoto.textContent = prevUrl ? 'Change photo' : 'Add photo';
+      below.classList.toggle('hidden', (!it.notes && activeTab !== 'shopping'));
+    }
+  });
 };
+
 
 
         editor.append(qty, size, notes, cat, route, changePhoto, removePhotoBtn);
