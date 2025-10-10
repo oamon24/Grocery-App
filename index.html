@@ -2758,7 +2758,7 @@ qtySpan.addEventListener('click', () => {
   autoSize(input);
   input.addEventListener('input', () => autoSize(input));
 
-  const finish = async (commit) => {
+  const finish = (commit) => {
     const newQty = commit ? (input.value || '').trim() : (it.qty || '');
 
     // Uncheck if moving from "0"/empty → positive (keep original logic)
@@ -2768,7 +2768,25 @@ qtySpan.addEventListener('click', () => {
     const nowPositive = (Number.isFinite(n) && n > 0) || (!Number.isFinite(n) && newQty !== '');
     const shouldUncheck = !!it.checked && wasZeroish && nowPositive;
 
-    if (commit && newQty !== (it.qty || '')) {
+    // Restore display node immediately
+    setQtyDisplay(newQty);
+    input.replaceWith(qtySpan);
+
+    // No change → nothing else to do
+    if (!(commit && newQty !== (it.qty || ''))) return;
+
+    // Optimistic: snapshot prev, then update local state + related UI
+    const prevQty = it.qty || '';
+    const prevChecked = !!it.checked;
+    it.qty = newQty;
+    if (shouldUncheck) {
+      it.checked = false;
+      cb.checked = false;
+      showToast('Moved back to Shopping');
+    }
+
+    // Background write with rollback on failure
+    Promise.resolve().then(async () => {
       try {
         const patch = {
           qty: newQty,
@@ -2776,22 +2794,16 @@ qtySpan.addEventListener('click', () => {
         };
         if (shouldUncheck) patch.checked = false;
         await updateItem(it.id, patch);
-        it.qty = newQty;
-
-        if (shouldUncheck) {
-          cb.checked = false;
-          it.checked = false;
-          showToast('Moved back to Shopping');
-        }
       } catch (e) {
         console.error('Qty inline update failed:', e);
         showToast('Failed to update qty');
+        // Roll back model + UI
+        it.qty = prevQty;
+        it.checked = prevChecked;
+        cb.checked = prevChecked;
+        setQtyDisplay(prevQty);
       }
-    }
-
-    // Restore display node (with placeholder if empty)
-    setQtyDisplay(newQty);
-    input.replaceWith(qtySpan);
+    });
   };
 
   input.addEventListener('keydown', (e) => {
@@ -2800,6 +2812,7 @@ qtySpan.addEventListener('click', () => {
   });
   input.addEventListener('blur', () => finish(true));
 });
+
 
 meta.appendChild(qtySpan);
 
