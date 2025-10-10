@@ -4302,20 +4302,22 @@ if (rmAddStepBtn) rmAddStepBtn.onclick = () => { addStepRow(); markRecipeDirty()
         return;
       }
 
-    // Close the modal immediately (keeps UI snappy)
-  closeRecipeModal();
-  await new Promise(r => setTimeout(r, 0));
+   // Close the modal immediately (keeps UI snappy)
+closeRecipeModal();
+await new Promise(r => setTimeout(r, 0));
 
-  const now = firebase.firestore.FieldValue.serverTimestamp();
-  const who = (auth.currentUser.email || auth.currentUser.uid || 'unknown');
+const now = firebase.firestore.FieldValue.serverTimestamp();
+const who = (auth.currentUser.email || auth.currentUser.uid || 'unknown');
 
-  let recipeDocRef;
+let recipeDocRef;
 
-  // CREATE
-  if (!editingRecipeId) {
-    recipeDocRef = col.doc(); // pre-generate id
+// CREATE
+if (!editingRecipeId) {
+  recipeDocRef = col.doc(); // pre-generate id
 
-    await recipeDocRef.set({
+  // Optimistic insert
+  try {
+    const optimistic = {
       id: recipeDocRef.id,
       name,
       nameLower,
@@ -4324,30 +4326,71 @@ if (rmAddStepBtn) rmAddStepBtn.onclick = () => { addStepRow(); markRecipeDirty()
       coverUrl: null,
       coverPath: null,
       lastUsedServings: basePortions,
-      createdAt: now,
+      createdAt: { _client: Date.now() },
       createdBy: who,
-      updatedAt: now,
+      updatedAt: { _client: Date.now() },
       updatedBy: who,
       deletedAt: null
-    });
+    };
+    lastSnapshotRecipes = Array.isArray(lastSnapshotRecipes) ? [...lastSnapshotRecipes, optimistic] : [optimistic];
+    if (typeof scheduleRenderRecipes === 'function') scheduleRenderRecipes(lastSnapshotRecipes);
+  } catch(_) {}
 
-    showToast('Recipe created');
-  }
-  // UPDATE
-  else {
-    recipeDocRef = col.doc(editingRecipeId);
+  await recipeDocRef.set({
+    id: recipeDocRef.id,
+    name,
+    nameLower,
+    basePortions,
+    tags,
+    coverUrl: null,
+    coverPath: null,
+    lastUsedServings: basePortions,
+    createdAt: now,
+    createdBy: who,
+    updatedAt: now,
+    updatedBy: who,
+    deletedAt: null
+  }).catch(e => {
+    console.error(e);
+    try { if (typeof subscribeRecipes === 'function') subscribeRecipes(); } catch(_) {}
+    throw e;
+  });
 
-    await recipeDocRef.set({
-      name,
-      nameLower,
-      basePortions,
-      tags,
-      updatedAt: now,
-      updatedBy: who
-    }, { merge: true });
+  showToast('Recipe created');
+}
+// UPDATE
+else {
+  recipeDocRef = col.doc(editingRecipeId);
 
-    showToast('Recipe updated');
-  }
+  // Optimistic patch
+  try {
+    if (Array.isArray(lastSnapshotRecipes)) {
+      lastSnapshotRecipes = lastSnapshotRecipes.map(r => {
+        if (r && r.id === editingRecipeId) {
+          return { ...r, name, nameLower, basePortions, tags, updatedAt: { _client: Date.now() }, updatedBy: who };
+        }
+        return r;
+      });
+      if (typeof scheduleRenderRecipes === 'function') scheduleRenderRecipes(lastSnapshotRecipes);
+    }
+  } catch(_) {}
+
+  await recipeDocRef.set({
+    name,
+    nameLower,
+    basePortions,
+    tags,
+    updatedAt: now,
+    updatedBy: who
+  }, { merge: true }).catch(e => {
+    console.error(e);
+    try { if (typeof subscribeRecipes === 'function') subscribeRecipes(); } catch(_) {}
+    throw e;
+  });
+
+  showToast('Recipe updated');
+}
+
 
 
   // === Save ingredients & steps (replace-all strategy) ===
@@ -9009,65 +9052,73 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
   // Weekly Items → Shopping: use the exact ATL-style commit logic (no servings scaling)
-  async function addWeeklyCheckedToShopping(){
-    // Require session + household (match ATL’s guard)
-    if (!auth || !auth.currentUser || !household) {
-      alert('Sign in and set the household first.');
-      return;
-    }
+async function addWeeklyCheckedToShopping(){
+  // Require session + household (match ATL’s guard)
+  if (!auth || !auth.currentUser || !household) {
+    alert('Sign in and set the household first.');
+    return;
+  }
 
-    // Collect checked Weekly Items
-    const getChecked = (window.weeklyItemsAPI && typeof window.weeklyItemsAPI.getChecked === 'function')
-      ? window.weeklyItemsAPI.getChecked
-      : null;
-    const picked = getChecked ? getChecked() : [];
-    if (!picked.length){ showToast('Nothing selected'); return; }
+  // Collect checked Weekly Items
+  const getChecked = (window.weeklyItemsAPI && typeof window.weeklyItemsAPI.getChecked === 'function')
+    ? window.weeklyItemsAPI.getChecked
+    : null;
+  const picked = getChecked ? getChecked() : [];
+  if (!picked.length){ showToast('Nothing selected'); return; }
 
-    try{
-      // Build a pseudo-ATL "chosen" list (no scaling; keep user-entered qty/size/notes)
-      const chosen = picked
-        .map(it => ({
-          name: (it && it.name ? String(it.name) : '').trim(),
-          nameKey: (it && it.name ? String(it.name).toLowerCase() : ''),
-          qty: (it && typeof it.qty !== 'undefined' && it.qty !== null) ? String(it.qty) : '',
-          size: (it && it.size)  ? String(it.size)  : '',
-          notes:(it && it.notes) ? String(it.notes) : ''
-        }))
-        .filter(x => !!x.name);
+  try{
+    // Build a pseudo-ATL "chosen" list (no scaling; keep user-entered qty/size/notes)
+    const chosen = picked
+      .map(it => ({
+        name: (it && it.name ? String(it.name) : '').trim(),
+        nameKey: (it && it.name ? String(it.name).toLowerCase() : ''),
+        qty: (it && typeof it.qty !== 'undefined' && it.qty !== null) ? String(it.qty) : '',
+        size: (it && it.size)  ? String(it.size)  : '',
+        notes:(it && it.notes) ? String(it.notes) : ''
+      }))
+      .filter(x => !!x.name);
 
-      if (!chosen.length){ showToast('Nothing selected'); return; }
+    if (!chosen.length){ showToast('Nothing selected'); return; }
 
-      const batch = db.batch();
+    // ===== Optimistic merge into lastSnapshotItems =====
+    const itemsCol = db.collection('lists').doc(String(household)).collection('items');
+    const createdIds = [];
 
+    try {
+      lastSnapshotItems = Array.isArray(lastSnapshotItems) ? [...lastSnapshotItems] : [];
       for (const ing of chosen){
-        // Find existing list item (same lookup as ATL)
+        // existing?
         const existing = (typeof findExistingItem === 'function')
           ? findExistingItem(ing.nameKey || ing.name)
           : null;
 
         if (existing){
-          // Merge qty exactly like ATL (addQtyStr), and prefer existing size/notes
+          // merge qty like ATL and force unchecked
           const newQty = (typeof addQtyStr === 'function')
             ? addQtyStr(existing.qty || '', ing.qty || '')
             : ((ing.qty || existing.qty || ''));
-
-          const ref = db.collection('lists').doc(household).collection('items').doc(existing.id);
-          batch.set(ref, {
-            qty: newQty,
-            size: existing.size || ing.size || '',
-            notes: existing.notes || ing.notes || '',
-            checked: false,
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-          }, { merge: true });
-
+          const idx = lastSnapshotItems.findIndex(x => x && x.id === existing.id);
+          if (idx >= 0) {
+            lastSnapshotItems[idx] = {
+              ...lastSnapshotItems[idx],
+              qty: newQty,
+              size: lastSnapshotItems[idx].size || ing.size || '',
+              notes: lastSnapshotItems[idx].notes || ing.notes || '',
+              checked: false,
+              updatedAt: { _client: Date.now() }
+            };
+          }
         } else {
-          // New item; pull category/route from catalogCache (same as ATL)
+          // create optimistic row with pre-generated id
+          const ref = itemsCol.doc();
+          const newId = ref.id; createdIds.push(newId);
+
           const catKnown = (window.catalogCache && typeof catalogCache.get === 'function')
             ? (catalogCache.get((ing.name||'').toLowerCase()) || {})
             : {};
 
-          const ref = db.collection('lists').doc(String(household)).collection('items').doc();
-          batch.set(ref, {
+          lastSnapshotItems.push({
+            id: newId,
             name: ing.name,
             qty: ing.qty || '',
             size: ing.size || '',
@@ -9075,34 +9126,79 @@ document.addEventListener('DOMContentLoaded', () => {
             category: catKnown.category || '',
             routeOrder: (catKnown.routeOrder === 0 || catKnown.routeOrder) ? catKnown.routeOrder : '',
             checked: false,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            photoUrl: '',
+            photoPath: '',
+            createdAt: { _client: Date.now() },
+            updatedAt: { _client: Date.now() },
+            _pending: true
           });
         }
       }
+      if (typeof scheduleRenderItems === 'function') scheduleRenderItems(lastSnapshotItems);
+    } catch(_) {}
 
-      // Close Weekly Items modal immediately
-      if (modal) modal.classList.remove('show');
-      document.body.classList.remove('modal-open');
-      setFabToOpen();
-      showToast('Adding to shopping list…');
+    // Prepare Firestore batch matching the optimistic changes
+    const batch = db.batch();
+    for (const ing of chosen){
+      const existing = (typeof findExistingItem === 'function')
+        ? findExistingItem(ing.nameKey || ing.name)
+        : null;
 
-      // Background commit
-      Promise.resolve().then(async () => {
-        try {
-          await batch.commit();
-          showToast('Added to shopping list');
-        } catch (e) {
-          console.error(e);
-          showToast('Add failed');
-        }
-      });
-
-    } catch(e){
-      console.error(e);
-      alert('Add failed: ' + (e.message || e));
+      if (existing){
+        const newQty = (typeof addQtyStr === 'function')
+          ? addQtyStr(existing.qty || '', ing.qty || '')
+          : ((ing.qty || existing.qty || ''));
+        const ref = db.collection('lists').doc(household).collection('items').doc(existing.id);
+        batch.set(ref, {
+          qty: newQty,
+          size: existing.size || ing.size || '',
+          notes: existing.notes || ing.notes || '',
+          checked: false,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+      } else {
+        const catKnown = (window.catalogCache && typeof catalogCache.get === 'function')
+          ? (catalogCache.get((ing.name||'').toLowerCase()) || {})
+          : {};
+        const ref = itemsCol.doc(createdIds.shift());
+        batch.set(ref, {
+          name: ing.name,
+          qty: ing.qty || '',
+          size: ing.size || '',
+          notes: ing.notes || '',
+          category: catKnown.category || '',
+          routeOrder: (catKnown.routeOrder === 0 || catKnown.routeOrder) ? catKnown.routeOrder : '',
+          checked: false,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      }
     }
+
+    // Close Weekly Items modal immediately
+    if (modal) modal.classList.remove('show');
+    document.body.classList.remove('modal-open');
+    setFabToOpen();
+    showToast('Adding to shopping list…');
+
+    // Background commit with rollback on failure
+    Promise.resolve().then(async () => {
+      try {
+        await batch.commit();
+        showToast('Added to shopping list');
+      } catch (e) {
+        console.error(e);
+        showToast('Add failed');
+        try { if (typeof subscribeList === 'function') subscribeList(); } catch(_) {}
+      }
+    });
+
+  } catch(e){
+    console.error(e);
+    alert('Add failed: ' + (e.message || e));
   }
+}
+
 
 
 
