@@ -8261,20 +8261,30 @@ enableAutoListKeyboard(document.getElementById('wiItemName'), wiAutoList);
   cb.type = 'checkbox';
   cb.checked = !!it.checked;
   cb.setAttribute('aria-label', 'Mark checked');
-  cb.onchange = async () => {
+  cb.onchange = () => {
     const isChecked = !!cb.checked;
-    try{
-      await wiDocRef(it.id).set({
-        checked: isChecked,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      }, { merge:true });
-      it.checked = isChecked;
-    }catch(e){
-      console.error(e);
-      showToast('Failed to update');
-      cb.checked = !isChecked;
-    }
+
+    // Optimistic flip
+    const prev = !!it.checked;
+    it.checked = isChecked;
+
+    // Background write
+    Promise.resolve().then(async () => {
+      try{
+        await wiDocRef(it.id).set({
+          checked: isChecked,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge:true });
+      }catch(e){
+        console.error(e);
+        showToast('Failed to update');
+        // Roll back UI
+        it.checked = prev;
+        cb.checked = prev;
+      }
+    });
   };
+
   left.appendChild(cb);
 
   // === 2) Title + meta (click-to-edit chips) ===
@@ -8655,18 +8665,43 @@ if (addBtn) addBtn.addEventListener('click', async () => {
     });
   }
 
-  // Uncheck all
-  if (clearBtn) clearBtn.addEventListener('click', async () => {
+    // Uncheck all
+  if (clearBtn) clearBtn.addEventListener('click', () => {
     if (!auth || !auth.currentUser || !household) return alert('Sign in and set household first.');
+
+    // Optimistic UI: uncheck locally and re-render
     try{
-      const qs = await wiColRef().where('checked','==',true).get();
-      if (qs.empty) { showToast('Nothing to clear'); return; }
-    const batch = db.batch();
-  qs.forEach(doc => batch.set(doc.ref, { checked:false, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge:true }));
-   await batch.commit();
-      showToast('Unchecked all weekly items');
-    }catch(e){ alert('Failed: '+(e.message||e)); }
+      if (Array.isArray(weeklyItems)) {
+        let any = false;
+        weeklyItems = weeklyItems.map(it => {
+          if (it && it.checked) { any = true; return { ...it, checked: false }; }
+          return it;
+        });
+        if (!any) { showToast('Nothing to clear'); return; }
+        renderWi(weeklyItems);
+      }
+    }catch(_){}
+
+    showToast('Unchecking items…');
+
+    // Background commit
+    Promise.resolve().then(async () => {
+      try{
+        const qs = await wiColRef().where('checked','==',true).get();
+        if (!qs.empty) {
+          const batch = db.batch();
+          qs.forEach(doc => batch.set(doc.ref, { checked:false, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge:true }));
+          await batch.commit();
+        }
+        showToast('Unchecked all weekly items');
+      }catch(e){
+        console.error(e);
+        showToast('Uncheck failed');
+        try { if (typeof subscribeWeekly === 'function') subscribeWeekly(); } catch(_){}
+      }
+    });
   });
+
 
   // Subscribe
  async function subscribeWeekly(){
