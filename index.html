@@ -2840,22 +2840,35 @@ sizeSpan.addEventListener('click', () => {
   input.focus();
   try { input.select(); } catch {}
 
-  const finish = async (commit) => {
+  const finish = (commit) => {
     const newVal = commit ? (input.value || '').trim() : (it.size || '');
-    if (commit && newVal !== (it.size || '')) {
+    const changed = commit && newVal !== (it.size || '');
+
+    // Restore display immediately
+    setSizeDisplay(newVal);
+    input.replaceWith(sizeSpan);
+
+    if (!changed) return;
+
+    // Optimistic: snapshot + update local
+    const prev = it.size || '';
+    it.size = newVal;
+
+    // Background write with rollback
+    Promise.resolve().then(async () => {
       try {
         await updateItem(it.id, {
           size: newVal,
           updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         });
-        it.size = newVal;
       } catch (e) {
         console.error('Size inline update failed:', e);
         showToast('Failed to update size');
+        // Roll back UI + model
+        it.size = prev;
+        setSizeDisplay(prev);
       }
-    }
-    setSizeDisplay(newVal);
-    input.replaceWith(sizeSpan);
+    });
   };
 
   input.addEventListener('keydown', (e) => {
@@ -2866,6 +2879,7 @@ sizeSpan.addEventListener('click', () => {
 });
 
 meta.appendChild(sizeSpan);
+
 
 
   // attach the second line under the name
