@@ -8677,7 +8677,7 @@ line1.appendChild(meta);
 
 
 
- // Add new weekly item (UI reduced to "Item" only)
+// Add new weekly item (UI reduced to "Item" only)
 if (addBtn) addBtn.addEventListener('click', async () => {
   if (!auth || !auth.currentUser || !household) return alert('Sign in and set household first.');
   const raw = (nameEl?.value || '').trim();
@@ -8687,7 +8687,8 @@ if (addBtn) addBtn.addEventListener('click', async () => {
   // Build payload from picked suggestion when available and matching the current text; otherwise fall back to blanks.
   const usePick = (wiPicked && String(wiPicked.name || '').toLowerCase() === raw.toLowerCase()) ? wiPicked : null;
 
-  const payload = {
+  // Payload for Firestore
+  const fsPayload = {
     name,
     qty:  usePick ? (usePick.qty ?? '') : '',
     size: usePick ? (usePick.size || '') : '',
@@ -8702,24 +8703,58 @@ if (addBtn) addBtn.addEventListener('click', async () => {
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
   };
 
-  const newId = wiColRef().doc().id;
+  // 1) Optimistic insert with a temp id
+  const tempId = 'tmp_' + Date.now();
+  const localItem = {
+    id: tempId,
+    name: fsPayload.name,
+    qty:  fsPayload.qty,
+    size: fsPayload.size,
+    notes: fsPayload.notes,
+    category: fsPayload.category,
+    routeOrder: fsPayload.routeOrder,
+    photoUrl: fsPayload.photoUrl,
+    photoPath: fsPayload.photoPath,
+    checked: false,
+    // Local timestamps for ordering only
+    createdAt: Date.now(),
+    updatedAt: Date.now()
+  };
+
   try {
-    await wiDocRef(newId).set(payload);
-  } catch (e) {
-    return alert('Add failed: ' + (e.message || e));
-  }
-
-  // Clear form & UI (and drop the pick so next entry starts clean)
-  if (nameEl) nameEl.value = '';
-  wiPicked = null;
-
-  // Reset live filter and suggestions so the full list is visible again
+    if (!Array.isArray(weeklyItems)) weeklyItems = [];
+  } catch(_) {}
+  weeklyItems = [localItem, ...weeklyItems];
+  // Reset live filter so the new row is visible
   liveQuery = '';
   renderWi(weeklyItems);
-  if (wiAutoList) { wiAutoList.style.display = 'none'; wiAutoList.innerHTML = ''; }
 
-  // Focus back to the name field for fast entry
+  // Clear input and suggestions immediately
+  if (nameEl) nameEl.value = '';
+  wiPicked = null;
+  if (wiAutoList) { wiAutoList.style.display = 'none'; wiAutoList.innerHTML = ''; }
   if (nameEl) nameEl.focus();
+
+  // 2) Background write; swap temp id on success or roll back on failure
+  Promise.resolve().then(async () => {
+    const ref = wiColRef().doc();
+    try {
+      await ref.set(fsPayload);
+      // Replace temp item id with real id
+      const idx = Array.isArray(weeklyItems) ? weeklyItems.findIndex(i => i && i.id === tempId) : -1;
+      if (idx >= 0) {
+        weeklyItems[idx] = { ...weeklyItems[idx], id: ref.id };
+        renderWi(weeklyItems);
+      }
+      showToast && showToast('Added');
+    } catch (e) {
+      console.error('Add failed:', e);
+      // Remove the temp item and re-render
+      weeklyItems = Array.isArray(weeklyItems) ? weeklyItems.filter(i => i && i.id !== tempId) : [];
+      renderWi(weeklyItems);
+      alert('Add failed: ' + (e.message || e));
+    }
+  });
 });
 
 
