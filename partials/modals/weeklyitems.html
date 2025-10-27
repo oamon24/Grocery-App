@@ -1,0 +1,46 @@
+<div id="weeklyItemsModal" role="dialog" aria-modal="true" aria-labelledby="weeklyItemsTitle">
+  <div class="backdrop" data-close="1"></div>
+  <div class="sheet">
+    <div class="header">
+      <div id="weeklyItemsTitle">Weekly Items</div>
+      <button id="weeklyItemsClose" class="close" aria-label="Close">×</button>
+    </div>
+    <div class="body">
+      <section id="wiSection" class="card" style="margin-top:0;">
+        <div class="toolbar" id="wiFilterGroup">
+          <div class="group">
+            <h2 style="margin:0">Weekly Items</h2>
+            <span id="wiStatus" class="muted"></span>
+          </div>
+
+          <div class="group" style="flex:1; min-width:260px;">
+            <div class="row" style="gap:8px; flex-wrap:wrap;">
+              <div style="min-width:220px; flex:1;">
+                <label for="wiItemName">Item</label>
+                <div class="wiInputWrap" style="position: relative; width: 100%;">
+                  <input id="wiItemName" type="text" placeholder="e.g., Milch, Bananen" autocomplete="off" />
+                </div>
+                <div>
+                  <button id="wiAdd" class="primary">Add</button>
+                </div>
+              </div>
+
+              <div class="row" style="margin-top:12px; justify-content:flex-end;">
+                <button id="wiClearChecked" type="button">Uncheck all</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="wiList" class="list" aria-live="polite"></div>
+        <div id="wiEmpty" class="empty" style="display:none">
+          <svg class="icon" aria-hidden="true"><use href="#i-cart"></use></svg>
+          <div class="headline">Your weekly list is empty</div>
+          <div class="muted">Add your first weekly item above.</div>
+        </div>
+      </section>
+
+      <div id="wiAutoList" class="ac-list" role="listbox" aria-label="Suggestions" style="display:none;"></div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,54 @@
+<!-- /partials/modals/theme.html -->
+<div id="themeModal" class="modal" aria-hidden="true">
+  <div class="backdrop" data-close="1"></div>
+  <div class="sheet" role="dialog" aria-labelledby="themeTitle">
+    <header class="sheet-header" style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+      <h3 id="themeTitle" style="margin:0">Theme</h3>
+      <button id="themeClose" type="button" aria-label="Close">✕</button>
+    </header>
+
+    <section class="sheet-body" style="display:grid;gap:14px;">
+      <label style="display:grid;gap:6px">
+        <span>Mode</span>
+        <select id="themeModeSelect">
+          <option value="system">System</option>
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+          <option value="custom">Custom accent</option>
+        </select>
+      </label>
+
+      <fieldset style="display:grid;gap:10px;border:1px solid var(--border);padding:12px;border-radius:12px;">
+        <legend>Accent color (RGB)</legend>
+
+        <label style="display:grid;grid-template-columns:60px 1fr 38px;align-items:center;gap:8px;">
+          <span>Red</span>
+          <input id="rgbR" type="range" min="0" max="255" value="255" />
+          <output id="rgbRVal" for="rgbR">255</output>
+        </label>
+
+        <label style="display:grid;grid-template-columns:60px 1fr 38px;align-items:center;gap:8px;">
+          <span>Green</span>
+          <input id="rgbG" type="range" min="0" max="255" value="42" />
+          <output id="rgbGVal" for="rgbG">42</output>
+        </label>
+
+        <label style="display:grid;grid-template-columns:60px 1fr 38px;align-items:center;gap:8px;">
+          <span>Blue</span>
+          <input id="rgbB" type="range" min="0" max="255" value="127" />
+          <output id="rgbBVal" for="rgbB">127</output>
+        </label>
+
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div id="rgbSwatch" style="width:28px;height:28px;border-radius:8px;border:1px solid var(--border);"></div>
+          <code id="rgbHex" aria-live="polite">#ff2a7f</code>
+          <span style="color:var(--text-dim);font-size:12px;">Sliders enabled only when mode = “Custom accent”.</span>
+        </div>
+      </fieldset>
+
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button id="themeReset" class="secondary" type="button">Reset to system</button>
+      </div>
+    </section>
+  </div>
+</div>
