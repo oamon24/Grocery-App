@@ -1,0 +1,27 @@
+# HTML (never cache HTML; always fetch latest shell)
+/
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+
+/index.html
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+
+# Service worker should update quickly
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate, max-age=0
+
+# App Manifest
+/manifest.webmanifest
+  Cache-Control: public, max-age=3600
+
+# Static assets with hashes (images/fonts/etc.) – long cache
+# (if you fingerprint file names, they can be cached for a year)
+# Adjust the globs to match your build if needed.
+/*.{js,css}
+  Cache-Control: public, max-age=31536000, immutable
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Firebase CDN files (optional reinforcement if you proxy or host copies)
+/gstatic/*
+  Cache-Control: public, max-age=31536000, immutable

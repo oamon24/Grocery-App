@@ -1,0 +1,78 @@
+/* Cook Mode minimal styling */
+.cm-wrap{
+  position:fixed;
+  /* force viewport sizing even if a transformed ancestor exists */
+  left:0; top:0; width:100vw; height:100dvh;
+  display:none;
+  z-index:9999;
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial,sans-serif;
+  /* center the sheet and block background scroll gestures */
+  place-items:center;
+  overscroll-behavior:contain;
+  pointer-events:auto;
+}
+.cm-wrap.show{display:grid}
+
+.cm-backdrop{position:absolute;inset:0;background:color-mix(in oklab, #000 35%, transparent)}
+.cm-sheet{
+  position:relative;
+  inset:auto;
+  margin:auto;
+  display:grid;
+  grid-template-rows:auto 1fr auto;
+  gap:12px;
+  block-size:100%;
+  max-inline-size:900px;
+  background:var(--surface,#fff);
+  color:var(--text,#111)
+}
+.cm-topbar{display:flex;align-items:center;gap:8px;padding:12px 12px 0}
+.cm-icon{appearance:none;border:1px solid var(--border,#ddd);background:var(--surface,#fff);border-radius:10px;padding:8px;inline-size:40px}
+.cm-title{font-weight:700;font-size:18px;line-height:1;flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center}
+.cm-step-idx{font-variant-numeric:tabular-nums;opacity:.7}
+
+.cm-main{padding:12px;display:grid;grid-template-rows:auto 1fr;gap:12px}
+.cm-progress{block-size:6px;background:var(--border,#eee);border-radius:999px;overflow:hidden}
+.cm-progress-bar{block-size:100%;inline-size:0;background:var(--primary,#ff2d88)}
+
+.cm-step{display:grid;grid-template-rows:1fr auto;align-items:center;justify-items:center;height:100%}
+.cm-step-text{font-size:clamp(18px,3.5vw,28px);line-height:1.35;white-space:pre-wrap}
+.cm-timer{margin-top:18px;font-size:clamp(20px,8vw,64px);font-weight:800;letter-spacing:1px;font-variant-numeric:tabular-nums}
+
+/* Ingredients page */
+.cm-ings{display:grid;grid-template-rows:auto 1fr;gap:10px;min-block-size:0}
+.cm-ings-header{display:flex;align-items:center;justify-content:space-between}
+.cm-ings-title{font-weight:700;font-size:18px}
+.cm-ings-list{list-style:none;margin:0;padding:0 0 8px 0;display:grid;gap:6px;align-content:start;overflow:auto;touch-action:pan-y}
+.cm-ings-item{display:flex;align-items:center;gap:8px}
+.cm-ings-item input[type=checkbox]{inline-size:20px;block-size:20px}
+.cm-ings-line{font-size:16px;line-height:1.25;white-space:pre-wrap}
+
+.cm-controls{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;padding:0 12px 12px}.cm-btn{appearance:none;border:1px solid var(--border,#ddd);background:var(--surface,#fff);padding:14px 16px;border-radius:14px;flex:1 1 0;text-align:center;font-weight:600}
+.cm-btn{appearance:none;border:1px solid var(--border,#ddd);background:var(--surface,#fff);padding:14px 16px;border-radius:14px;flex:1 1 0;text-align:center;font-weight:600}
+.cm-btn.primary{background:var(--primary,#ff2d88);border-color:var(--primary,#ff2d88);color:#fff}
+.cm-timer-controls{display:flex;gap:8px;justify-self:center}
+.cm-controls .cm-spacer{inline-size:100%;block-size:1px;visibility:hidden}
+#cmTimerBtn,
+#cmMinus1mBtn,
+#cmPlus1mBtn{flex:0 0 auto}
+#cmResetBtn{flex:0 0 auto;white-space:nowrap;justify-self:end}
+
+
+@media (min-width:700px){
+  .cm-sheet{border:1px solid var(--border,#e5e5e5);border-radius:18px;box-shadow:0 10px 30px rgba(0,0,0,.18);margin:24px}
+}
+/* Timer overlay button positioning */
+.cm-step{position:relative}
+#cmSilenceResetBtn{
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform:translate(-50%,-50%);
+  z-index:2;
+}
+
+/* Force-hide any element marked [hidden] inside the Cook Mode sheet */
+.cm-sheet [hidden]{display:none !important}
+
+
