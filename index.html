@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+  <!DOCTYPE html>
 
 <!-- _headers.yaml — Netlify or static hosting configuration file defining custom HTTP headers for deployed assets -->
 <!-- sw.js — Service Worker providing offline support via cache-first shell and stale-while-revalidate for static and Firebase assets -->
@@ -10,7 +10,7 @@
 <!-- list.css — Grocery list item layout: checkbox, details, notes, and photo thumbnail styles -->
 <!-- modals.css — Shared modal, sheet, and popup presentation rules -->
 <!-- recipes.css — Recipe list and editor layout/styling -->
-<!-- theme.css — Global color palette, light/dark theme variables, and accessibility outlines -f->
+<!-- theme.css — Global color palette, light/dark theme variables, and accessibility outlines -->
 <!-- timers.css — Floating timer chip, drawer, and cook-mode countdown component styling -->
 <!-- ui.css — Core button styles and keyboard navigation (arrow-key tab focus) -->
 <!-- weeklyItems.css — Weekly Items modal layout, floating action button, and autocomplete suggestion list -->
@@ -63,30 +63,27 @@
 
   <html lang="en">
   <head>
-
-    
-
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
-<link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
-<link rel="preconnect" href="https://firebaseinstallations.googleapis.com" crossorigin>
-<link rel="preconnect" href="https://www.googleapis.com" crossorigin>
-<link rel="preconnect" href="https://identitytoolkit.googleapis.com" crossorigin>
-<link rel="preconnect" href="https://securetoken.googleapis.com" crossorigin>
-<link rel="preconnect" href="https://firebasestorage.googleapis.com" crossorigin>
+  <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
+  <link rel="preconnect" href="https://firebaseinstallations.googleapis.com" crossorigin>
+  <!-- Extra Firebase endpoints we touch early -->
+  <link rel="preconnect" href="https://www.googleapis.com" crossorigin>
+  <link rel="preconnect" href="https://identitytoolkit.googleapis.com" crossorigin>
+  <link rel="preconnect" href="https://securetoken.googleapis.com" crossorigin>
+  <link rel="preconnect" href="https://firebasestorage.googleapis.com" crossorigin>
 
-<link rel="dns-prefetch" href="https://www.gstatic.com">
-<link rel="dns-prefetch" href="https://firestore.googleapis.com">
-<link rel="dns-prefetch" href="https://firebaseinstallations.googleapis.com">
-<link rel="dns-prefetch" href="https://www.googleapis.com">
-<link rel="dns-prefetch" href="https://identitytoolkit.googleapis.com">
-<link rel="dns-prefetch" href="https://securetoken.googleapis.com">
-<link rel="dns-prefetch" href="https://firebasestorage.googleapis.com">
-
-<link rel="manifest" href="manifest/manifest.json">
-<link rel="stylesheet" href="css/lightbox.css">
-
+  <!-- Low-cost DNS prefetch fallbacks (in case preconnect is ignored) -->
+  <link rel="dns-prefetch" href="https://www.gstatic.com">
+  <link rel="dns-prefetch" href="https://firestore.googleapis.com">
+  <link rel="dns-prefetch" href="https://firebaseinstallations.googleapis.com">
+  <link rel="dns-prefetch" href="https://www.googleapis.com">
+  <link rel="dns-prefetch" href="https://identitytoolkit.googleapis.com">
+  <link rel="dns-prefetch" href="https://securetoken.googleapis.com">
+  <link rel="dns-prefetch" href="https://firebasestorage.googleapis.com">
+<link rel="manifest" href="/manifest/manifest.json">
+<link rel="stylesheet" href="/css/lightbox.css">
 
 
 <meta name="theme-color" content="#ff2a7f">
@@ -681,20 +678,19 @@ main.wrap { touch-action: pan-y; }
 
 
     
-<link rel="stylesheet" href="css/theme.css">
-<link rel="stylesheet" href="css/layout.css">
-<link rel="stylesheet" href="css/ui.css">
-<link rel="stylesheet" href="css/list.css">
-<link rel="stylesheet" href="css/recipes.css">
-<link rel="stylesheet" href="css/modals.css">
-<link rel="stylesheet" href="css/weeklyItems.css">
-<link rel="stylesheet" href="css/cook.css">
-<link rel="stylesheet" href="css/timers.css">
-<link rel="stylesheet" href="scripts/timers/timer-bars.css">
-<link rel="stylesheet" href="css/itemDialog.css">
-<link rel="stylesheet" href="css/addrecipes.css">
-<link rel="apple-touch-icon" href="assets/icons/icon-192.png">
-
+  <link rel="stylesheet" href="/css/theme.css">
+<link rel="stylesheet" href="/css/layout.css">
+<link rel="stylesheet" href="/css/ui.css">
+<link rel="stylesheet" href="/css/list.css">
+<link rel="stylesheet" href="/css/recipes.css">
+<link rel="stylesheet" href="/css/modals.css">
+<link rel="stylesheet" href="/css/weeklyItems.css">
+<link rel="stylesheet" href="/css/cook.css">
+<link rel="stylesheet" href="/css/timers.css">
+<link rel="stylesheet" href="/scripts/timers/timer-bars.css">
+<link rel="stylesheet" href="/css/itemDialog.css">
+<link rel="stylesheet" href="/css/addrecipes.css">
+<link rel="apple-touch-icon" href="/assets/icons/icon-192.png">
 
 
 <!-- filter drawer styles moved to /css/ui.css -->
@@ -1024,7 +1020,7 @@ main.wrap { touch-action: pan-y; }
 
 
 
-<script type="module" src="scripts/main.js"></script>
+<script type="module" src="/scripts/main.js"></script>
 <!-- recipes.js is loaded by main.js -->
 
 
