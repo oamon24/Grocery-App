@@ -116,63 +116,59 @@ export function subscribeRecipes() {
   try {
     if (!window.db) return;
 
-    // Clean up any existing recipe subscriptions
+    // Tear down previous subscriptions
     if (_unsubRecipes) {
       try { _unsubRecipes(); } catch {}
       _unsubRecipes = null;
     }
 
     const db = window.db;
+    const hh = String(window.household || "").trim();
+
     const colShared = db.collection("recipes").doc("_shared").collection("recipes");
-    const householdId = (window.household || "").trim();
-    const colHousehold = householdId
-      ? db.collection("recipes").doc(householdId).collection("recipes")
-      : null;
+    const colHouse  = hh ? db.collection("recipes").doc(hh).collection("recipes") : null;
 
-    // Local caches for merge
-    let sharedArr = [];
-    let hhArr = [];
+    // Latest snapshots
+    let shared = new Map();   // id -> doc
+    let house  = new Map();   // id -> doc
 
-    const emitMerged = () => {
-      // Deduplicate by id. Household wins if ids collide.
-      const map = new Map();
-      sharedArr.forEach((r) => map.set(r.id, r));
-      hhArr.forEach((r) => map.set(r.id, r));
-      const merged = Array.from(map.values());
-
-      window.lastSnapshotRecipes = merged;
-
-      try {
-        if (typeof window.setRecipesAndRepaint === "function") {
-          window.setRecipesAndRepaint(merged);
+    const emit = () => {
+      const ids = new Set([...shared.keys(), ...house.keys()]);
+      const out = [];
+      for (const id of ids) {
+        if (house.has(id)) {
+          out.push({ ...house.get(id) }); // household wins
         } else {
-          window.__recipesPending = merged;
+          const s = shared.get(id);
+          out.push({ ...s, sharedOnly: true }); // badge shared-only
         }
+      }
+      // Stable sort by updatedAt desc then name
+      out.sort((a,b) => (b.updatedAt||0)-(a.updatedAt||0) || String(a.name||"").localeCompare(String(b.name||"")));
+      window.lastSnapshotRecipes = out;
+      try { localStorage.setItem("cache_recipes", JSON.stringify(out)); } catch {}
+      try {
+        if (typeof window.setRecipesAndRepaint === "function") window.setRecipesAndRepaint(out);
+        else if (typeof window.scheduleRenderRecipes === "function") window.scheduleRenderRecipes(out);
+        else window.__recipesPending = out;
       } catch {}
     };
 
-    // Start listeners
-    const unsubShared = colShared.onSnapshot(
-      (snap) => {
-        const arr = [];
-        snap.forEach((doc) => arr.push({ id: doc.id, ...(doc.data() || {}) }));
-        sharedArr = arr;
-        emitMerged();
-      },
-      (err) => console.error("subscribeRecipes shared failed", err)
-    );
+    // Listen shared
+    const unsubShared = colShared.onSnapshot((snap) => {
+      const next = new Map();
+      snap.forEach((d) => { const v = d.data() || {}; v.id = d.id; next.set(v.id, v); });
+      shared = next;
+      emit();
+    });
 
-    const unsubHousehold = colHousehold
-      ? colHousehold.onSnapshot(
-          (snap) => {
-            const arr = [];
-            snap.forEach((doc) => arr.push({ id: doc.id, ...(doc.data() || {}) }));
-            hhArr = arr;
-            emitMerged();
-          },
-          (err) => console.error("subscribeRecipes household failed", err)
-        )
-      : null;
+    // Listen household if available
+    const unsubHousehold = colHouse ? colHouse.onSnapshot((snap) => {
+      const next = new Map();
+      snap.forEach((d) => { const v = d.data() || {}; v.id = d.id; next.set(v.id, v); });
+      house = next;
+      emit();
+    }) : () => {};
 
     // Unified unsubscribe
     _unsubRecipes = () => {
@@ -188,6 +184,7 @@ export function subscribeRecipes() {
     console.warn("subscribeRecipes: not started", e);
   }
 }
+
 
 
 /**
