@@ -798,6 +798,7 @@ try {
   const sharedRef = sharedCol.doc(id);
   const sharedData = {
     ...clean,
+    ownerUid: window.auth?.currentUser?.uid || "",
     originHousehold: hh,
     originRecipeId: id,
     visibility: "public",
@@ -807,6 +808,7 @@ try {
 } catch (e) {
   console.warn("Shared publish failed", e);
 }
+
 
 
       // Clear syncing flag in cache
@@ -881,20 +883,33 @@ if (rmDelete) {
       if (typeof closeModal === "function") closeModal();
       toast("Deleting…");
 
-      // --- Firestore delete in background ---
-     try {
-        // Delete household copy
+          // --- Firestore delete in background ---
+      try {
+        // Delete household copy only
         await fs.collection("recipes").doc(hh).collection("recipes").doc(id).delete();
 
-        // Delete shared mirror
+        // If a shared doc exists and it has any versions, archive instead of delete
         try {
-          await fs.collection("recipes").doc("_shared").collection("recipes").doc(id).delete();
+          const sharedRef = fs.collection("recipes").doc("_shared").collection("recipes").doc(id);
+          const sharedSnap = await sharedRef.get();
+          if (sharedSnap.exists) {
+            const verSnap = await sharedRef.collection("versions").limit(1).get();
+            if (!verSnap.empty) {
+              await sharedRef.set({
+                visibility: "archived",
+                deletedAt: Date.now(),
+                updatedAt: Date.now()
+              }, { merge: true });
+            }
+            // If no versions, leave shared as-is by default
+          }
         } catch (e) {
-          console.warn("Shared delete failed", e);
+          console.warn("Shared archive check failed", e);
         }
 
         toast("Deleted");
       } catch (err) {
+
 
         console.warn("Delete recipe failed", err);
         // --- Roll back cache and UI ---
