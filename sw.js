@@ -76,15 +76,20 @@ self.addEventListener('fetch', (event) => {
 
   // 2) Runtime caching for static resources (local & Firebase CDN)
   const url = new URL(req.url);
+
+  // Do not cache images
+  if (req.destination === 'image') {
+    return; // fall through to default network fetch
+  }
+
+  // Same-origin static, excluding images
   const isSameOriginStatic =
-  url.origin === self.location.origin &&
-  /\.(?:js|css|png|jpg|jpeg|webp|svg|ico|gif|woff2?|mp3|wav|ogg|m4a|aac)$/i.test(url.pathname);
+    url.origin === self.location.origin &&
+    /\.(?:js|css|woff2?|mp3|wav|ogg|m4a|aac)$/i.test(url.pathname);
 
-
+  // Only cache static SDK assets. Do NOT cache Firebase Storage media.
   const isFirebaseCdn =
-  url.hostname === 'firebasestorage.googleapis.com' || // Storage media
-  url.hostname === 'storage.googleapis.com' ||         // alt Storage host
-  url.hostname === 'www.gstatic.com';                  // static SDK assets
+    url.hostname === 'www.gstatic.com';
 
   if (isSameOriginStatic || isFirebaseCdn) {
     event.respondWith((async () => {
@@ -104,6 +109,8 @@ self.addEventListener('fetch', (event) => {
     })());
     return;
   }
+
+
 
   // 3) Default: do nothing special (let network proceed)
 });
