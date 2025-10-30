@@ -1,0 +1,94 @@
+<div id="recipeModal" class="modal" aria-hidden="true" style="position:fixed; inset:0; margin:0; padding:0; z-index:12000;">
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="rmTitle"
+       style="position:fixed; inset:0; margin:0; border-radius:0; display:flex; flex-direction:column; width:auto; height:auto;">
+    <div class="modal-head"
+         style="flex:0 0 auto; display:flex; justify-content:space-between; align-items:center; padding:12px; border-bottom:1px solid var(--border); position:sticky; top:0; background:var(--surface, #111); z-index:1;">
+      <h3 id="rmTitle" style="margin:0;">Add Recipe</h3>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <button id="rmDelete" class="danger" type="button" style="display:none">Delete</button>
+        <button id="rmClose" type="button">✕</button>
+      </div>
+    </div>
+
+    <div class="modal-body" style="flex:1 1 auto; min-height:0; overflow:auto; padding:16px;">
+      <label>
+        <div>Name</div>
+        <input id="rmName" placeholder="e.g., Chicken Tikka" />
+      </label>
+
+      <div class="input-row">
+        <label>
+          <div>Base portions</div>
+          <input id="rmBasePortions" type="number" min="1" value="2" />
+        </label>
+      </div>
+
+      <!-- Tags -->
+      <details id="rmTagsWrap" style="margin:0; width:100%;" data-collapsible="tags">
+        <summary id="rmTagsSummary" style="list-style:none; cursor:pointer; display:flex; align-items:center; gap:8px;">
+          <span style="font-weight:600; font-size:1.1rem;">Tags</span>
+          <span id="rmTagsCaret" aria-hidden="true" style="margin-left:auto; transition:transform .2s;">▾</span>
+        </summary>
+        <div id="rmTagsBody" style="margin-top:8px;">
+          <div id="rmTags" class="tag-row"></div>
+          <div id="rmTagAdderRow" style="margin-top:8px; position:relative;">
+            <button id="rmAddTag" type="button">+ Add tag</button>
+            <div id="rmTagAdderWrap" style="display:none; margin-top:8px; position:relative;">
+              <input id="rmTagInput" type="text" placeholder="Start typing…" maxlength="24" enterkeyhint="done"
+                     style="width:100%; padding:10px 12px; border-radius:12px; border:1px solid var(--chip-border); background:var(--surface); color:var(--text);" />
+              <div id="rmTagAC" class="ac-list" role="listbox" aria-label="Tag suggestions" style="display:none;"></div>
+              <div class="muted" style="margin-top:6px; font-size:12px;">
+                Press Enter to add. Up to 10 tags. New tags are created if no match.
+              </div>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <!-- Ingredients -->
+      <details id="rmIngredientsWrap" style="margin:0; width:100%;" data-collapsible="ingredients">
+        <summary id="rmIngredientsSummary" style="list-style:none; cursor:pointer; display:flex; align-items:center; gap:8px;">
+          <span style="font-weight:600; font-size:1.1rem;">Ingredients</span>
+          <span id="rmIngredientsCaret" aria-hidden="true" style="margin-left:auto; transition:transform .2s;">▾</span>
+        </summary>
+        <div id="rmIngredientsBody" style="margin-top:0;">
+          <div id="rmIngredients">
+            <div class="ing-row">
+              <div class="ing-name-wrap" style="position:relative;">
+                <textarea class="ing-name" placeholder="Ingredient name"></textarea>
+                <div class="ac-list ing-ac" role="listbox" aria-label="Suggestions" style="display:none"></div>
+              </div>
+              <input class="ing-qty" type="text" placeholder="Qty" />
+              <input class="ing-size" type="text" placeholder="Size" />
+              <div></div>
+              <textarea class="ing-notes" placeholder="Notes"></textarea>
+              <button class="ing-del" type="button" title="Remove">✕</button>
+            </div>
+          </div>
+          <div style="margin-top:12px;">
+            <button id="rmAddIngredient" type="button">+ Add Ingredient</button>
+          </div>
+        </div>
+      </details>
+
+      <!-- Steps -->
+      <details id="rmSteps" style="margin:0; width:100%;" data-collapsible="steps">
+        <summary id="rmStepsSummary" style="list-style:none; cursor:pointer; display:flex; align-items:center; gap:8px;">
+          <span style="font-weight:600; font-size:1.1rem;">Steps</span>
+          <span id="rmStepsCaret" aria-hidden="true" style="margin-left:auto; transition:transform .2s;">▾</span>
+        </summary>
+        <div id="rmStepsBody" style="margin-top:8px;">
+          <div id="rmStepsList"></div>
+          <div style="margin-top:12px;">
+            <button id="rmAddStep" type="button">+ Add Step</button>
+          </div>
+        </div>
+      </details>
+    </div>
+
+    <div class="modal-foot">
+      <div style="flex:1"></div>
+      <button id="rmSave" class="primary" type="button">Save</button>
+    </div>
+  </div>
+</div>

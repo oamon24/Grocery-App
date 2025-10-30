@@ -1,0 +1,1122 @@
+  <!DOCTYPE html>
+
+<!-- _headers.yaml — Netlify or static hosting configuration file defining custom HTTP headers for deployed assets -->
+<!-- sw.js — Service Worker providing offline support via cache-first shell and stale-while-revalidate for static and Firebase assets -->
+<!-- manifest.webmanifest — PWA manifest defining app name, icons, theme color, and install metadata -->
+<!-- cook.css — Cook Mode and prep checklist interface styling -->
+<!-- itemDialog.css — Item settings and edit dialog styles -->
+<!-- layout.css — Core layout, header, grid system, and bottom navigation bar -->
+<!-- lightbox.css — Fullscreen photo viewer overlay with close and camera controls -->
+<!-- list.css — Grocery list item layout: checkbox, details, notes, and photo thumbnail styles -->
+<!-- modals.css — Shared modal, sheet, and popup presentation rules -->
+<!-- recipes.css — Recipe list and editor layout/styling -->
+<!-- theme.css — Global color palette, light/dark theme variables, and accessibility outlines -->
+<!-- timers.css — Floating timer chip, drawer, and cook-mode countdown component styling -->
+<!-- ui.css — Core button styles and keyboard navigation (arrow-key tab focus) -->
+<!-- weeklyItems.css — Weekly Items modal layout, floating action button, and autocomplete suggestion list -->
+<!-- manifest.json — Progressive Web App manifest defining name, icons, theme color, start URL, and standalone display configuration -->
+<!-- mode.js — Cook Mode modal logic: step navigation, timers, photos, and ingredient prep tracking -->
+<!-- session.js — Persists cooking task checkboxes with 12-hour TTL and cross-tab synchronization -->
+<!-- timers.js — Exports wrapper bindings for cook-step timer functions (create/update/reset) -->
+<!-- render.js — List rendering engine handling sorting, filtering, and grouped/category views; uses renderRow for each item -->
+<!-- row.js — Renders a single grocery item row with inline editing, Firestore updates, and photo picker integration -->
+<!-- addItems.js — Placeholder module intended for the “Add Items” modal logic -->
+<!-- addToList.js — Placeholder module for the Recipe → Shopping List conversion modal -->
+<!-- itemDialog.js — Full Item Settings dialog: add/edit/delete items and sync changes to Firestore -->
+<!-- manager.js — Shared modal utilities: lockBody, unlockBody, backdrop and Escape key close bindings -->
+<!-- weeklyItems.js — Weekly Items modal with Firestore sync, add/clear controls, and photo picker integration -->
+<!-- autocomplete.js — Placeholder for step ingredient autocomplete logic within the recipe editor -->
+<!-- importJson.js — Placeholder for importing recipe JSON data into the editor -->
+<!-- recipeEditor.js — Placeholder for recipe editor UI (tags, ingredients, steps) -->
+<!-- recipes.js — Full recipes module handling rendering, collapsible sections, and recipe modal open/close behavior -->
+<!-- recipeTags.js — Placeholder for recipe tag management within the recipe editor -->
+<!-- core.js — Complete timer engine handling creation, persistence, wake lock, notifications, and UI updates -->
+<!-- notify.js — Placeholder module for notification and vibration helper functions -->
+<!-- ui.js — Timer UI bridge exposing open/close/drawer bindings to global timer functions -->
+<!-- bottomNav.js — Placeholder for bottom navigation highlight and tab click behavior -->
+<!-- checkedToggle.js — Placeholder for “checked items” 12-hour visibility toggle logic -->
+<!-- fab.js — Placeholder for floating action button visibility and actions -->
+<!-- filterSheet.js — Placeholder for filter/sort overlay sheet controls -->
+<!-- gestures.js — Placeholder for swipe gesture navigation between tabs -->
+<!-- lightbox.js — Placeholder for fullscreen photo viewer overlay -->
+<!-- listToggle.js — Placeholder for toggling shopping list visibility -->
+<!-- settingsSheet.js — Placeholder for settings sheet (theme + household selection) -->
+<!-- theme.js — Placeholder for theme and custom color palette management -->
+<!-- ui.js — UI kernel implementing toast notifications, body lock, tab switching, and checked-item view toggle -->
+<!-- autocomplete.js — Placeholder for keyboard navigation within suggestion lists -->
+<!-- color.js — Placeholder for color parsing and hex normalization utilities -->
+<!-- markdown.js — Safe Markdown-to-HTML converter with strict sanitization and checkbox rendering -->
+<!-- quantities.js — Placeholder for quantity parsing, scaling, addition, and number formatting helpers -->
+<!-- utils.js — Utility module providing DOM shortcuts, text escaping, capitalization, and DOM-ready helpers -->
+<!-- auth.js — Placeholder for authentication UI and state management -->
+<!-- dataSync.js — Firestore data layer: subscriptions, CRUD for list and recipes, and catalog updates -->
+<!-- firebase.js — Initializes Firebase Auth, Firestore, and Storage (compat SDK safe) -->
+<!-- lightbox.js — Fullscreen image viewer with camera and close controls -->
+<!-- listActions.js — Placeholder for list item add, update, and clear-checked logic -->
+<!-- main.js — Application bootstrap: Firebase init, event wiring, UI shims, and Service Worker registration -->
+<!-- photo.js — Complete photo picker: file chooser, camera input, and event dispatch for upload/remove actions -->
+<!-- sw.js — Service Worker for cache-first static assets and network-first HTML fetch handling -->
+
+
+
+
+
+    <html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
+  <link rel="preconnect" href="https://firebaseinstallations.googleapis.com" crossorigin>
+  <!-- Extra Firebase endpoints we touch early -->
+  <link rel="preconnect" href="https://www.googleapis.com" crossorigin>
+  <link rel="preconnect" href="https://identitytoolkit.googleapis.com" crossorigin>
+  <link rel="preconnect" href="https://securetoken.googleapis.com" crossorigin>
+  <link rel="preconnect" href="https://firebasestorage.googleapis.com" crossorigin>
+
+  <!-- Low-cost DNS prefetch fallbacks (in case preconnect is ignored) -->
+  <link rel="dns-prefetch" href="https://www.gstatic.com">
+  <link rel="dns-prefetch" href="https://firestore.googleapis.com">
+  <link rel="dns-prefetch" href="https://firebaseinstallations.googleapis.com">
+  <link rel="dns-prefetch" href="https://www.googleapis.com">
+  <link rel="dns-prefetch" href="https://identitytoolkit.googleapis.com">
+  <link rel="dns-prefetch" href="https://securetoken.googleapis.com">
+  <link rel="dns-prefetch" href="https://firebasestorage.googleapis.com">
+<link rel="manifest" href="/manifest/manifest.json">
+<link rel="stylesheet" href="/css/lightbox.css">
+
+<!-- Early theme boot: set data-theme, tokens, and a non-media theme-color before paint -->
+<script>
+(function(){
+  try{
+    var d = document.documentElement;
+    var ls = localStorage;
+    var mode = ls.getItem('theme.mode') || 'system';
+    var color = (ls.getItem('theme.color') || '').trim();
+
+    // 1) Apply forced theme if chosen
+    d.removeAttribute('data-theme');
+    if (mode === 'light' || mode === 'dark') d.setAttribute('data-theme', mode);
+
+    // 2) Sync tokens when using a custom color so UI + bar match
+    if (mode === 'custom' && color){
+      d.style.setProperty('--primary', color);
+      d.style.setProperty('--accent', color);
+    } else {
+      d.style.removeProperty('--primary');
+      d.style.removeProperty('--accent');
+    }
+
+    // 3) Set a single no-media theme-color that matches custom color when active
+    var meta = document.querySelector('meta[name="theme-color"]:not([media])');
+    if (!meta){
+      meta = document.createElement('meta');
+      meta.setAttribute('name','theme-color');
+      document.head.appendChild(meta);
+    }
+    var isDark = (mode === 'dark') || (mode === 'system' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    var surface = isDark ? '#17171c' : '#ffffff';
+    meta.setAttribute('content', (mode === 'custom' && color) ? color : surface);
+  }catch(e){}
+})();
+</script>
+
+<!-- Early theme boot: set data-theme, tokens, and non-media theme-color before paint -->
+<script>
+(function(){
+  try{
+    var d = document.documentElement;
+    var ls = localStorage;
+    var mode = ls.getItem('theme.mode') || 'system';
+    var color = (ls.getItem('theme.color') || '').trim();
+
+    // Apply forced theme if chosen
+    d.removeAttribute('data-theme');
+    if (mode === 'light' || mode === 'dark') d.setAttribute('data-theme', mode);
+
+    // Keep UI tokens ready; status bar color is decided below
+    if (mode === 'custom' && color){
+      d.style.setProperty('--primary', color);
+      d.style.setProperty('--accent', color);
+    } else {
+      d.style.removeProperty('--primary');
+      d.style.removeProperty('--accent');
+    }
+
+    // Compute effective scheme
+    var forcedDark = d.getAttribute('data-theme') === 'dark';
+    var forcedLight = d.getAttribute('data-theme') === 'light';
+    var systemDark = !forcedDark && !forcedLight && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var isDark = forcedDark || systemDark;
+
+    // Bar color rule: dark -> surface; else if custom -> custom; else -> surface
+    var surface = isDark ? '#17171c' : '#ffffff';
+    var bar = isDark ? surface : ((mode === 'custom' && color) ? color : surface);
+
+    var meta = document.querySelector('meta[name="theme-color"]:not([media])');
+    if (!meta){
+      meta = document.createElement('meta');
+      meta.setAttribute('name','theme-color');
+      document.head.appendChild(meta);
+    }
+    meta.setAttribute('content', bar);
+  }catch(e){}
+})();
+</script>
+
+<!-- Scheme fallbacks -->
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+<meta name="theme-color" media="(prefers-color-scheme: dark)"  content="#17171c">
+    <title>Kaufland Route List</title>
+    
+  <style>
+
+ 
+ 
+ /* =========================================================
+    NEON DARK THEME (with light variant)
+    - Accent: hot pink
+    - Dark-first design; soft glass, rounded, high contrast
+    - Force theme by adding data-theme="dark" | "light" to <html>
+    ========================================================= */
+
+  /* ---------- Shared tokens ---------- */
+  :root{
+    --radius: 16px;
+    --pad: 14px;
+
+    --primary: #ff007f;          /* hot pink */
+    --on-primary: #ffffff;
+
+    /* defaults = LIGHT; overridden below for dark/auto-dark */
+    --bg: #f7f7fb;
+    --surface: #ffffff;
+    --text: #111318;
+
+    --muted: #5f6675;
+    --border: #e5e7eb;
+    --chip: #f2f3f6;
+    --chip-border: #e6e7ef;
+
+    --hover: rgba(0,0,0,.04);
+    --press: rgba(0,0,0,.08);
+
+    --shadow-sm: 0 6px 18px rgba(0,0,0,.06);
+    --shadow-md: 0 12px 36px rgba(0,0,0,.12);
+
+    /* focus */
+    --ring: 0 0 0 3px color-mix(in oklab, var(--primary) 32%, transparent);
+  }
+
+  /* ---------- Auto dark (when you don't force a theme) ---------- */
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme]){
+      --bg: #0f0f12;
+      --surface: #17171c;
+      --text: #e8e9ee;
+
+      --muted: #a5adbb;
+      --border: #2a2a33;
+      --chip: #1f1f25;
+      --chip-border: #2a2a33;
+
+      --hover: rgba(255,255,255,.06);
+      --press: rgba(255,255,255,.10);
+
+      --shadow-sm: 0 10px 28px rgba(0,0,0,.35);
+      --shadow-md: 0 18px 48px rgba(0,0,0,.45);
+    }
+  }
+
+  /* ---------- Manual overrides ---------- */
+  :root[data-theme="light"]{
+    --bg: #f7f7fb;
+    --surface: #ffffff;
+    --text: #111318;
+
+    --muted: #5f6675;
+    --border: #e5e7eb;
+    --chip: #f2f3f6;
+    --chip-border: #e6e7ef;
+
+    --hover: rgba(0,0,0,.04);
+    --press: rgba(0,0,0,.08);
+
+    --shadow-sm: 0 6px 18px rgba(0,0,0,.06);
+    --shadow-md: 0 12px 36px rgba(0,0,0,.12);
+  }
+  :root[data-theme="dark"]{
+    --bg: #0f0f12;
+    --surface: #17171c;
+    --text: #e8e9ee;
+
+    --muted: #a5adbb;
+    --border: #2a2a33;
+    --chip: #1f1f25;
+    --chip-border: #2a2a33;
+
+    --hover: rgba(255,255,255,.06);
+    --press: rgba(255,255,255,.10);
+
+    --shadow-sm: 0 10px 28px rgba(0,0,0,.35);
+    --shadow-md: 0 18px 48px rgba(0,0,0,.45);
+  }
+
+  /* =========================================================
+    Base
+    ========================================================= */
+  *{ box-sizing: border-box; }
+  :root{ color-scheme: light dark; }
+
+  body{
+    margin:0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Helvetica Neue', Arial, 'Noto Sans';
+  }
+
+  .wrap{ max-width:900px; margin:0 auto; padding:14px; touch-action: pan-y; }
+  h1{ font-size: 20px; margin: 6px 0 2px; }
+
+  header{
+    position: sticky; top: 0; z-index: 5;
+    background: color-mix(in oklab, var(--surface) 90%, transparent);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:end; }
+
+  /* =========================================================
+    Controls
+    ========================================================= */
+  input[type="text"], input[type="number"], input[type="file"], select{
+    padding: 10px 12px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    outline: none;
+    transition: border-color .12s ease, box-shadow .12s ease, background .12s ease;
+  }
+  input[type="text"]:focus, input[type="number"]:focus, select:focus{
+    border-color: color-mix(in oklab, var(--primary) 55%, var(--border));
+    box-shadow: var(--ring);
+  }
+  input[type="number"]{ width: 110px; }
+
+  button{
+    padding: 10px 14px;
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+    box-shadow: var(--shadow-sm);
+    transition: background .12s ease, transform .06s ease, border-color .12s ease, box-shadow .12s ease;
+  }
+
+  button.primary{
+    background: var(--primary);
+    color: var(--on-primary);
+    border-color: var(--primary);
+    box-shadow: 0 12px 30px color-mix(in oklab, var(--primary) 30%, transparent);
+  }
+
+  /* Pills / chips */
+  .pill{
+    padding: 6px 12px; border-radius: 999px;
+    background: var(--chip);
+    border: 1px solid var(--chip-border);
+    font-size: 12px;
+    color: var(--text);
+  }
+  .muted{ color: var(--muted); font-size: 13px; }
+
+  /* =========================================================
+    Cards, toolbars, tabs
+    ========================================================= */
+  .card{
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: var(--pad);
+    box-shadow: var(--shadow-md);
+  }
+
+  .toolbar{ display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
+  .toolbar .group{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+
+  .card > .toolbar{
+    position: static;          /* was: sticky */
+    top: auto;                 /* no offset */
+    z-index: auto;             /* no stacking above content */
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 0;
+  }
+
+
+  /* Tabs */
+  .tabs{ display:flex; gap:10px; }
+  .tab{
+    padding: 8px 16px;
+    border-radius: 999px;
+    border: 1px solid var(--chip-border);
+    background: var(--chip);
+    color: var(--text);
+    transition: background .12s ease, box-shadow .12s ease, border-color .12s ease, transform .06s ease;
+  }
+  .tab:hover{ background: color-mix(in oklab, var(--chip), var(--hover)); }
+  .tab.active{
+    background: var(--primary);
+    border-color: var(--primary);
+    color: var(--on-primary);
+    box-shadow: 0 14px 36px color-mix(in oklab, var(--primary) 30%, transparent);
+  }
+  /* =========================================================
+    Bottom Navigation
+    ========================================================= */
+  .bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0; right: 0;
+    display: flex;
+    gap: 8px;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -8px 24px rgba(0,0,0,.12);
+    z-index: 9999;           /* ↑ ensure it sits on top of footer/overlays */
+    pointer-events: auto;
+  }
+  /* ===== Modal-open UI lock (prevent background interaction) ===== */
+  body.modal-open { overflow: hidden; }
+  /* Disable nav while modal is open, but keep the Weekly Items FAB clickable */
+  body.modal-open .bottom-nav {
+    pointer-events: none !important;
+  }
+
+
+  .bottom-nav .tab {
+    flex: 1;
+    text-align: center;
+    padding: 12px 0;
+    border-radius: 0;
+    border: none;
+    background: transparent;
+    font-weight: 600;
+  }
+  .bottom-nav .tab.active {
+    background: var(--primary);
+    color: var(--on-primary);
+    border-radius: 12px;
+    margin: 0 4px;
+  }
+
+ 
+  
+  /* =========================================================
+    Autocomplete / Toast / Popups / Modals / Lightbox
+    (restyled to match neon-dark)
+    ========================================================= */
+  .ac-list{
+    position:absolute; left:0; right:0; top:100%; margin-top:6px;
+    background: var(--surface);
+    border:1px solid var(--border);
+    border-radius:14px; box-shadow: var(--shadow-md);
+    max-height:280px; overflow:auto; z-index:6;
+  }
+  .ac-item{ display:flex; flex-direction:column; gap:2px; padding:10px 12px; cursor:pointer; border-bottom:1px solid var(--border); }
+  .ac-item:last-child{ border-bottom:none; }
+  .ac-item:hover{ background: color-mix(in oklab, var(--surface), var(--hover)); }
+  .ac-title{ font-weight:700; }
+  .ac-meta{ color: var(--muted); font-size:12px; }
+/* Keyboard highlight for active suggestion */
+.ac-item.active{
+  background: color-mix(in oklab, var(--surface), var(--hover));
+}
+
+  .toast{
+    position: fixed;
+    left: 50%;
+    bottom: calc(70px + env(safe-area-inset-bottom, 0px) + 18px);
+    transform: translateX(-50%) translateY(14px);
+    opacity: 0;
+    transition:
+      transform 240ms cubic-bezier(.22,1,.36,1),
+      opacity 240ms cubic-bezier(.22,1,.36,1);
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: var(--shadow-md);
+    padding: 10px 14px;
+    font-size: 14px;
+    pointer-events: auto;   /* tap to dismiss */
+    z-index: 20000;
+  }
+  .toast.show{
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+
+
+.popup-backdrop{ position:fixed; inset:0; background: rgba(0,0,0,.45); display:none; align-items:center; justify-content:center; z-index:1000000; }
+.popup-backdrop.show{ display:flex; }
+  .popup{
+    background: var(--surface);
+    border:1px solid var(--chip-border);
+    border-radius:16px; width:300px; padding:12px; box-shadow: var(--shadow-md);
+  }
+  .popup h3{ margin:6px 8px 10px; font-size:15px; }
+  .popup .choices{ display:grid; gap:8px; }
+ /* moved to /css/modals.css */
+
+
+
+
+  /* Card fills the viewport; column layout for head/body/foot */
+  .modal-card{
+    width:100vw; height:100dvh;
+    background: var(--surface);
+    border:1px solid var(--border);
+    border-radius:0;                     /* no rounded corners in full-screen */
+    box-shadow: var(--shadow-md);
+    display:flex; flex-direction:column; /* header, body, footer stack vertically */
+  }
+
+  /* Header stays at the top; body scrolls beneath */
+  .modal-head{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 16px;
+    border-bottom:1px solid var(--border);
+    position:sticky; top:0; z-index:1;   /* keep close/delete visible */
+    background: var(--surface);
+  }
+
+  /* Body takes remaining space and scrolls if long */
+  .modal-body{
+    flex:1 1 auto; min-height:0;
+    padding:14px 16px;
+    overflow:auto;
+    display:flex; flex-direction:column; gap:16px;  /* ← add vertical spacing */
+    max-height:none;
+  }
+
+
+
+
+  /* Footer is pinned to bottom of the card */
+  .modal-foot{
+    flex:0 0 auto;
+    padding:12px 16px;
+    border-top:1px solid var(--border);
+    display:flex; gap:8px;
+  }
+
+  .input-row{ display:grid; gap:8px; grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
+  /* — Prevent any image in the modal from overflowing horizontally — */
+  .modal-body img{
+    max-width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  /* Extra safety: children can shrink within the modal body */
+  .modal-body > * { min-width: 0; }
+
+    .input-row > * { min-width: 0; }
+
+    @media (max-width:560px){ .input-row{ grid-template-columns:1fr; } }
+
+  .tag-row{ display:flex; flex-wrap:wrap; gap:8px; }
+  .tagchip{
+    padding:6px 10px; border:1px solid var(--chip-border); border-radius:999px; cursor:pointer; user-select:none;
+    background: var(--chip); color: var(--text);
+  }
+  .tagchip.active{ background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
+  /* Prevent tag chips from causing horizontal overflow */
+  #rmTags { max-width: 100%; }
+  .tagchip{
+    display: inline-flex;
+    align-items: center;
+    white-space: normal;         /* allow wrapping */
+    overflow-wrap: anywhere;     /* break long words/strings */
+    word-break: break-word;      /* extra safety for long tokens */
+    max-width: 100%;
+  }
+
+  .preset-row{ display:flex; gap:8px; flex-wrap:wrap; }
+  .preset{ padding:6px 10px; border:1px solid var(--chip-border); border-radius:999px; background: var(--chip); }
+  .preset.active{ background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
+  /* Recipes search layout helpers */
+  .rc-search { display:flex; flex-direction:column; gap:6px; }
+  #rcSelected { max-width:100%; }
+  #rcTopTags { max-width:100%; }
+  #rcTagInput { max-width:100%; }
+  /* ensure controls share one row */
+  .rc-input-row { display:flex; align-items:center; gap:8px; }
+  .rc-input-row #rcTagInput { flex:1; min-width:0; }
+
+  .checklist{ display:grid; gap:8px; }
+  .checkrow{
+    display:grid; grid-template-columns:24px 1fr auto; align-items:center; gap:10px;
+    border:1px solid var(--border); border-radius:12px; padding:8px 10px; background: var(--surface);
+  }
+
+
+
+    /* Reserve space so content isn't hidden behind the bottom nav */
+  body { padding-bottom: calc(70px + env(safe-area-inset-bottom)); }
+
+  /* =========================================================
+    Bottom Navigation
+    ========================================================= */
+ 
+/* removed duplicate bottom-nav .tab (pill variant) */
+
+
+  /* =========================================================
+    Floating Theme Toggle (FAB)
+    ========================================================= */
+ .theme-fab {
+    position: fixed;
+    right: 16px;
+    bottom: calc(70px + 16px + env(safe-area-inset-bottom)); /* sits above the nav */
+    border-radius: 999px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    box-shadow: var(--shadow-md);
+    cursor: pointer;
+}
+
+/* Let .btn-pink control the color; only add stack/weight here */
+#weeklyItemsFab {
+  z-index: 15000;     /* on top of the bottom nav */
+  border: none;       /* keep the pill clean */
+  font-weight: 600;
+}
+
+
+
+
+
+  .theme-fab:hover  { background: color-mix(in oklab, var(--surface), var(--hover)); }
+  .theme-fab:active { background: color-mix(in oklab, var(--surface), var(--press)); transform: translateY(1px); }
+main.wrap { touch-action: pan-y; }
+
+
+
+
+
+
+
+ /* Weekly Items modal */
+#weeklyItemsModal {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: stretch;   /* let the sheet span full width */
+  justify-content: flex-start; /* stick to the top */
+  z-index: 12000;
+}
+
+
+#weeklyItemsModal.show {
+  display: flex;
+}
+#weeklyItemsModal .backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+}
+#weeklyItemsModal .sheet {
+  position: relative;
+  width: 100%;
+  height: calc(100vh - (var(--bottom-nav-height, 64px) + env(safe-area-inset-bottom)));
+  background: var(--surface, #fff);
+  color: inherit;
+  border-radius: 0;           /* full-bleed */
+  box-shadow: none;           /* no floating shadow for full-screen sheet */
+  display: flex;
+  flex-direction: column;
+}
+
+#weeklyItemsModal .header {
+  padding: 12px;
+  border-bottom: 1px solid var(--border, #ccc);
+  font-size: 1.2em;
+  font-weight: bold;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+#weeklyItemsModal .body {
+  flex: 1;
+  overflow: auto;
+  padding: 16px;
+  position: relative; /* anchor for full-width suggestions */
+}
+
+/* Show delete button inside Weekly Items modal */
+#weeklyItemsModal .wi-del {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+}
+
+
+/* Weekly Items list: single full-width column */
+#weeklyItemsModal #wiList {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+}
+#weeklyItemsModal #wiList > * { min-width: 0; }
+
+/* Anchor for absolute delete button */
+#weeklyItemsModal #wiList .item { position: relative; }
+
+#weeklyItemsModal .close {
+  background: transparent;
+  border: none;
+  font-size: 1.5em;
+  cursor: pointer;
+}
+/* Weekly Items modal: do not cross out checked items */
+#weeklyItemsModal .item:has(input[type="checkbox"]:checked) .line1 {
+  text-decoration: none !important;
+  /* If you also want to keep the original text color, uncomment the next line */
+  /* color: inherit !important; */
+}
+
+/* Floating action button for Weekly Items handled in /css/weeklyItems.css */
+
+
+/* Full-width overlay suggestions in Weekly Items modal */
+#wiAutoList {
+  position: absolute;                 /* anchor to .body (which is position:relative) */
+  left: 16px;                         /* match #weeklyItemsModal .body padding */
+  right: 16px;                        /* match #weeklyItemsModal .body padding */
+  top: 0;                             /* JS sets exact offset under the input */
+  z-index: 20050;
+
+  background: var(--modal-bg, #1a1a1a);
+  border: 1px solid var(--border-color, #444);
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  max-height: 240px;
+  overflow-y: auto;
+}
+#wiAutoList .ac-item { padding: 8px 12px; cursor: pointer; }
+#wiAutoList .ac-item:hover,
+#wiAutoList .ac-item.active { background: var(--accent-bg, #ff0077); color: #fff; }
+
+
+
+#checkedToggleFab {
+  position: fixed;
+  bottom: calc(70px + 16px + env(safe-area-inset-bottom)); /* ensures full clearance above bottom nav */
+  width: auto;
+  height: auto;
+  padding: 6px 10px;
+  font-size: 16px;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.4);
+  z-index: 15050;
+  pointer-events: auto;
+}
+
+
+/* moved to /css/modals.css */
+
+
+
+</style>
+
+
+
+
+
+
+<!-- Firebase initialized via /scripts/firebase.js (module) -->
+
+
+
+   
+<!-- step autocomplete styles moved to /css/ui.css -->
+
+<!-- touch-action moved to /css/layout.css -->
+
+
+<!-- swipe gesture override moved to /css/layout.css -->
+
+
+    
+  <link rel="stylesheet" href="/css/theme.css">
+<link rel="stylesheet" href="/css/layout.css">
+<link rel="stylesheet" href="/css/ui.css">
+<link rel="stylesheet" href="/css/list.css">
+<link rel="stylesheet" href="/css/recipes.css">
+<link rel="stylesheet" href="/css/modals.css">
+<link rel="stylesheet" href="/css/weeklyItems.css">
+<link rel="stylesheet" href="/css/cook.css">
+<link rel="stylesheet" href="/css/timers.css">
+<link rel="stylesheet" href="/scripts/timers/timer-bars.css">
+<link rel="stylesheet" href="/css/itemDialog.css">
+<link rel="stylesheet" href="/css/addrecipes.css">
+<link rel="apple-touch-icon" href="/assets/icons/icon-192.png">
+
+
+<!-- filter drawer styles moved to /css/ui.css -->
+
+
+</head>
+
+
+  <body>
+    <!-- SVG sprite -->
+    <svg aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
+      <symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 7h16"/><path d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/><path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"/><path d="M10 11v6M14 11v6"/>
+      </symbol>
+      <symbol id="i-cart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 12.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+      </symbol>
+      <symbol id="i-camera" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3l2-3h8l2 3h3a2 2 0 0 1 2 2z"/>
+        <circle cx="12" cy="13" r="4"/>
+      </symbol>
+    </svg>
+
+
+
+
+<main class="wrap">
+      <div id="status" class="status"></div>
+
+      <section id="listSection" class="card" data-list-collapsed="true">
+
+      <div id="addRow" class="row" style="align-items:flex-end; gap:10px;">
+  <div style="flex:1; min-width:220px; position:relative;">
+    <label>Item</label>
+    <input id="itemName" type="text" placeholder="e.g., Milch, Bananen" />
+    <div id="autoList" class="ac-list" role="listbox" aria-label="Suggestions" style="display:none"></div>
+    <div id="updateTag" class="updateTag" style="display:none"></div>
+  </div>
+
+  <div><button id="add" class="primary">Add</button></div>
+
+  <!-- Hidden stubs to satisfy JS references -->
+  <input id="itemQty" class="qty" type="hidden" value="">
+  <input id="itemSize" class="size" type="hidden" value="">
+  <select id="itemCategory" class="category" style="display:none;"><option value=""></option></select>
+  <input id="itemRoute" class="route" type="hidden" value="">
+  <input id="itemNotes" class="notes" type="hidden" value="">
+  <button id="newItemAddPhoto" type="hidden" style="display:none"></button>
+  <span id="photoName" style="display:none"></span>
+  <img id="photoPreview" style="display:none" alt="Preview">
+</div>
+
+      <div id="toggleListItemsRow" class="row" style="justify-content: flex-end; margin-top: 200px;">
+    <button id="toggleListItemsButton" class="pill" type="button" aria-pressed="false">🔽 Show items</button>
+  </div>
+
+
+        <!-- List tab DOM -->
+<div id="list_list" class="list" aria-live="polite"></div>
+<div id="empty_list" class="empty" style="display:none">
+  <svg class="icon" aria-hidden="true"><use href="#i-cart"></use></svg>
+  <div class="headline">Your list is empty</div>
+  <div class="muted">Add your first item above.</div>
+</div>
+
+<!-- Shopping tab DOM -->
+<div id="list_shopping" class="list" aria-live="polite" style="display:none"></div>
+<div id="empty_shopping" class="empty" style="display:none">
+  <svg class="icon" aria-hidden="true"><use href="#i-cart"></use></svg>
+  <div class="headline">Your shopping is empty</div>
+  <div class="muted">Add items or uncheck some.</div>
+</div>
+
+      </section>
+  <!-- ==================== Recipes View (shell) ==================== -->
+  <section id="recipesView" class="card" style="display:none; margin-top:14px;">
+    <div class="toolbar">
+      <div class="group">
+        <h2 style="margin:0">Recipes</h2>
+        <span id="recipesCount" class="pill muted">0 recipes</span>
+      </div>
+          <div class="group" style="flex:1; min-width:260px;">
+        
+            <div id="rcSearchWrap" class="rc-search">
+          <label for="rcTagInput" class="muted" style="font-size:12px;">Search by tags</label>
+
+                   <div class="rc-input-row" style="position:relative; display:flex; align-items:center; gap:8px;">
+            <input
+              id="rcTagInput"
+              type="text"
+              placeholder="Start typing a tag or recipe name…"
+              maxlength="24"
+              enterkeyhint="done"
+              style="flex:1; min-width:0; padding:10px 12px; border-radius:12px; border:1px solid var(--chip-border); background:var(--surface); color:var(--text);"
+            />
+            <button id="rcClearBtn" type="button" title="Clear filters" style="white-space:nowrap;">Clear</button>
+            <button id="btnOpenAddRecipe" class="primary" type="button">Add Recipe</button>
+            <button id="importRecipe" class="primary" type="button" title="Import Recipe">Import Recipe</button>
+
+            <div id="rcTagAC" class="ac-list" role="listbox" aria-label="Tag suggestions" style="display:none;"></div>
+          </div>
+
+
+
+          <div id="rcSelected" class="tag-row" style="margin-top:6px;"></div>
+
+          <div class="muted" style="margin-top:6px; font-size:12px;">Common tags</div>
+          <div id="rcTopTags" class="preset-row"></div>
+        </div>
+      </div>
+
+<!-- moved Add/Import Recipe buttons into the search row next to Clear -->
+
+
+    </div>
+
+    <div id="recipeList" class="list" style="margin-top:12px;"></div>
+  </section>
+
+
+
+    </main>
+
+
+    
+
+    <!-- Global hidden file inputs (reused everywhere) -->
+    <input id="fileChooser" type="file" accept="image/*" style="display:none" />
+    <input id="fileCamera"  type="file" accept="image/*" capture="environment" style="display:none" />
+
+    <!-- Photo popup is lazy-loaded from /partials/modals/photoPopup.html -->
+
+  <!-- Recipe Editor modal is lazy-loaded from /partials/modals/recipe.html -->
+
+
+  <!-- Add Recipe to List modal is lazy-loaded from /partials/modals/addToList.html -->
+
+  <!-- ============== Recipe Modal (centered) ============== -->
+  <div id="recipeModal" class="modal" aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="modal-card" role="document" aria-labelledby="rmTitle">
+      <div class="modal-header">
+        <h3 id="rmTitle">Add Recipe</h3>
+        <div style="display:flex; gap:8px;">
+          <button id="rmDelete" type="button" title="Delete" style="display:none;">Delete</button>
+          <button id="rmClose" type="button" aria-label="Close">✕</button>
+        </div>
+      </div>
+
+      <div class="modal-body">
+        <!-- Meta -->
+        <label class="dlg-field">
+          <div>Name</div>
+          <input id="rmName" type="text" placeholder="e.g., Spaghetti Carbonara" />
+        </label>
+
+        <label class="dlg-field">
+          <div>Base portions</div>
+          <input id="rmBasePortions" type="number" min="1" inputmode="numeric" placeholder="2" />
+        </label>
+
+        <!-- Tags -->
+        <details id="rmTagsWrap">
+          <summary>
+            <span id="rmTagsCaret" class="caret">▸</span>
+            <strong>Tags</strong>
+          </summary>
+          <div style="margin-top:8px;">
+            <div id="rmTags" class="tagrow"></div>
+
+            <div id="rmTagAdderWrap" class="tagadder">
+              <input id="rmTagInput" type="text" placeholder="Add tag…" aria-expanded="false" aria-controls="rmTagAC" />
+              <button id="rmAddTag" type="button" title="Add tag">Add</button>
+              <div id="rmTagAC" class="ac-list" role="listbox" aria-label="Tag suggestions" style="display:none"></div>
+            </div>
+          </div>
+        </details>
+
+        <!-- Cover -->
+        <div class="section">
+          <div class="section-title">Cover photo</div>
+          <div class="cover-row">
+            <button id="rmCoverBtn" type="button">Add cover photo</button>
+            <img id="rmCoverPreview" alt="Cover preview" />
+            <div id="rmCoverName" class="muted"></div>
+            <button id="rmCoverRemove" type="button" style="display:none">Remove</button>
+          </div>
+        </div>
+
+        <!-- Ingredients -->
+        <details id="rmIngredientsWrap">
+          <summary>
+            <span id="rmIngredientsCaret" class="caret">▸</span>
+            <strong>Ingredients</strong>
+          </summary>
+
+          <div class="section">
+            <div id="rmIngredients"></div>
+            <div class="section-actions">
+              <button id="rmAddIngredient" type="button">Add ingredient</button>
+            </div>
+          </div>
+        </details>
+
+        <!-- Steps -->
+        <details id="rmSteps">
+          <summary>
+            <span id="rmStepsCaret" class="caret">▸</span>
+            <strong>Steps</strong>
+          </summary>
+
+          <div class="section">
+            <div id="rmStepsList"></div>
+            <div class="section-actions">
+              <button id="rmAddStep" type="button">Add step</button>
+            </div>
+          </div>
+        </details>
+      </div>
+
+      <div class="modal-footer">
+        <button id="rmSave" type="button" class="primary">Save</button>
+      </div>
+    </div>
+  </div>
+
+<!-- App root containers required by modules -->
+
+<div id="appRoot">
+  <!-- Required FABs -->
+ <!-- Unified FAB buttons (controlled via layout.css) -->
+<div class="fab-row">
+  <button id="checkedToggleFab" class="fab btn btn-pink" type="button" style="display:none;">Show Checked</button>
+  <button id="addItemsFab" class="fab btn btn-pink" type="button" style="display:none;">Add Items</button>
+  <button id="weeklyItemsFab" class="fab btn btn-pink" type="button" style="display:none;">Weekly Items</button>
+</div>
+
+
+
+  <!-- Timers UI -->
+  <!-- Top active timers bar (only visible outside Cook Mode) -->
+  <div id="timerTopBar" class="timer-top-bar" hidden>
+    <div id="timerTopChips" class="chips" role="list"></div>
+  </div>
+
+  <!-- Floating count chip (existing fallback) -->
+  <div id="timerChip" class="timer-chip" hidden>
+    <span id="timerChipCount">0</span>
+  </div>
+
+  <!-- Bottom “timer done” bar -->
+  <div id="timerDoneBar" class="timer-done-bar" hidden>
+    <div id="timerDoneMsg">⏰ Timer done</div>
+    <div class="actions">
+      <button id="timerDoneOpen" type="button">Open Step</button>
+      <button id="timerDoneAck" type="button">Silence</button>
+    </div>
+  </div>
+
+  <!-- Existing drawer -->
+  <div id="timerDrawer">
+    <div id="timerDrawerOverlay" class="overlay"></div>
+    <div class="panel">
+      <button id="timerDrawerClose" type="button" aria-label="Close">✕</button>
+      <div id="timerList"></div>
+    </div>
+  </div>
+
+
+  <!-- Bottom navigation -->
+
+  <!-- Filter drawer (high z-index) -->
+  <div id="filterBackdrop" class="filter-backdrop" hidden></div>
+  <div id="filterDrawer" class="filter-drawer" hidden role="dialog" aria-modal="true" aria-label="Filter and Sort">
+    <div class="head">
+      <div class="title">Sort &amp; Filter</div>
+      <button id="filterClose" class="icon-btn" type="button" aria-label="Close">✕</button>
+    </div>
+    <div class="body">
+      <label for="filterMode" class="muted" style="font-size:12px;">Sort items by</label>
+      <select id="filterMode">
+        <option value="route">Route</option>
+        <option value="category">Category</option>
+        <option value="alpha">Alphabetically</option>
+      </select>
+    </div>
+  </div>
+
+  <nav id="bottomNav" class="bottom-nav" role="navigation" aria-label="Bottom">
+    <button id="optionsBtn" class="nav-btn left" title="Options" aria-label="Options">⋮</button>
+    <button id="tabList" class="tab active" type="button">List</button>
+    <button id="tabShopping" class="tab" type="button">Shopping</button>
+    <button id="tabRecipes" class="tab" type="button">Recipes</button>
+    <button id="filterbtn" class="nav-btn right" title="Filter" aria-label="Filter">⚙️</button>
+  </nav>
+</div>
+
+
+
+
+
+<!-- Options modal is lazy-loaded from /partials/modals/options.html -->
+
+
+<!-- Weekly Items modal is lazy-loaded from /partials/modals/weeklyItems.html -->
+
+
+<!-- Item Settings modal is lazy-loaded from /partials/modals/itemDialog.html -->
+
+<!-- Firebase compat SDK (required by /scripts/firebase.js) -->
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-storage.js"></script>
+
+<!-- Your Firebase project config -->
+<script>
+  window.firebaseConfig = {
+   apiKey: "AIzaSyAljIHyxs-pvJRi2pRzs2fsPARCQLFQ2Kg",
+        authDomain: "grocery-list-77298.firebaseapp.com",
+        projectId: "grocery-list-77298",
+        storageBucket: "grocery-list-77298.firebasestorage.app", // If uploads fail, set to YOUR_PROJECT_ID.appspot.com
+        messagingSenderId: "1089310382899",
+        appId: "1:1089310382899:web:03b24e12f3a9e5c6d63c46"
+    // measurementId: "G-XXXX" // optional
+  };
+</script>
+
+
+
+<script type="module" src="/scripts/main.js"></script>
+<!-- recipes.js is loaded by main.js -->
+
+
+
+
+<!-- Options modal is handled by main.js via manager.js -->
+
+
+</body>
+</html>
+
+
+
+
+  
+
+  

@@ -1,0 +1,290 @@
+/* =========================================================
+   List containers
+   ========================================================= */
+.list {
+  display: grid;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+/* =========================================================
+   Canonical Item Row Layout (scoped)
+   ========================================================= */
+.item {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;  /* checkbox / main / actions */
+  grid-template-rows: auto auto auto;    /* title / qty+size+actions / photo+notes */
+  gap: 6px 10px;
+  align-items: start;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  transition: transform .06s ease, border-color .12s ease, background .12s ease, box-shadow .12s ease;
+}
+
+/* Pressed feedback */
+.item.is-pressed {
+  transform: scale(.995);
+  box-shadow: 0 8px 24px rgba(0,0,0,.25);
+}
+
+/* Checkbox column */
+.item .left {
+  grid-column: 1;
+  grid-row: 1 / -1;             /* span rows 1–3 */
+  display: grid;                 /* internal 3-row grid */
+  grid-template-rows: auto auto auto;
+  align-content: start;
+  justify-items: center;
+  row-gap: 6px;
+}
+
+/* Keep checkbox + gear in row 1 */
+.item .left input[type="checkbox"],
+.item .left .gearbtn {
+  grid-row: 1;
+}
+
+/* Place the Add-to-list button across rows 2–3 */
+.item .addlistbtn {
+  grid-row: 2 / 4;
+  align-self: start;
+  justify-self: start;
+}
+
+
+.item input[type="checkbox"] {
+  margin-right: 8px;
+  width: 18px;
+  height: 18px;
+}
+
+/* First line: title */
+.item .line1 {
+  grid-column: 2;
+  grid-row: 1;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1.25;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+/* Metadata row (qty + size) */
+.item .line1 .meta {
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-weight: 600;
+}
+
+/* Second row: quantity, size */
+.item .midrow {
+  grid-column: 2;
+  grid-row: 2;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-weight: 600;
+}
+
+/* Actions column (same row as midrow) */
+.item .actions {
+  grid-column: 3;
+  grid-row: 2;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Gear button */
+.item .gearbtn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  display: grid;
+  place-items: center;
+  line-height: 1;
+  font-size: 14px;
+}
+
+/* Third row: photo + notes */
+.item .below {
+  grid-column: 2 / span 2;
+  grid-row: 3;
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  align-items: start;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+/* Allow JS to hide the row only for hard-hide cases */
+.item .below.hidden { display: none; }
+
+/* Thumbnail image */
+.item .thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  background: #2a2a33;
+  display: block;
+  cursor: pointer;
+}
+
+/* Camera placeholder button (no photo) */
+.item .camera-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--chip);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+.item .camera-btn svg {
+  width: 22px;
+  height: 22px;
+  display: block;
+}
+
+/* Notes line */
+.item .line2 {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.3;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* Hide notes only when not an editable field */
+.item .line2:empty:not(.editable-text) {
+  display: none;
+}
+
+/* Category dots */
+.item .catdot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  display: inline-block;
+  margin-right: 8px;
+  background: #7b8497;
+  vertical-align: middle;
+}
+
+/* Checked effect */
+.item:has(input[type="checkbox"]:checked) {
+  background:
+    linear-gradient(0deg,
+      color-mix(in oklab, var(--surface) 75%, var(--hover)),
+      color-mix(in oklab, var(--surface) 75%, var(--hover))),
+    var(--surface);
+  opacity: .92;
+}
+
+.item:has(input[type="checkbox"]:checked) .line1 {
+  text-decoration: line-through;
+  color: color-mix(in oklab, var(--text) 60%, #888);
+}
+
+/* =========================================================
+   Global inline editable spans + placeholders
+   ========================================================= */
+.editable-text {
+  display: inline-block;
+  min-width: 1ch;
+  padding: 2px 4px;
+  border: none;
+  background: transparent;
+  outline: none;
+  cursor: text;
+  font: inherit;
+  color: inherit;
+}
+
+.editable-text:focus-visible {
+  box-shadow: var(--ring);
+  border-radius: 6px;
+}
+
+.editable-text[aria-label]:empty::before {
+  content: attr(aria-label);
+  color: var(--muted);
+  opacity: .7;
+  pointer-events: none;
+}
+/* Align qty + size with camera + notes vertically */
+.item {
+  grid-template-columns: 48px 1fr auto; /* match camera/thumb width */
+}
+
+/* Align qty row items better */
+.item .midrow {
+  align-items: center;
+}
+
+/* Align size text left with notes */
+.item .midrow > *:first-child {
+  margin-left: 4px; /* fine-tune horizontally if needed */
+}
+
+/* Ensure below section aligns perfectly */
+.item .below {
+  grid-template-columns: 48px 1fr; /* camera/thumb column = 48px */
+  align-items: center;
+}
+/* =========================================================
+   Hide items when list is collapsed (List tab only)
+   ========================================================= */
+#listSection[data-list-collapsed="true"] #list_list,
+#listSection[data-list-collapsed="true"] #empty_list {
+  display: none !important;
+}
+
+/* =========================================================
+   Hide checkbox only on Lists tab
+   ========================================================= */
+#list_list input[type="checkbox"] {
+  display: none;
+}
+
+/* Add-to-list text button under the gear, pink like other buttons */
+.item .addlistbtn {
+  display: inline-block;
+  padding: 6px 8px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 1.1;
+
+}
+/* Modal stacking for in-row numeric prompt */
+.modal .backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+}
+
+.modal .dialog {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  z-index: 1001;
+}
