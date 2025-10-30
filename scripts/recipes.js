@@ -566,8 +566,15 @@ if (tagsRow && !tagsRow._wiredClicks) {
       // Track current editing id for Save handler
       modalEl.dataset.id = isAddMode ? "" : (recipe && recipe.id ? String(recipe.id) : "");
 
-      $("rmTitle").textContent = isAddMode ? "Add Recipe" : "Edit Recipe";
+            $("rmTitle").textContent = isAddMode ? "Add Recipe" : "Edit Recipe";
       if (rmDelete) rmDelete.style.display = isAddMode ? "none" : "";
+      // Clear remix mode flags
+      try {
+        delete modalEl.dataset.mode;
+        delete modalEl.dataset.remixBaseId;
+        delete modalEl.dataset.remixLabel;
+      } catch {}
+
 
       // Reset dirty state and button label
       recipeDirty = false; updateSaveUi();
@@ -641,6 +648,27 @@ if (tagsRow && !tagsRow._wiredClicks) {
     // Expose globals for other modules (renderer calls this)
     window.openRecipeModal  = openRecipeModal;
     window.closeRecipeModal = closeModal;
+    // Handle "Remix" action from renderer
+    document.addEventListener("recipes:remix", async (e) => {
+      try {
+        const base = e?.detail?.recipe || null;
+        if (!base || !base.id) return;
+        const label = prompt("Remix label (e.g., “Spicy”):", "Spicy") || "Remix";
+        // Open editor seeded with base, but set remix mode flags
+        openRecipeModal(base.id, base);
+        const modalEl = document.getElementById("recipeModal");
+        if (modalEl) {
+          modalEl.dataset.mode = "remix";
+          modalEl.dataset.remixBaseId = String(base.id);
+          modalEl.dataset.remixLabel = label;
+          // Update title to indicate remix
+          const t = document.getElementById("rmTitle");
+          if (t) t.textContent = `Remix: ${base.name || base.id}`;
+        }
+      } catch (err) {
+        console.warn("remix flow failed", err);
+      }
+    }, { passive: true });
 
     // Wire buttons (delegated so late-created Add button works)
     document.addEventListener("click", (e) => {
@@ -653,10 +681,11 @@ if (tagsRow && !tagsRow._wiredClicks) {
     if (closeBtn) closeBtn.addEventListener("click", closeModal);
     if (addStepBtn) addStepBtn.addEventListener("click", () => addStepRow());
 
-    if (saveBtn) {
+       if (saveBtn) {
       saveBtn.addEventListener("click", async () => {
   try {
     const toast = (msg) => { try { window.showToast?.(msg); } catch {} };
+
 
     // Validate Firestore availability
     const hh = String(window.household || "").trim();
@@ -789,25 +818,62 @@ if (tagsRow && !tagsRow._wiredClicks) {
     if (typeof closeModal === "function") closeModal();
     toast("Saving…");
 
-    // ---- Firestore write in background ----
+        // ---- Firestore write in background ----
     try {
-     await ref.set(clean, { merge: true });
 
-// Also mirror to shared library with the same id
-try {
-  const sharedRef = sharedCol.doc(id);
-  const sharedData = {
-    ...clean,
-    ownerUid: window.auth?.currentUser?.uid || "",
-    originHousehold: hh,
-    originRecipeId: id,
-    visibility: "public",
-    updatedAt: now
-  };
-  await sharedRef.set(sharedData, { merge: true });
-} catch (e) {
-  console.warn("Shared publish failed", e);
-}
+     // Remix mode: write a version under shared/_shared and set selectedVersionId in household
+     const modalEl = document.getElementById("recipeModal");
+     const mode = String(modalEl?.dataset?.mode || "");
+     if (mode === "remix") {
+       const baseId = String(modalEl?.dataset?.remixBaseId || id || "").trim();
+       const label = String(modalEl?.dataset?.remixLabel || "").trim() || "Remix";
+       const versionId = (window.crypto?.randomUUID?.() || Math.random().toString(36).slice(2));
+
+       // Compute a minimal diff vs canonical shared doc
+       const baseSnap = await sharedCol.doc(baseId).get();
+       const base = baseSnap.exists ? (baseSnap.data() || {}) : {};
+       const diff = {};
+       for (const k of ["name","basePortions","tags","ingredients","steps","coverUrl","desc"]) {
+         const a = base?.[k];
+         const b = clean?.[k];
+         if (JSON.stringify(a) !== JSON.stringify(b)) diff[k] = b;
+       }
+
+       // Create version
+       await sharedCol.doc(baseId).collection("versions").doc(versionId).set({
+         authorUid: window.auth?.currentUser?.uid || "",
+         label,
+         baseVersionId: "original",
+         diff,
+         fullSnapshot: clean,
+         createdAt: now,
+         updatedAt: now,
+       }, { merge: true });
+
+       // Set household selection
+       await ref.set({ selectedVersionId: versionId, updatedAt: now }, { merge: true });
+
+     } else {
+       // Normal create/update path
+       await ref.set(clean, { merge: true });
+
+       // Also mirror to shared library with the same id
+       try {
+         const sharedRef = sharedCol.doc(id);
+         const sharedData = {
+           ...clean,
+           ownerUid: window.auth?.currentUser?.uid || "",
+           originHousehold: hh,
+           originRecipeId: id,
+           visibility: "public",
+           updatedAt: now
+         };
+         await sharedRef.set(sharedData, { merge: true });
+       } catch (e) {
+         console.warn("Shared publish failed", e);
+       }
+     }
+
 
 
 
