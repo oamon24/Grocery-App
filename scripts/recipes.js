@@ -719,7 +719,8 @@ if (tagsRow && !tagsRow._wiredClicks) {
     }).filter(s => s.text);
 
     // Target ref
-    const col = fs.collection("recipes").doc(hh).collection("recipes");
+    const col = fs.collection("recipes").doc(hh).collection("recipes"); 
+    const sharedCol = fs.collection("recipes").doc("_shared").collection("recipes");
     let id = String(modalEl?.dataset?.id || "").trim();
     const creating = !id;
     const ref = creating ? col.doc() : col.doc(id);
@@ -790,7 +791,23 @@ if (tagsRow && !tagsRow._wiredClicks) {
 
     // ---- Firestore write in background ----
     try {
-      await ref.set(clean, { merge: true });
+     await ref.set(clean, { merge: true });
+
+// Also mirror to shared library with the same id
+try {
+  const sharedRef = sharedCol.doc(id);
+  const sharedData = {
+    ...clean,
+    originHousehold: hh,
+    originRecipeId: id,
+    visibility: "public",
+    updatedAt: now
+  };
+  await sharedRef.set(sharedData, { merge: true });
+} catch (e) {
+  console.warn("Shared publish failed", e);
+}
+
 
       // Clear syncing flag in cache
       const cur = Array.isArray(window.lastSnapshotRecipes) ? window.lastSnapshotRecipes.slice() : [];
@@ -865,10 +882,20 @@ if (rmDelete) {
       toast("Deleting…");
 
       // --- Firestore delete in background ---
-      try {
+     try {
+        // Delete household copy
         await fs.collection("recipes").doc(hh).collection("recipes").doc(id).delete();
+
+        // Delete shared mirror
+        try {
+          await fs.collection("recipes").doc("_shared").collection("recipes").doc(id).delete();
+        } catch (e) {
+          console.warn("Shared delete failed", e);
+        }
+
         toast("Deleted");
       } catch (err) {
+
         console.warn("Delete recipe failed", err);
         // --- Roll back cache and UI ---
         try {
