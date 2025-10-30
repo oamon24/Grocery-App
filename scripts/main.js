@@ -505,11 +505,11 @@ try { initAddItemAutocomplete(); } catch (e) { console.warn("autocomplete init f
       console.warn("Photo popup prewarm failed", e);
     }
 
-     // Register Service Worker
+    // Register Service Worker
 
     if ("serviceWorker" in navigator) {
       try {
-        navigator.serviceWorker.register("/scripts/sw.js");
+        navigator.serviceWorker.register("/sw.js");
       } catch (e) {
         console.warn("SW registration failed", e);
       }
