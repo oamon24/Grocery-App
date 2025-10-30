@@ -184,7 +184,7 @@
       content.appendChild(tagRow);
     }
 
-    // Title should be first inside content
+       // Title should be first inside content
     content.prepend(title);
     row.appendChild(content);
 
@@ -192,41 +192,23 @@
     const actions = document.createElement("div");
     actions.className = "actions";
 
-    const editBtn = document.createElement("button");
-    editBtn.type = "button";
-    editBtn.className = "recipe-edit";
-    editBtn.textContent = "Edit";
-    editBtn.addEventListener("click", () => {
-      try {
-        if (typeof window.openRecipeModal === "function") {
-          window.openRecipeModal(r?.id || null, r);
-        } else {
-          document.dispatchEvent(new CustomEvent("recipes:edit", { detail: { id: r?.id || null, recipe: r } }));
-        }
-      } catch (e) { console.warn("recipes:edit trigger failed", e); }
-    });
+    // Predicates: owner vs shared
+    const uid = String(window.auth?.currentUser?.uid || "");
+    const ownerUid = String(r?.ownerUid || "");
+    const isOwner = !!(uid && ownerUid && ownerUid === uid);
 
-    const addBtn = document.createElement("button");
-    addBtn.type = "button";
-    addBtn.className = "recipe-add";
-    addBtn.textContent = "Add to list";
-    addBtn.addEventListener("click", () => {
-      try {
-        document.dispatchEvent(new CustomEvent("recipes:add-to-list", { detail: { id: r?.id || null, recipe: r } }));
-      } catch (e) { console.warn("recipes:add-to-list dispatch failed", e); }
-    });
+    // Shared detection
+    const scopeHint = String(r?.householdId || r?.hh || r?.scope || "").toLowerCase();
+    const pathHint = String(r?.path || r?.docPath || "");
+    const isShared =
+      scopeHint === "_shared" ||
+      scopeHint === "shared" ||
+      r?.isShared === true ||
+      pathHint.includes("/_shared/");
 
-       // Owner and shared predicates
-    const uid = window.auth?.currentUser?.uid || "";
-    const isOwner = !!(uid && r && r.ownerUid && String(r.ownerUid) === String(uid));
-    // Heuristics for shared scope: prefer explicit householdId === "_shared"
-    const hhVal = String(r?.householdId || r?.hh || r?.scope || "").toLowerCase();
-    const isShared = (hhVal === "_shared" || hhVal === "shared");
+    // Buttons
+    let firstActionBtn = null;
 
-    // Clear any prior action buttons if this renderer reuses DOM nodes
-    // actions.innerHTML = ""; // uncomment if duplication occurs
-
-    // Edit only for owners
     if (isOwner) {
       const editBtn = document.createElement("button");
       editBtn.type = "button";
@@ -234,19 +216,16 @@
       editBtn.textContent = "Edit";
       editBtn.addEventListener("click", () => {
         try {
-          // Use existing modal open path for editing
-          if (typeof openRecipeModal === "function") {
-            openRecipeModal(r?.id || id, r);
+          if (typeof window.openRecipeModal === "function") {
+            window.openRecipeModal(r?.id || null, r);
           } else {
             document.dispatchEvent(new CustomEvent("recipes:edit", { detail: { id: r?.id || null, recipe: r } }));
           }
-        } catch (e) { console.warn("open edit failed", e); }
+        } catch (e) { console.warn("recipes:edit trigger failed", e); }
       });
       actions.appendChild(editBtn);
-    }
-
-    // Remix only for non-owners on shared recipes
-    if (!isOwner && isShared) {
+      firstActionBtn = firstActionBtn || editBtn;
+    } else if (isShared) {
       const remixBtn = document.createElement("button");
       remixBtn.type = "button";
       remixBtn.className = "recipe-remix";
@@ -257,20 +236,30 @@
         } catch (e) { console.warn("recipes:remix dispatch failed", e); }
       });
       actions.appendChild(remixBtn);
+      firstActionBtn = firstActionBtn || remixBtn;
     }
 
+    const addBtn = document.createElement("button");
+    addBtn.type = "button";
+    addBtn.className = "recipe-add";
+    addBtn.textContent = "Add to list";
+    addBtn.addEventListener("click", () => {
+      try {
+        document.dispatchEvent(new CustomEvent("recipes:add-to-list", { detail: { id: r?.id || null, recipe: r } }));
+      } catch (e) { console.warn("recipes:add-to-list dispatch failed", e); }
+    });
+    actions.appendChild(addBtn);
 
-    actions.append(editBtn, addBtn);
     row.appendChild(actions);
 
-
-    // Cap "Add to list" width to the "Edit" button width
+    // Match "Add to list" width to the first action button if present
     requestAnimationFrame(() => {
       try {
-        const w = editBtn.offsetWidth;
+        const w = firstActionBtn ? firstActionBtn.offsetWidth : addBtn.offsetWidth;
         if (w > 0) addBtn.style.maxWidth = w + "px";
       } catch {}
     });
+
 
     // ===== Long-press approve → add "<user> approved" tag =====
     (function wireApproveLongPress(target) {
