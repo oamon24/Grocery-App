@@ -11,7 +11,8 @@ import { showToast, switchTab } from "./ui/ui.js";
 import "./modals/itemDialog.js";
 import "./modals/addItems.js";
 import * as dataSync from "./dataSync.js";
-import * as weekly from "./modals/weeklyItems.js";
+import * as weekly from "./modals/weeklyItems.js"; 
+import { prefetchAllData } from "./data/prefetch.js";
 import { openModal } from "./ui/loadModal.js";
 
 
@@ -504,7 +505,7 @@ try { initAddItemAutocomplete(); } catch (e) { console.warn("autocomplete init f
       console.warn("Photo popup prewarm failed", e);
     }
 
-    // Register Service Worker
+     // Register Service Worker
 
     if ("serviceWorker" in navigator) {
       try {
@@ -513,6 +514,36 @@ try { initAddItemAutocomplete(); } catch (e) { console.warn("autocomplete init f
         console.warn("SW registration failed", e);
       }
     }
+
+    // One-time Firestore prefetch (data only, no photos)
+    // Hydrates local cache so the app works fully offline for lists and recipes.
+    // Uses a localStorage flag to avoid repeated full downloads.
+    try {
+      const KEY = "data.prefetched.v1";
+      const already = localStorage.getItem(KEY) === "1";
+      const online = typeof navigator !== "undefined" ? navigator.onLine : true;
+      // Defer to idle time to avoid blocking first paint
+      const kickoff = async () => {
+        if (!already && online && window.db && (window.household || window.getHouseholdId)) {
+          const hh = window.household || (await window.getHouseholdId?.());
+          if (hh) {
+            try {
+              await prefetchAllData({ household: hh, onProgress: null });
+              localStorage.setItem(KEY, "1");
+              console.info("[offline] data prefetch complete");
+            } catch (e) {
+              console.warn("[offline] data prefetch failed", e);
+            }
+          }
+        }
+      };
+      if ("requestIdleCallback" in window) {
+        requestIdleCallback(kickoff, { timeout: 5000 });
+      } else {
+        setTimeout(kickoff, 0);
+      }
+    } catch {}
+
 
     // --- Initial tab state (single source of truth) ---
     try {
