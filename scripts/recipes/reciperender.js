@@ -142,9 +142,16 @@
     const content = document.createElement("div");
     content.className = "content";
 
-    const title = document.createElement("div");
+     const title = document.createElement("div");
     title.className = "title";
     title.textContent = getTitle(r);
+    if (r && r.sharedOnly) {
+      const pill = document.createElement("span");
+      pill.textContent = "Shared";
+      pill.className = "pill";
+      title.appendChild(pill);
+    }
+
 
     // Portions under title, e.g., "(3 portions)"
     const pVal = (r && (r.basePortions ?? r.portions));
@@ -209,8 +216,25 @@
       } catch (e) { console.warn("recipes:add-to-list dispatch failed", e); }
     });
 
+        // Remix button for non-owners or shared-only entries
+    const uid = window.auth?.currentUser?.uid || "";
+    const isOwner = uid && r && r.ownerUid && String(r.ownerUid) === String(uid);
+    if (!isOwner) {
+      const remixBtn = document.createElement("button");
+      remixBtn.type = "button";
+      remixBtn.className = "recipe-remix";
+      remixBtn.textContent = "Remix";
+      remixBtn.addEventListener("click", () => {
+        try {
+          document.dispatchEvent(new CustomEvent("recipes:remix", { detail: { id: r?.id || null, recipe: r } }));
+        } catch (e) { console.warn("recipes:remix dispatch failed", e); }
+      });
+      actions.appendChild(remixBtn);
+    }
+
     actions.append(editBtn, addBtn);
     row.appendChild(actions);
+
 
     // Cap "Add to list" width to the "Edit" button width
     requestAnimationFrame(() => {
