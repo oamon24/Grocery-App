@@ -515,34 +515,36 @@ try { initAddItemAutocomplete(); } catch (e) { console.warn("autocomplete init f
       }
     }
 
-    // One-time Firestore prefetch (data only, no photos)
+      // One-time Firestore prefetch (data only, no photos)
     // Hydrates local cache so the app works fully offline for lists and recipes.
-    // Uses a localStorage flag to avoid repeated full downloads.
+    // Uses a localStorage flag per user to avoid repeated full downloads.
     try {
-      const KEY = "data.prefetched.v1";
+      const uid = window.auth?.currentUser?.uid || "anon";
+      const KEY = `prefetch:v1:${uid}`;
       const already = localStorage.getItem(KEY) === "1";
       const online = typeof navigator !== "undefined" ? navigator.onLine : true;
+
       // Defer to idle time to avoid blocking first paint
       const kickoff = async () => {
-        if (!already && online && window.db && (window.household || window.getHouseholdId)) {
-          const hh = window.household || (await window.getHouseholdId?.());
-          if (hh) {
-            try {
-              await prefetchAllData({ household: hh, onProgress: null });
-              localStorage.setItem(KEY, "1");
-              console.info("[offline] data prefetch complete");
-            } catch (e) {
-              console.warn("[offline] data prefetch failed", e);
-            }
-          }
+        if (!online || already || !window.db) return;
+        const hh = window.household || (await window.getHouseholdId?.());
+        if (!hh) return;
+        try {
+          await prefetchAllData({ household: hh, onProgress: null });
+          localStorage.setItem(KEY, "1");
+          console.info("[offline] data prefetch complete");
+        } catch (e) {
+          console.warn("[offline] data prefetch failed", e);
         }
       };
+
       if ("requestIdleCallback" in window) {
         requestIdleCallback(kickoff, { timeout: 5000 });
       } else {
         setTimeout(kickoff, 0);
       }
     } catch {}
+
 
 
     // --- Initial tab state (single source of truth) ---
