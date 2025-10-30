@@ -4,7 +4,7 @@
   - Save button shows "Close" until any change, then "Save"
   - Save writes to /recipes/{household}/recipes/{id}
   - Delete removes the doc when editing
-  - Exposes window.openRecipeModal(id, recipe)
+  - Exposes window.openRecipeModal(id, recipe)buildState(modal)
 */
 
 (function () {
@@ -90,6 +90,19 @@ function buildState(modal) {
     steps,
     photoUrl
   };
+}
+function diffRecipe(base, variant) {
+  const out = { changed: {}, adds: {}, removes: {} };
+  const keys = ["name","basePortions","tags","ingredients","steps","coverUrl","desc"];
+  for (const k of keys) {
+    const a = base?.[k];
+    const b = variant?.[k];
+    if (JSON.stringify(a) === JSON.stringify(b)) continue;
+    if (a == null && b != null) out.adds[k] = b;
+    else if (a != null && b == null) out.removes[k] = a;
+    else out.changed[k] = { from: a, to: b };
+  }
+  return out;
 }
 
 
@@ -465,6 +478,86 @@ function wireOnce(modal) {
     modal.__editingId = id || "";
     setState(modal, recipe || {});
     modal.__baseline = JSON.stringify(buildState(modal));
+        // Version dropdown UI
+    (async () => {
+      try {
+        const uid = window.auth?.currentUser?.uid || "";
+        const hh  = String(window.household || "").trim();
+        const id0 = String(recipe?.id || id || "").trim();
+        if (!id0 || !window.db) return;
+
+        // Build or reuse UI nodes
+        let verWrap = modal.querySelector("#rmVersionWrap");
+        if (!verWrap) {
+          verWrap = document.createElement("div");
+          verWrap.id = "rmVersionWrap";
+          verWrap.className = "section";
+          verWrap.innerHTML = `
+            <div class="section-title">Version</div>
+            <select id="rmVersionSelect" style="max-width:260px"></select>
+            <div id="rmDiff" class="muted" style="margin-top:8px;"></div>
+          `;
+          const header = modal.querySelector(".modal-body");
+          header && header.prepend(verWrap);
+        }
+        const sel = verWrap.querySelector("#rmVersionSelect");
+        const diffEl = verWrap.querySelector("#rmDiff");
+
+        // Load versions under shared
+        const sharedRef = window.db.collection("recipes").doc("_shared").collection("recipes").doc(id0);
+        const verSnap = await sharedRef.collection("versions").get();
+        const versions = [{ id: "original", label: "Original" }].concat(
+          verSnap.docs.map(d => ({ id: d.id, ...(d.data()||{}) }))
+            .map(v => ({ id: v.id, label: String(v.label || v.id) }))
+        );
+
+        // Load household selection
+        const hhDoc = await window.db.collection("recipes").doc(hh).collection("recipes").doc(id0).get();
+        const selected = String((hhDoc.data() || {}).selectedVersionId || "original");
+
+        // Populate dropdown
+        sel.innerHTML = "";
+        for (const v of versions) {
+          const opt = document.createElement("option");
+          opt.value = v.id; opt.textContent = v.label;
+          if (v.id === selected) opt.selected = true;
+          sel.appendChild(opt);
+        }
+
+        const renderDiff = async (verId) => {
+          if (verId === "original") {
+            diffEl.textContent = "";
+            return;
+          }
+          const vDoc = await sharedRef.collection("versions").doc(verId).get();
+          const v = vDoc.exists ? (vDoc.data() || {}) : {};
+          const base = recipe || {};
+          const merged = { ...base, ...(v.diff || {}) };
+          const diff = diffRecipe(base, merged);
+          const bits = [];
+          if (Object.keys(diff.adds).length)   bits.push("Adds: " + Object.keys(diff.adds).join(", "));
+          if (Object.keys(diff.removes).length) bits.push("Removes: " + Object.keys(diff.removes).join(", "));
+          if (Object.keys(diff.changed).length) bits.push("Changes: " + Object.keys(diff.changed).join(", "));
+          diffEl.textContent = bits.join(" | ");
+        };
+
+        sel.addEventListener("change", async () => {
+          const verId = sel.value || "original";
+          // Optimistic update of selectedVersionId
+          try { window.showToast?.("Switching version…"); } catch {}
+          try {
+            await window.db.collection("recipes").doc(hh).collection("recipes").doc(id0)
+              .set({ selectedVersionId: (verId === "original" ? window.firebase.firestore.FieldValue.delete() : verId), updatedAt: Date.now() }, { merge: true });
+          } catch (e) { console.warn("set selectedVersionId failed", e); }
+          renderDiff(verId);
+        });
+
+        renderDiff(selected);
+      } catch (e) {
+        console.warn("version UI failed", e);
+      }
+    })();
+
     modal.__dirty = false;
     updateSaveButton(modal);
 
